@@ -41,8 +41,8 @@
         (goto-char (point-min))
         (re-search-forward "#Smart Keys")
         (action-key)
-        (should-not (bolp))
-        (should-not (looking-at "^\\* Smart")))
+        (should (bolp))
+        (should (looking-at "^\\* Smart")))
     (kill-buffer "DEMO")))
 
 (ert-deftest demo-smart-mouse-keys-ebut-test ()

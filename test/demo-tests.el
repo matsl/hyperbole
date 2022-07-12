@@ -41,7 +41,7 @@
         (goto-char (point-min))
         (re-search-forward "#Smart Keys")
         (action-key)
-        (should (bolp))
+        (should-not (bolp))
         (should (looking-at "^\\* Smart")))
     (kill-buffer "DEMO")))
 

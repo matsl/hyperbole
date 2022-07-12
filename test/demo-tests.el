@@ -42,7 +42,7 @@
         (re-search-forward "#Smart Keys")
         (action-key)
         (should-not (bolp))
-        (should (looking-at "^\\* Smart")))
+        (should-not (looking-at "^\\* Smart")))
     (kill-buffer "DEMO")))
 
 (ert-deftest demo-smart-mouse-keys-ebut-test ()

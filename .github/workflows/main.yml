@@ -25,6 +25,9 @@ jobs:
 
       - name: Compile
         run: make bin
+        
+      - name: Native compile
+        run: make eln
 
       - name: Test
         run: make test

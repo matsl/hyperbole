@@ -25,6 +25,7 @@ jobs:
 
       - name: Compile
         run: make bin
+        run: echo "Make bin summary!" >> $GITHUB_STEP_SUMMARY
 
       - name: Test
         run: make test

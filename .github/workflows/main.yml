@@ -34,5 +34,6 @@ jobs:
       - name: Test
         shell: 'script -q -e -c "bash {0}"'
         run: |
+          export TERM=xterm
           make test-all-output
           cat ERT-OUTPUT

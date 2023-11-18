@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Nov-91 at 00:44:23
-;; Last-Mod:      3-Oct-23 at 17:39:29 by Mats Lidell
+;; Last-Mod:     15-Nov-23 at 01:52:26 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -66,7 +66,7 @@ Default is nil since this can slow down normal file finding."
   :group 'hyperbole-buttons)
 
 (defconst hpath:line-and-column-regexp
-  ":\\([-+]?[0-9]+\\)\\(:\\([-+]?[0-9]+\\)\\)?\\s-*\\'"
+  ":L?\\([-+]?[0-9]+\\)\\(:C?\\([-+]?[0-9]+\\)\\)?\\s-*\\'"
   "Regexp matching a trailing line number with an optional column number.
 Path, line number and column are colon separated.
 Group 1 is the line number.  Group 3 is the column number.")
@@ -1200,56 +1200,62 @@ Optionally use symbol DISPLAY-WHERE or `hpath:display-where'."
 Optionally use symbol DISPLAY-WHERE or `hpath:display-where'."
   (hpath:display-where-function display-where hpath:display-where-alist))
 
-(defun hpath:resolve (path)
-  "Resolve variables in PATH or prepend path from `hpath:auto-variable-alist'.
-Path variable are prepended from the first PATH matching regexp
-in `hpath:auto-variable-alist'.  Return any absolute or invalid
-PATH unchanged."
-  (when (stringp path)
-    (unless (string-match-p hpath:variable-regexp path)
-      (setq path (substitute-in-file-name path)))
-    (let (variable-path
-	  substituted-path)
-      (setq variable-path (hpath:expand-with-variable path)
-	    substituted-path (hpath:substitute-value variable-path))
-      (cond ((or (null substituted-path) (string-empty-p substituted-path))
-	     path)
-	    ((and (string-match-p hpath:variable-regexp variable-path)
-		  (string-match-p hpath:variable-regexp substituted-path))
-	     ;; If a path is invalid, then a variable may have been prepended but
-	     ;; it will remain unresolved in `substituted-path', in which case we
-	     ;; want to return `path' without any further changes.
-	     path)
-	    (t substituted-path)))))
-
-(defun hpath:expand (path)
+(defun hpath:expand (path &optional exists-flag)
   "Expand relative PATH using match in `hpath:auto-variable-alist'.
-The path variable is expanded from the first file matching regexp
-in `hpath:auto-variable-alist'.  Return any absolute or invalid
-PATH unchanged."
+Any single ${variable} within PATH is resolved.  Then PATH is
+expanded from the first file matching regexp in
+`hpath:auto-variable-alist'.
+
+Return any absolute or invalid PATH unchanged unless optional
+EXISTS-FLAG is non-nil in which case, return the expanded path
+only if it exists, otherwise, return nil."
+
   (when (stringp path)
     (unless (string-match-p hpath:variable-regexp path)
       (setq path (substitute-in-file-name path)))
     (let (variable-path
-	  substituted-path)
+	  substituted-path
+	  expanded-path)
       (setq variable-path (hpath:expand-with-variable path)
-	    substituted-path (hpath:substitute-value variable-path))
-      (cond ((or (null substituted-path) (string-empty-p substituted-path))
-	     path)
-	    ((and (string-match-p hpath:variable-regexp variable-path)
-		  (string-match-p hpath:variable-regexp substituted-path))
-	     ;; If a path is invalid, then a variable may have been prepended but
-	     ;; it will remain unresolved in `substituted-path', in which case we
-	     ;; want to return `path' without any further changes.
-	     path)
-	    ;; For compressed Elisp libraries, add any found compressed suffix to the path.
-	    ((string-match-p "\\.el\\(\\.\\|\\'\\)" substituted-path)
-	     (or (locate-library substituted-path t) path))
-	    ((or (string-match-p "\\`\\(#[^#+.]\\|([^\)\\/]+)\\|[^.\\/].*\\.[^.\\/]\\)" substituted-path)
-		 (string-match-p "[\\/~]" substituted-path))
-	     ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
-	     substituted-path)
-	    (t (expand-file-name substituted-path))))))
+	    substituted-path (hpath:substitute-value variable-path)
+	    expanded-path
+	    (cond ((or (null substituted-path) (string-empty-p substituted-path))
+		   path)
+		  ((and (string-match-p hpath:variable-regexp variable-path)
+			(string-match-p hpath:variable-regexp substituted-path))
+		   ;; If a path is invalid, then a variable may have been prepended but
+		   ;; it will remain unresolved in `substituted-path', in which case we
+		   ;; want to return `path' without any further changes.
+		   path)
+		  ;; For compressed Elisp libraries, add any found compressed suffix to the path.
+		  ((string-match-p "\\.el\\(\\.\\|\\'\\)" substituted-path)
+		   (or (locate-library substituted-path t) path))
+		  ((or (string-match-p "\\`\\(#[^#+.]\\|([^\)\\/]+)\\|[^.\\/].*\\.[^.\\/]\\)" substituted-path)
+		       (string-match-p "[\\/~]" substituted-path))
+		   ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
+		   substituted-path)
+		  (t (expand-file-name substituted-path))))
+      (if (file-exists-p expanded-path)
+	  expanded-path
+	(unless exists-flag
+	  path)))))
+
+(defun hpath:expand-list (paths match-regexp &optional exists-flag)
+  "Return expansions of PATHS, a list of dirs or wildcarded file patterns.
+PATHS expansion filters out non-strings, expands file wildcards,
+substitutes up to one ${variable} per path, and recursively walks
+directory trees for files with MATCH-REGEXP."
+  (mapcan (lambda (path)
+	    (when (setq path (or (file-expand-wildcards path) (list path)))
+	      (if (= (length path) 1)
+		  (setq path (car path))
+		(setq paths (nconc (cdr path) paths)
+		      path (car path)))
+	      (setq path (hpath:expand path exists-flag))
+	      (if (file-directory-p path)
+		  (directory-files-recursively path match-regexp)
+		(list path))))
+	  (seq-filter #'stringp paths)))
 
 (defun hpath:prepend-shell-directory (&optional filename)
   "Prepend subdir to a filename in an \\='ls'-file listing.
@@ -1344,6 +1350,19 @@ Parse out the parts and return a list, else nil."
 	      (list file line-num))
 	  (list file))))))
 
+(defun hpath:file-position-to-line-and-column (path position)
+  "Return \"path:line-num:col-num\" given PATH and character POSITION.
+The path in the result is abbreviated when possible."
+  (with-current-buffer (find-file-noselect path)
+    (save-excursion
+      (goto-char position)
+      (if (zerop (current-column))
+	  (format "%s:%d" (hpath:shorten path) (line-number-at-pos (point) t))
+	(format "%s:%d:%d"
+		(hpath:shorten path)
+		(line-number-at-pos (point) t)
+		(current-column))))))
+
 (defun hpath:find-noselect (filename)
   "Find but don't display FILENAME.
 Use user customizable settings of display program and location.
@@ -1373,15 +1392,17 @@ If PATHNAME does not start with a prefix character:
   of the form, <file>#<anchor-name>, e.g. \"~/.bashrc#Alias
   Section\";
 
-  it may end with a line number and optional column number to which to go,
-  of the form, :<line-number>[:<column-number>], e.g. \"~/.bashrc:20:5\";
-  normally, this is an absolute line number (disabling buffer restriction),
-  but if preceded by a hash-style link reference, it is relative to the
-  location of the link anchor;
+  it may end with a line number (starts from 1) and optional column number
+  (starts from 0) to which to go, of the form,
+  :<line-number>[:<column-number>], e.g. \"~/.bashrc:20:5\"; normally, this
+  is an absolute line number (disabling buffer restriction), but if
+  preceded by a hash-style link reference, it is relative to the location
+  of the link anchor and in the case of Koutlines, relative to the indent
+  of the cell;
 
   if it matches a regular expression in the alist returned by
   (hpath:get-external-display-alist), invoke the associated external
-  display program
+  display program;
 
   if not, consult `hpath:internal-display-alist' for a specialized internal
   display function to use;
@@ -1404,7 +1425,8 @@ but locational suffixes within the file are utilized."
   ;; stripped off, so it is just a findable path.
   (let ((case-fold-search t)
 	(default-directory default-directory)
-	modifier loc anchor hash path line-num col-num)
+	modifier loc anchor anchor-start-pos hash
+	kotl-flag path path-with-anchor line-num col-num)
     (setq loc (hattr:get 'hbut:current 'loc)
 	  default-directory (or (hattr:get 'hbut:current 'dir)
 				;; Loc may be a buffer without a file
@@ -1424,6 +1446,8 @@ but locational suffixes within the file are utilized."
       (when (string-match hpath:markup-link-anchor-regexp path)
 	(setq hash t
 	      anchor (match-string 3 path)
+	      anchor-start-pos (match-beginning 3)
+	      path-with-anchor path
 	      path (if (match-end 1)
 		       (substring path 0 (match-end 1))
 		     (or buffer-file-name "")))
@@ -1486,7 +1510,8 @@ but locational suffixes within the file are utilized."
 				(hpath:command-string executable pathname))
 			(error "(hpath:find): No available executable from: %s"
 			       display-executables)))
-		     (t (setq path (hpath:validate path)) ;; signals error when invalid
+		     (t (setq path (hpath:validate path) ;; signals error when invalid
+			      kotl-flag (string-match "\\.kotl?\\'" path))
 			(let ((buf (cond
 				    ;; If no path, e.g. just an anchor link in a non-file buffer,
 				    ;; then must display within Emacs, ignoring any external programs.
@@ -1506,16 +1531,24 @@ but locational suffixes within the file are utilized."
 			    (when (and buffer-file-name
 				       (equal (file-name-nondirectory path)
 					      (file-name-nondirectory buffer-file-name)))
-			      (when (or hash anchor)
-				(hpath:to-markup-anchor hash anchor))
+			      (cond ((and anchor kotl-flag)
+				     (klink:act path-with-anchor anchor-start-pos))
+				    ((or hash anchor)
+				     (hpath:to-markup-anchor hash anchor)))
 			      (when line-num
 				;; With an anchor, goto line relative to anchor
 				;; location, otherwise use absolute line number
 				;; within the visible buffer portion.
 				(if (or hash anchor)
-				    (forward-line line-num)
+				    (forward-line (1- line-num))
 				  (hpath:to-line line-num)))
-			      (when col-num (move-to-column col-num))
+			      (when col-num
+				(move-to-column
+				 (if kotl-flag
+				     (+ (kcell-view:indent) col-num)
+				   col-num)))
+			      (when kotl-flag
+				(kotl-mode:to-valid-position))
 			      (current-buffer)))))))))))
 
 (defun hpath:to-markup-anchor (hash anchor)
@@ -1604,8 +1637,8 @@ Return nil if none are found."
      executable-list)
     nil))
 
-(defun hpath:find-line (filename line-num &optional display-where)
-  "Edit file FILENAME with point placed at LINE-NUM.
+(defun hpath:find-line (filename line-num &optional col-num display-where)
+  "Edit file FILENAME with point placed at LINE-NUM and optional COL-NUM.
 
 `hpath:display-where-alist' is consulted using the optional
 argument, DISPLAY-WHERE (a symbol) or if that is nil, the value
@@ -1618,9 +1651,12 @@ frame.  Always return t."
   (when (string-match hpath:prefix-regexp filename)
     (setq filename (substring filename (match-end 0))))
   (hpath:find
-   (if (integerp line-num)
-       (concat filename ":" (int-to-string line-num))
-     filename)
+   (concat
+    filename
+    (when (integerp line-num)
+      (concat ":" (int-to-string line-num)))
+    (when (integerp col-num)
+      (concat ":" (int-to-string col-num))))
    display-where)
   t)
 
@@ -1660,7 +1696,7 @@ programs, such as a pdf reader.  The cdr of each element may be:
   or a function of one filename argument.
 See also `hpath:internal-display-alist' for internal,
 `window-system' independent display settings."
-  (cond ((memq window-system '(dps ns))
+  (cond ((memq window-system '(mac dps ns))
 	 hpath:external-display-alist-macos)
 	(hyperb:microsoft-os-p
 	 hpath:external-display-alist-mswindows)
@@ -1825,6 +1861,28 @@ valid path."
 			   (string-equal (substring path 0 end-dir) default-dir))
 		    (concat "../../" (substring path end-dir)))
 		   (t path))))))))
+
+(defun hpath:resolve (path)
+  "Resolve variables in PATH or prepend path from `hpath:auto-variable-alist'.
+Path variable are prepended from the first PATH matching regexp
+in `hpath:auto-variable-alist'.  Return any absolute or invalid
+PATH unchanged."
+  (when (stringp path)
+    (unless (string-match-p hpath:variable-regexp path)
+      (setq path (substitute-in-file-name path)))
+    (let (variable-path
+	  substituted-path)
+      (setq variable-path (hpath:expand-with-variable path)
+	    substituted-path (hpath:substitute-value variable-path))
+      (cond ((or (null substituted-path) (string-empty-p substituted-path))
+	     path)
+	    ((and (string-match-p hpath:variable-regexp variable-path)
+		  (string-match-p hpath:variable-regexp substituted-path))
+	     ;; If a path is invalid, then a variable may have been prepended but
+	     ;; it will remain unresolved in `substituted-path', in which case we
+	     ;; want to return `path' without any further changes.
+	     path)
+	    (t substituted-path)))))
 
 (defun hpath:rfc (rfc-num)
   "Return pathname to textual rfc document indexed by RFC-NUM.
@@ -2039,11 +2097,15 @@ Return LINKNAME unchanged if it is not a symbolic link but is a pathname."
   referent)
 
 (defun hpath:to-line (line-num)
-  "Move point to the start of an absolute LINE-NUM or the last line."
+  "Move point to the start of an absolute LINE-NUM or the last line.
+This ignores any buffer narrowing (aside from Koutlines) when
+computing the line number, but does restore the narrowing if
+point ends within the narrowed region."
   (let ((omin (point-min))
 	(omax (point-max)))
     (unwind-protect
-	(progn (widen)
+	(progn (unless (derived-mode-p 'kotl-mode)
+		 (widen))
 	       (goto-char (point-min))
 	       (if (eq selective-display t)
 		   (re-search-forward "[\n\r]" nil 'end (1- line-num))
@@ -2565,10 +2627,12 @@ If PATH is modified, return PATH, otherwise return nil."
 				    (or var-dir-val default-directory)))
 		     ;; Remove matching path rather than adding the
 		     ;; variable to the path when the variable is one
-		     ;; for Elisp files.  These can be resolved
-		     ;; without the variable being included in the
-		     ;; path.
-		     (if (memq var-symbol '(hyperb:dir load-path))
+		     ;; for Elisp file paths and path is to an Elisp
+		     ;; file.  These can be resolved without the
+		     ;; variable being included in the path.
+		     (if (and (memq var-symbol '(hyperb:dir load-path))
+			      (delq nil (mapcar (lambda (suffix) (string-suffix-p suffix path))
+						(get-load-suffixes))))
 			 ""
 		       (concat "$\{" (symbol-name var-symbol) "\}/"))
 		     path t t)))

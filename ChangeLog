@@ -1,3 +1,272 @@
+2023-11-17  Bob Weiner  <rsw@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-sort-records-at-different-levels): Add
+    'hyrolo-find-file' call to ensure current buffer is the first hyrolo file.
+                       (hyrolo-sort-test): Change to use 'hyrolo-find-file'.
+
+* hyrolo.el (hyrolo-mode-outline-level): Fix to handle all file formats that
+    HyRolo now supports but ignore Emacs outline entry matches without trailing
+    whitespace or of formfeeds, as these can cause a hang in HyRolo search.
+            (hyrolo-outline-level): Add to handle 'outline-level' calculation
+    unique to standard HyRolo entries (asterisk with a following whitespace
+    character).
+            (hyrolo-find-file): Improve 'outline-regexp' handling and set
+    'outline-level' function if an Emacs outline.
+	    (hyrolo-add): Compare entry-regexp against default-value of
+    'hyrolo-entry-regexp' rather than a literal string.
+
+2023-11-14  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-sort): Fix bug where 'hyrolo-sort-level' had assumed
+    the file to sort was in the current buffer but 'hyrolo-sort' had not
+    read in that file.
+            (hyrolo-map-level, hyrolo-sort-level): Remove 'hyrolo-file' arg
+    since had already been using current buffer instead.
+
+* test/hpath-tests.el (hpath:find-report-lisp-variable-path-name-when-not-exists):
+    Update test and doc to simply verify that 'hpath:find' errors when called
+    with a non-existent path.
+
+2023-11-13  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (hbut:source): Add save-excursion so does not move point
+    to the beginning of the source name.
+
+2023-11-12  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:file-position-to-line-and-column): Add to translate
+    character positions to an implicit link to line and column.
+  hbut.el (ibut:insert-text): Simplify using the above function.
+
+* hui-mouse.el (hkey-alist): Comment out unreleased hynote-mode clause.
+
+* hyrolo.el (hyrolo-buffer-exists-p): Fix for improved buffer-name matching
+    by using 'get-buffer' instead of 'get-file-buffer'.
+            (hyrolo-next-match-function): Update to require return of the
+    position of the beginning of the match.
+            (hyrolo-next-regexp-match): Change to return (match-beginning 0)
+    rather than the end.
+            (hyrolo-grep-file): Fix to handle when no entry delimiters, then use
+    the current line as the entry.
+            (hyrolo-name-at): Rename to 'hyrolo-name-at-p'; change return value
+    to a cons of (<entry-name> . <entry-source>).  If no entry delimiters,
+    use the current, non-empty line as <entry-name> and add a 'hyrolo-line-entry
+    text property to it.
+            (hyrolo-to): Add support for non-delimited single line entries.
+            (hyolo-edit): Fix to search only over a specified file.
+            (hyrolo-helm-org-rifle): Fix to filter out any non-file buffers.
+            (hyrolo-kill): Change to not switch buffers since shows whether the
+    record was killed or not.
+
+* hpath.el (hpath:expand, hpath:expand-list): Add optional exists-flag to return
+    nil if expanded path does not exist.
+
+* hyrolo.el (hyrolo--expanded-file-list, hyrolo-set-file-list,
+             hyrolo-file-list-changed): Finish support for recursively
+    searching dirs and expanding file wildcards in 'hyrolo-file-list' by
+    adding the above and caching the expanded list in 'hyrolo--expanded-file-list'.
+  HY-NEWS (HYROLO): Document the above new feature.
+            (hyrolo-edit): Improve 'completing-read' prompt.
+	    (rolo-display-buffer, rolo-file-list, rolo-entry-regexp): Remove all
+  of these variables that have been obsolete since V6.  Use hyrolo- prefix instead.
+            (hyrolo-grep): Rewrote for compatibility with new caching scheme.
+
+2023-11-11  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-initialize-file-list): Completely remove this function,
+    obsolete since V8.0.1.  Use `hyrolo--initialize-file-list' instead.
+            (:group 'hyperbole-hyrolo): Change from 'hyperbole and 'hyperbole-hyrolo.
+	    (hyrolo-get-file-list): Add and change refs to `hyrolo-file-list' to use
+    this instead, so can get the expanded version of the file list.
+            (hyrolo-expand-path-list): Add to expand a list of paths containing env
+    or lisp variables, directories and file patterns with wildcards into a final list
+    of files.
+
+2023-11-08  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:expand): Add doc for ${variable} expansion.
+           (hpath:expand-list): Add to recursively expand matching files within a
+    list of directories.
+
+2023-11-07  Bob Weiner  <rsw@gnu.org>
+
+* test/hui-tests.el (hui--ibut-link-directly-to-dired): Fix to handle
+    alternative dired formats with text after the last colon on the first
+    line.
+
+* hbut.el (hbut:at-p): Document interactive call help display.
+
+2023-11-06  Bob Weiner  <rsw@gnu.org>
+
+* hui.el (hui:link-possible-types): Fix CI/CD build error where ilink was
+    inserted when pathname was expected due to batch diff when referent is
+    in dired-mode.  Fix to skip button type clauses in this case.
+  test/hui-tests.el (hui--ibut-link-directly-to-dired): Check that looking
+    at a string before trying to (read (current-buffer)); otherwise,
+    'read' will fail.
+
+2023-11-05  Bob Weiner  <rsw@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-demo-show-overview): Fix by adding
+    needed (forward-line 1) before testing for a collapsed node.
+
+* test/kexport-tests.el (kexport:koutline-calls-kexport:html): Fix to
+    have proper file suffixes, now required.
+
+* kotl/kexport.el (kexport:koutline): Trigger proper error if called
+    outside of .kotl file.
+
+* hyrolo.el (hyrolo-google-contacts-grep, hyrolo-grep-file): Ignore case.
+
+2023-11-04  Bob Weiner  <rsw@gnu.org>
+
+* hui.el (hui:link-possible-types): At end of any line in a dired buffer,
+    return (link-to-directory default-directory).
+
+2023-11-01  Bob Weiner  <rsw@gnu.org>
+
+* test/hui-tests.el (hui--ibut-link-directly-to-dired): Fix to be
+    compatible with Emacs 27.1 and dependable regardless of what
+    is in the dired buffer.
+
+* hpath.el (hpath:substitute-var-name): Fix to not elide variable name
+    from path unless path contains an Emacs loadable file name suffix.
+
+* hui-mouse.el (smart-dired): If hit default cond clause and no filename
+    on the current line, run dired on the current directory rather than
+    triggering an error with a null filename value.
+               (smart-dired-pathname-up-to-point): Always return dir
+    as a full path ending in a forward slash.  Add optional 'no-default'
+    arg and use in 'hargs:at-p' when reading a directory and in 'dired-mode'.
+
+* hui.el (hui:link-possible-types): Fix so when checking if a file ref
+    at point, link to the file without any position arg and don't default
+    to the current 'buffer-file-name', instead drop through to further
+    conditional clauses.
+
+* hbut.el (ibut:insert-text): Fix 'actypes::link-to-file' to shorten arg1
+    path relative to source dir, not referent dir.
+
+2023-10-30  Mats Lidell  <matsl@gnu.org>
+
+* hversion.el (hyperb:mouse-buttons):
+  hpath.el (hpath:get-external-display-alist): Add mac as possible
+    window-system on Mac OS.
+
+2023-10-29  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:find):
+  hactypes.el (link-to-file-line-and-column): Change so when in a Koutline, col
+    num is relative to the cell indent (in addition to).
+              (hpath:find-line): Add 3rd optional argument of 'col-num'.
+
+* kotl/klink.el (klink:parse, klink:create, klink:replace-label,
+                 klink:update-label, klink:yank-handler, klink:absolute):
+    Update to new file#cell-ref|viewspec syntax.
+
+* hsys-org.el (hsys-org-consult-grep-func): Add customization.
+              (hsys-org-consult-grep): Add function.
+  man/hyperbole.texi (Glossary:Consult): Document the above.
+  HY-NEWS: Add recent updates such as 'hsys-org-consult-grep' and refill
+    paragraphs to a common width.
+
+* hui-em-but.el (eval-when-compile (require 'hyrolo)): Comment this out because
+    it causes klink ibtype to load with the wrong priority (before hibtypes.el
+    loads it).  See comment in the file.
+  hinit.el: Fix so hibtypes is loaded before hui-menu to prevent klink defib
+  priority from being set improperly.
+
+* kotl/kcell.el (kcell:ref-to-id): Handle string labels at the beginning of cells.
+  kotl/kview.el (kcell-view:cell-from-ref): Fix to handle strings returned from
+    'kcell:ref-to-id' with idstamp and viewspec and to handle string labels
+    at the beginning of cells.
+
+2023-10-28  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:find): Fix off-by-one (too high) error with relative line
+    numbers.  A relative line number of 1 means the first line, not the line
+    after the first line, i.e. don't move at all, which of course can be left
+    off but that way, a line number of 2 goes to the second line, which is more
+    natural than moving down 2 lines, as a call to forward-line would.  This
+    matches up with absolute line numbering, as well.
+  test/hibtypes-tests.el (ibtypes::pathname-anchor-line-test):
+  test/hmouse-drv-tests.el (hbut-pathname-anchor-line-test,
+                            hbut-pathname-line-column-test): Fix relative line
+    numbers to match fix for off-by-one error.
+
+* kotl/kotl-mode.el (requires): Remove 'kvspec' and 'kcell' which are already
+    required by 'kfile'.  Add 'klink' which is missing.
+                    (kotl-mode:goto-heading): Add to go to a string heading at
+    the beginning of a cell.  Must end with a colon or a newline.
+                    (kotl-mode:goto-cell): Handle cell headings and tighten
+    idstamp and relative label checks.
+  kotl/kcell.el (kcell:parse-cell-ref): Handle cell headings.
+
+* kotl/klink.el (klink:act): Fix doc to reflect that 'start-pos' arg refers
+    to the start of the cell-ref in the link, not to the link's referent.
+                (klink:at-p): Limit matches to .kotl? files.
+
+* hpath.el (hpath:find):
+* kotl/klink.el (link-to-kotl, klink:parse, klink:at-p, klink:replace-label,
+    klink:update-label): Support # anchor refs that use cell-refs to kotl files.
+  kotl/kotl-mode.el (kotl-mode:goto-cell-ref): Add for use in kotl anchored
+    pathname refs and in 'link-to-kcell' actype.
+
+2023-10-25  Mats Lidell  <matsl@gnu.org>
+
+* test/hui-tests.el (hui--ibut-link-directly-to-file)
+    (hui--ibut-link-directly-to-dired)
+    (hui--ibut-link-directly-with-label): Test cases for
+    ibut-link-directly
+
+2023-10-22  Mats Lidell  <matsl@gnu.org>
+
+* hui-select.el (hui-java-defun-prompt-regexp): Add prompt regexp as
+    separate defconst. Update provided by Alan Mackenzie. Thanks.
+    (hui-select-initialize): Use new java regexp.
+
+* test/hui-tests.el (hui-gbut-number-of-gebuts-from-mail-mode): Remove
+    expected to fail.
+
+* hbut.el (gbut:ebut-key-list): Use hbdata:to-entry-in-file for global
+    button file data.
+
+* hbdata.el (hbdata:is-but-data-stored-in-buffer)
+    (hbdata:to-entry-in-buffer, hbdata:to-entry-in-file): Refactor into
+    three methods to separate out button data stored in a file.
+    (hbdata:to-entry-buf): Use new methods.
+
+2023-10-22  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (gbut:save-buffer): Add function to use after global button file is
+    edited.
+* hui.el (hui:gbut-delete, hui:gbut-rename, hui:gbut-link-directly): Save
+    global button file after create/edit.
+         (hui:link-possible-types): Fix missing `no-default' arg when testing
+    if on a directory or file name.
+
+2023-10-21  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (markdown-follow-inline-link-p): Fix to process anchored
+    path links rather than dropping through to another ibtype since that
+    would trigger an error since point would have been moved in order to
+    leave it on the path and not the name part of a markdown link.  Remove
+    need to move point by calling 'markdown-link-url'.
+
+* hmouse-tag.el (smart-lisp-find-tag): Fix that some tags were not found by
+    xref because this function turned on xref-etags-mode in Elisp files
+    rather than using its elisp backend.  Remove that code.
+                (tags-fix): Remove optional load of this very old file.
+
+2023-10-11  Mats Lidell  <matsl@gnu.org>
+
+* test/hui-tests.el (hui-gbut-number-of-gbuts-with-no-buttons)
+    (hui-gbut-number-of-gibuts-when-one-button)
+    (hui-gbut-number-of-gebuts-when-one-button)
+    (hui-gbut-number-of-gibuts-from-mail-mode)
+    (hui-gbut-number-of-gebuts-from-mail-mode): Verify number of global
+    ibuts and ebuts.
+
 2023-10-09  Mats Lidell  <matsl@gnu.org>
 
 * test/kotl-mode-tests.el (kotl-mode-kill-contents)
@@ -2424,7 +2693,9 @@ name with 'name' and 'name-key'.
 2022-08-20  Bob Weiner  <rsw@gnu.org>
 
 * hyrolo.el (hyrolo-grep): Add support for 'outline-regexp' and
-    'outline-level' variables from multiple file types.
+    'outline-level' variables from multiple file types.  This includes
+    adding 'hyrolo-hdr-regexp' to both 'hyrolo-entry-regexp' and
+   'outline-regexp' within the *HyRolo* match buffer.
             (hyrolo-mode): Set local value of 'outline-level' to
     'hyrolo-mode-outline-level' and define that function to support
     star outlines and Koutlines.  Also, make 'hyrolo-entry-regexp'

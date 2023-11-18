@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     17-Jun-23 at 23:02:12 by Bob Weiner
+;; Last-Mod:     15-Nov-23 at 01:57:15 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -83,6 +83,66 @@
       (hy-delete-file-and-buffer linked-file)
       (when (file-writable-p hbmap:dir-user)
 	(delete-directory hbmap:dir-user t)))))
+
+(ert-deftest hui-gbut-number-of-gbuts-with-no-buttons ()
+  "Verify number of gbuts with no buttons created."
+  (defvar global-but-file)
+  (let ((global-but-file (make-temp-file "gbut" nil ".txt")))
+    (unwind-protect
+        (mocklet ((gbut:file => global-but-file))
+          (should (= 0 (length (gbut:key-list)))))
+      (hy-delete-file-and-buffer global-but-file))))
+
+(ert-deftest hui-gbut-number-of-gibuts-when-one-button ()
+  "Verify number of ibuts when one button is created."
+  (defvar file)
+  (let ((file (make-temp-file "gbut" nil ".txt")))
+    (unwind-protect
+        (with-mock
+          (stub gbut:file => file)
+          (hui:gibut-create "global" "/tmp")
+          (should (= 1 (length (gbut:ibut-key-list)))))
+      (hy-delete-file-and-buffer file))))
+
+(ert-deftest hui-gbut-number-of-gebuts-when-one-button ()
+  "Verify number of ebuts when one button is created."
+  (defvar global-but-file)
+  (let ((global-but-file (make-temp-file "gbut" nil ".txt")))
+    (unwind-protect
+        (mocklet ((gbut:file => global-but-file)
+                  (hpath:find-noselect => (find-file-noselect global-but-file)))
+          (gbut:ebut-program "label" 'link-to-directory "/tmp")
+          (should (= 1 (length (gbut:ebut-key-list)))))
+      (hy-delete-file-and-buffer global-but-file))))
+
+(ert-deftest hui-gbut-number-of-gibuts-from-mail-mode ()
+  "Verify number of global ibuts from within Hyperbole mail mode."
+  (defvar global-but-file)
+  (let ((global-but-file (make-temp-file "gbut" nil ".txt"))
+        (message-mode-file (make-temp-file "gbut" nil ".txt")))
+    (unwind-protect
+        (mocklet ((gbut:file => global-but-file))
+          (hui:gibut-create "global" "/tmp")
+          (find-file message-mode-file)
+          (message-mode)
+          (should (= 1 (length (gbut:ibut-key-list)))))
+      (hy-delete-file-and-buffer global-but-file)
+      (hy-delete-file-and-buffer message-mode-file))))
+
+(ert-deftest hui-gbut-number-of-gebuts-from-mail-mode ()
+  "Verify number of global ebuts from within Hyperbole mail mode."
+  (defvar global-but-file)
+  (let ((global-but-file (make-temp-file "gbut" nil ".txt"))
+        (message-mode-file (make-temp-file "gbut" nil ".txt")))
+    (unwind-protect
+        (mocklet ((gbut:file => global-but-file)
+                  (hpath:find-noselect => (find-file-noselect global-but-file)))
+          (gbut:ebut-program "label" 'link-to-directory "/tmp")
+          (find-file message-mode-file)
+          (message-mode)
+          (should (= 1 (length (gbut:ebut-key-list)))))
+      (hy-delete-file-and-buffer global-but-file)
+      (hy-delete-file-and-buffer message-mode-file))))
 
 (ert-deftest hui-ibut-label-create ()
   "Create a label for an implicit button."
@@ -333,7 +393,7 @@ Ensure modifying the button but keeping the label does not create a double label
 
           ;; Within link
           (forward-char 1)
-          (should (looking-at-p "@ 1"))
+          (should (looking-at-p "#1"))
           (setq klink (klink:parse (hui:delimited-selectable-thing)))
           (should (string= (cadr klink) "1"))
           (should (string-match kotl-file (car klink))))
@@ -355,7 +415,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:add-cell)
           (yank)
           (kotl-mode:beginning-of-cell)
-          (should (looking-at-p "<@ 1>"))
+          (should (looking-at-p "<#1>"))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file))))
@@ -377,7 +437,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (find-file other-file)
           (yank)
           (kotl-mode:beginning-of-cell)
-          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) ", 1>")))
+          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) "#1>")))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file)
@@ -400,7 +460,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (find-file other-file)
           (yank)
           (beginning-of-buffer)
-          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) ", 1>")))
+          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) "#1>")))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file)
@@ -425,7 +485,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (yank)
           (save-buffer 0)
           (beginning-of-buffer)
-          (should (looking-at-p (concat "<" kotl-file ", 1>")))
+          (should (looking-at-p (concat "<" kotl-file "#1>")))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file)
@@ -450,7 +510,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:add-cell)
           (insert-register ?a)
           (kotl-mode:beginning-of-cell)
-          (should (looking-at-p "<@ 1>"))
+          (should (looking-at-p "<#1>"))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file))))
@@ -475,7 +535,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (find-file other-file)
           (insert-register ?a)
           (kotl-mode:beginning-of-cell)
-          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) ", 1>")))
+          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) "#1>")))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file)
@@ -500,7 +560,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (find-file other-file)
           (insert-register ?a)
           (beginning-of-buffer)
-          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) ", 1>")))
+          (should (looking-at-p (concat "<" (file-name-nondirectory kotl-file) "#1>")))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file)
@@ -527,7 +587,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (insert-register ?a)
           (save-buffer 0)
           (beginning-of-buffer)
-          (should (looking-at-p (concat "<" kotl-file ", 1>")))
+          (should (looking-at-p (concat "<" kotl-file "#1>")))
           (forward-char 1)
           (should (equal (hattr:get (hbut:at-p) 'actype) 'klink:act)))
       (hy-delete-file-and-buffer kotl-file)
@@ -710,6 +770,66 @@ With point on label suggest that ibut for rename."
     (hui:ebut-rename "label" "new")
     (goto-char (point-min))
     (should (looking-at-p "<(new)><(new)>"))))
+
+(ert-deftest hui--ibut-link-directly-to-file ()
+  "Create a direct link to a file."
+  (let ((filea (make-temp-file "hypb" nil ".txt"))
+        (fileb (make-temp-file "hypb" nil ".txt" "1234567890")))
+    (unwind-protect
+        (progn
+          (delete-other-windows)
+          (find-file fileb)
+          (goto-char (point-max))
+          (split-window)
+          (find-file filea)
+          (hui:ibut-link-directly (get-buffer-window)
+           (get-buffer-window (get-file-buffer fileb)))
+          (should (string= (buffer-string) (concat "\"" fileb ":1:10\""))))
+      (hy-delete-file-and-buffer filea)
+      (hy-delete-file-and-buffer fileb))))
+
+(ert-deftest hui--ibut-link-directly-to-dired ()
+  "Create a direct link to a directory in dired."
+  (let* ((file (make-temp-file "hypb" nil ".txt"))
+         (dir hyperb:dir)
+         dir-buf)
+    (unwind-protect
+        (progn
+          (delete-other-windows)
+          (setq dir-buf (dired dir))
+	  (goto-char (point-min))
+	  ;; Move point just prior to last colon on the first dired directory line;
+	  ;; With some dired formats, there may be text after the last colon.
+	  (goto-char (line-end-position))
+	  (skip-chars-backward "^:")
+	  (when (/= (point) (point-min))
+	    (goto-char (1- (point))))
+          (split-window)
+          (find-file file)
+          (hui:ibut-link-directly (get-buffer-window) (get-buffer-window dir-buf))
+	  ;; Implicit link should be the `dir' dired directory,
+	  ;; possibly minus the final directory '/'.
+	  (goto-char (point-min))
+          (should (and (looking-at "\"")
+		       (string-prefix-p (read (current-buffer)) dir))))
+      (hy-delete-file-and-buffer file))))
+
+(ert-deftest hui--ibut-link-directly-with-label ()
+  "Create a direct link with a label."
+  (let ((filea (make-temp-file "hypb" nil ".txt"))
+        (fileb (make-temp-file "hypb" nil ".txt" "1234567890")))
+    (unwind-protect
+        (progn
+          (delete-other-windows)
+          (find-file fileb)
+          (goto-char (point-max))
+          (split-window)
+          (find-file filea)
+          (with-simulated-input "label RET"
+            (hui:ibut-link-directly (get-buffer-window) (get-buffer-window (get-file-buffer fileb)) 4))
+          (should (string= (buffer-string) (concat "<[label]> - " "\"" fileb ":1:10\""))))
+      (hy-delete-file-and-buffer filea)
+      (hy-delete-file-and-buffer fileb))))
 
 ;; This file can't be byte-compiled without `with-simulated-input' which
 ;; is not part of the actual dependencies, so:

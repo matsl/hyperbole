@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 21:42:03
-;; Last-Mod:      4-Oct-23 at 20:07:50 by Mats Lidell
+;; Last-Mod:      6-Nov-23 at 19:36:33 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -574,10 +574,10 @@ details."
 
 (defun hui:gbut-delete (but-key)
   "Delete global Hyperbole button given by BUT-KEY.
-	  Return t if button is deleted, nil if user chooses not to delete or signal
-	  an error otherwise.  If called interactively, prompt user whether to delete
-	  and derive BUT-KEY from the button that point is within.
-	  Signal an error if point is not within a button."
+Return t if button is deleted, nil if user chooses not to delete or signal
+an error otherwise.  If called interactively, prompt user whether to delete
+and derive BUT-KEY from the button that point is within.
+Signal an error if point is not within a button."
   (interactive (list (save-excursion
 		       (hui:buf-writable-err
 			(find-file-noselect (gbut:file)) "gbut-delete")
@@ -585,13 +585,14 @@ details."
 			(hargs:read-match "Global button to delete: "
 					  (mapcar #'list (gbut:label-list))
 					  nil t nil 'gbut)))))
-  (hui:hbut-delete but-key (gbut:file)))
+  (prog1 (hui:hbut-delete but-key (gbut:file))
+    (gbut:save-buffer)))
 
 (defun hui:gbut-edit (lbl-key)
   "Edit a global Hyperbole button given by LBL-KEY.
-	  The button may be explicit or a labeled implicit button.
-	  When called interactively, save the global button buffer after the
-	  modification   Signal an error when no such button is found."
+The button may be explicit or a labeled implicit button.
+When called interactively, save the global button buffer after the
+modification.  Signal an error when no such button is found."
   (interactive (list (save-excursion
 		       (hui:buf-writable-err
 			(find-file-noselect (gbut:file)) "gbut-edit")
@@ -603,7 +604,6 @@ details."
     (if (called-interactively-p 'interactive)
 	(error "(hui:gbut-edit): No global button to edit")
       (error "(hui:gbut-edit): 'lbl-key' argument must be a string, not '%s'" lbl-key)))
-
 
   (hypb:assert-same-start-and-end-buffer
     (let ((lbl (hbut:key-to-label lbl-key))
@@ -707,12 +707,13 @@ implicit button.  See also documentation for
 		   (when (called-interactively-p 'interactive)
 		     (hui:ibut-message edit-flag)))
 	  (setq edit-flag (hui:ebut-link-directly link-but-window referent-window))
+	  (gbut:save-buffer)
 	  (when (called-interactively-p 'interactive)
 	    (hui:ebut-message edit-flag)))))))
 
 (defun hui:gbut-rename (label)
   "Interactively rename a Hyperbole global button with LABEL.
-	  When in the global button buffer, the default is the button at point."
+When in the global button buffer, the default is the button at point."
   (interactive (list (save-excursion
 		       (hui:buf-writable-err
 			(find-file-noselect (gbut:file)) "gbut-rename")
@@ -720,7 +721,8 @@ implicit button.  See also documentation for
 			(hargs:read-match "Global button to rename: "
 					  (mapcar #'list (gbut:label-list))
 					  nil t nil 'gbut)))))
-  (hbut:rename (gbut:to label)))
+  (prog1 (hbut:rename (gbut:to label))
+    (gbut:save-buffer)))
 
 (defun hui:gibut-create (name text)
   "Create a Hyperbole global implicit button with NAME and button TEXT at point.
@@ -1822,9 +1824,10 @@ File Name                link-to-file
 Koutline Cell            link-to-kcell
 Outline Heading          link-to-string-match
 Buffer attached to File  link-to-file
+EOL in Dired Buffer      link-to-directory (dired dir)
 Buffer without File      link-to-buffer-tmp"
-  ;; Elisp Buffer at Start
-  ;; or End of Sexpression    eval-elisp
+;; Elisp Buffer at Start
+;; or End of Sexpression    eval-elisp
 
   (let (val
 	hbut-sym
@@ -1849,14 +1852,17 @@ Buffer without File      link-to-buffer-tmp"
 
 			     ;; Next clause forces use of any ibut name in the link
 			     ;; and sets hbut:current button attributes.
-			     (t (cond ((and (prog1 (setq hbut-sym (hbut:at-p))
+			     (t (cond ((and (not (derived-mode-p 'dired-mode))
+					    (prog1 (setq hbut-sym (hbut:at-p))
 					      (save-excursion (ibut:at-to-name-p hbut-sym)))
 					    (setq lbl-key (hattr:get hbut-sym 'lbl-key))
 					    (eq (current-buffer) (get-file-buffer (gbut:file))))
 				       (list 'link-to-gbut lbl-key))
-				      ((and hbut-sym (eq (hattr:get hbut-sym 'categ) 'explicit))
+				      ((and hbut-sym lbl-key (eq (hattr:get hbut-sym 'categ) 'explicit))
 				       (list 'link-to-ebut lbl-key))
-				      (hbut-sym
+				      ((and hbut-sym lbl-key)
+				       ;; On an implicit button, so link to it
+				       ;; (message "%S" (hattr:list hbut-sym))
 				       (list 'link-to-ibut lbl-key (or buffer-file-name (buffer-name))))
 				      ((and (require 'bookmark)
 					    (derived-mode-p 'bookmark-bmenu-mode)
@@ -1884,11 +1890,11 @@ Buffer without File      link-to-buffer-tmp"
 						      (list (rmail:msg-id-get) buffer-file-name))))))
 				      (t (cond
 					  ((let ((hargs:reading-type 'directory))
-					     (setq val (hargs:at-p)))
+					     (setq val (hargs:at-p t)))
 					   (list 'link-to-directory val))
 					  ((let ((hargs:reading-type 'file))
 					     (setq val (hargs:at-p)))
-					   (list 'link-to-file val (point)))
+					   (list 'link-to-file val))
 					  ((derived-mode-p #'kotl-mode)
 					   (list 'link-to-kcell buffer-file-name (kcell-view:idstamp)))
 					  ;; If link is within an outline-regexp prefix, use
@@ -1916,6 +1922,9 @@ Buffer without File      link-to-buffer-tmp"
 						     heading occur buffer-file-name))))
 					  (buffer-file-name
 					   (list 'link-to-file buffer-file-name (point)))
+					  ((derived-mode-p 'dired-mode)
+					   (list 'link-to-directory
+						 (expand-file-name default-directory)))
 					  (t (list 'link-to-buffer-tmp (buffer-name)))))
 				      ;;
 				      ;; Deleted link to elisp possibility as it can embed

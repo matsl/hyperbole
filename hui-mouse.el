@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:      6-Oct-23 at 16:13:42 by Mats Lidell
+;; Last-Mod:     15-Nov-23 at 01:52:38 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -504,8 +504,8 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
      . ((w3-follow-link) . (w3-goto-last-buffer)))
     ;;
     ;; Future Hyperbole mode, not yet released
-    ((eq major-mode 'hynote-mode)
-     . ((smart-hynote) . (smart-hynote-assist)))
+    ;; ((eq major-mode 'hynote-mode)
+    ;; . ((smart-hynote) . (smart-hynote-assist)))
     ;;
     ((eq major-mode 'hyrolo-mode)
      . ((smart-hyrolo) . (smart-hyrolo-assist)))
@@ -854,22 +854,29 @@ Use left mouse key, RET or TAB key to select a completion and exit."
 ;;; smart-dired functions
 ;;; ************************************************************************
 
-(defun smart-dired-pathname-up-to-point ()
+(defun smart-dired-pathname-up-to-point (&optional no-default)
   "Return the part of the pathname up through point, else current directory path.
-Assume point is on the first line of a Dired buffer.  Use for
-direct selection of an ancestor directory of this directory."
+Use for direct selection of an ancestor directory of the
+dired directory at point, if any.
+
+With optional NO-DEFAULT, do not default to current directory
+path; instead return nil."
   (interactive)
-  (if (not (looking-at "\\s-*$"))
+  (when (not (derived-mode-p 'dired-mode))
+    (error "(smart-dired-pathname-up-to-point): Called from non-dired buffer, '%s'"
+	   (buffer-name)))
+  (if (dired-get-subdir) ;; On a dired directory line
       (save-excursion
-	(re-search-forward "[/:\n]" nil t)
+	(re-search-forward "[/:\n\r\t\f]" (line-end-position) t)
 	(buffer-substring-no-properties
-	 (if (and (not (bobp)) (= (preceding-char) ?/))
-	     (point)
-	   (1- (point)))
-	 (progn (beginning-of-line)
-		(skip-syntax-forward "-")
-		(point))))
-    default-directory))
+	  (if (and (not (bobp)) (= (preceding-char) ?/))
+	      (point)
+	    (1- (point)))
+	  (progn (beginning-of-line)
+		 (skip-syntax-forward "-")
+		 (point))))
+    (unless no-default
+      (expand-file-name default-directory))))
 
 (defun smart-dired ()
   "Use a single key or mouse key to manipulate directory entries.
@@ -914,7 +921,7 @@ If key is pressed:
 		     (t (error "(smart-dired): No Dired expunge function")))))
 	       (t (hpath:find (smart-dired-pathname-up-to-point)))))
 	((last-line-p) (quit-window))
-	(t (hpath:find (dired-get-filename nil t)))))
+	(t (hpath:find (or (dired-get-filename nil t) "")))))
 
 (defun smart-dired-assist ()
   "Use a single assist-key or mouse assist-key to manipulate directory entries.

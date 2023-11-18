@@ -593,7 +593,7 @@ enough files with matching mode loaded."
 
 (ert-deftest fast-demo-key-series-shell-apropos ()
   "Action key executes apropos shell command."
-  (skip-unless t) ;; Always skip since docker image does not contain apropos.
+  (skip-unless nil) ;; Always skip since docker image does not contain apropos.
   (let* ((shell-file-name (executable-find "sh"))
          (shell-buffer-name "*shell*")
 	 (existing-shell-flag (get-buffer-process shell-buffer-name)))

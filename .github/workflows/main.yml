@@ -32,4 +32,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Test
-        run: make test
+        shell: 'script -q -e -c "bash {0}"'
+        run: |
+          make test-all-output
+          cat ERT-OUTPUT

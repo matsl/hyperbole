@@ -37,3 +37,4 @@ jobs:
           export TERM=xterm
           make test-all-output
           cat ERT-OUTPUT
+          grep "^Failed:  0$" ERT-OUTPUT || exit 1

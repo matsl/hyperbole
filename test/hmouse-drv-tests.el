@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    28-Feb-21 at 22:52:00
-;; Last-Mod:      2-Oct-23 at 05:03:07 by Bob Weiner
+;; Last-Mod:      8-Mar-24 at 16:52:52 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -105,7 +105,8 @@
 
 (ert-deftest hbut-defil-it ()
   (defil defil-path-it "<<<" ">>>" ".*" "${hyperb:dir}/\\&")
-  (let ((vc-follow-symlinks nil))
+  (let ((vc-follow-symlinks nil)
+        (enable-local-variables nil))
     (unwind-protect
 	(with-temp-buffer
           (insert "<<<DEMO>>>")
@@ -239,7 +240,8 @@
       (with-temp-buffer
         (insert (format "\"%s\"" (expand-file-name "DEMO" hyperb:dir)))
         (goto-char 2)
-        (action-key)
+	(let ((enable-local-variables nil))
+          (action-key))
         (should (string= "DEMO" (buffer-name))))
     (hy-test-helpers:kill-buffer "DEMO")))
 
@@ -248,7 +250,8 @@
       (with-temp-buffer
         (insert "\"${hyperb:dir}/DEMO\"")
         (goto-char 2)
-        (action-key)
+	(let ((enable-local-variables nil))
+          (action-key))
         (should (string= "DEMO" (buffer-name))))
     (hy-test-helpers:kill-buffer "DEMO")))
 
@@ -397,7 +400,7 @@
     (hy-test-helpers:should-last-message "hy-test-dependencies.el")))
 
 (ert-deftest hbut-pathname-directory-test ()
-  "Pathname with directory opens dired."
+  "Pathname with directory opens Dired."
   (unwind-protect
       (with-temp-buffer
         (insert "\"/tmp\"")
@@ -458,13 +461,13 @@
 ;; text-toc
 (ert-deftest hbut-text-toc-test ()
   (unwind-protect
-      (progn
+      (let ((enable-local-variables nil))
         (hypb:display-file-with-logo "DEMO")
         (goto-char (point-min))
-        (re-search-forward " \* Koutl")
+        (re-search-forward "^[ \t]*\\* Koutl")
         (action-key)
         (should (bolp))
-        (should (looking-at "^* Koutliner")))
+        (should (looking-at "^[ \t]*\\* Koutliner")))
     (hy-test-helpers:kill-buffer "DEMO")))
 
 ;; dir-summary
@@ -572,6 +575,53 @@ Regression: Looked up path name '-narrow'."
             (mock (smart-lisp-find-tag nil nil) => t)
             (action-key)))
       (hy-delete-file-and-buffer el-file))))
+
+(ert-deftest hmouse-drv--hmouse-choose-link-and-referent-windows--two-windows-same-frame ()
+  "Verify two windows in the same frame are chosen."
+  (let ((assist-key-depress-window)
+        (assist-key-release-window)
+        (filea (make-temp-file "hypb" nil ".txt"))
+        (fileb (make-temp-file "hypb" nil ".txt" "1234567890")))
+    (unwind-protect
+        (progn
+          (delete-other-windows)
+          (find-file fileb)
+          (split-window)
+          (find-file filea)
+          (let ((result (hmouse-choose-link-and-referent-windows)))
+            (should (= (length result) 2))
+            (should (equal (list (get-buffer-window (get-file-buffer filea))
+                                 (get-buffer-window (get-file-buffer fileb)))
+                           result))))
+      (hy-delete-file-and-buffer filea)
+      (hy-delete-file-and-buffer fileb))))
+
+
+(ert-deftest hmouse-drv--hmouse-choose-link-and-referent-windows--two-windows-different-frame ()
+  "Verify two windows in the same frame are chosen.
+The frame setup is mocked."
+  (defvar fileb-window)
+  (let ((assist-key-depress-window)
+        (assist-key-release-window)
+        (filea (make-temp-file "hypb" nil ".txt"))
+        (fileb (make-temp-file "hypb" nil ".txt" "1234567890")))
+    (unwind-protect
+        (progn
+          (delete-other-windows)
+          (find-file fileb)
+          (split-window)
+          (find-file filea)
+          (setq fileb-window (get-buffer-window (get-file-buffer fileb)))
+          (mocklet ((hypb:count-visible-windows => 2)
+                    ((next-window nil nil 'visible) => fileb-window)
+                    (count-windows => 1))
+            (let ((result (hmouse-choose-link-and-referent-windows)))
+              (should (= (length result) 2))
+              (should (equal (list (get-buffer-window (get-file-buffer filea))
+                                   (get-buffer-window (get-file-buffer fileb)))
+                             result)))))
+      (hy-delete-file-and-buffer filea)
+      (hy-delete-file-and-buffer fileb))))
 
 ;; This file can't be byte-compiled without the `el-mock' and
 ;; `with-simulated-input' package (because of the use of the

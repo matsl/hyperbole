@@ -9,6 +9,7 @@ hibtypes-tests.el       - unit test for hib-kbd
 hmouse-drv-tests.el     - hmouse-drv unit tests
 hmouse-info-tests.el    - hmouse-info unit tests
 hpath-tests.el          - unit tests for hpath
+hsettings-test.el       - unit tests for hsettings
 hsys-org-tests.el       - hsys-org tests
 hui-register-tests.el   - test for hui-register
 hui-select-tests.el     - hui-select tests
@@ -19,6 +20,7 @@ hypb-tests.el           - tests for hypb.el utility functions
 hyperbole-tests.el      - tests for hyperbole.el
 hyrolo-tests.el         - unit tests for hyrolo.el
 kcell-tests.el          - test for kcells in Koutlines
+hywconfig-tests.el      - tests for hyperbole window configuration management
 kexport-tests.el        - test exporting Koutlines to file types
 kimport-tests.el        - test importing file types to Koutlines
 kotl-mode-tests.el      - kotl-mode-el tests

@@ -9,6 +9,8 @@
 # See the file HY-COPY for license information.
 #
 # This file is part of GNU Hyperbole.
+#
+# ADD EXTRA LINE TO DO A BUILD
 
 # Commentary:
 #

@@ -32,4 +32,9 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Test
-        run: make test
+        shell: 'script -q -e -c "bash {0}"'
+        run: |
+          export TERM=xterm
+          make test-all-output
+          cat ERT-OUTPUT
+          grep "^Failed:  0$" ERT-OUTPUT || exit 1

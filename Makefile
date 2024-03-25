@@ -3,7 +3,7 @@
 # Author:       Bob Weiner
 #
 # Orig-Date:    15-Jun-94 at 03:42:38
-# Last-Mod:      6-Oct-23 at 00:22:25 by Mats Lidell
+# Last-Mod:     17-Mar-24 at 00:49:27 by Mats Lidell
 #
 # Copyright (C) 1994-2023  Free Software Foundation, Inc.
 # See the file HY-COPY for license information.
@@ -39,7 +39,7 @@
 #		Note: Releasing to ELPA is automatic in that the
 #		master branch on savannah is automatically synced
 #		daily by ELPA. The pkg and release targets are for
-#		making and uploading tar ball to ftp.gnu.org.
+#		making and uploading a tar ball to ftp.gnu.org.
 #
 #               To assemble a Hyperbole Emacs package for testing:
 #		     make pkg
@@ -49,6 +49,9 @@
 #
 #		Generate the website sources and upload them:
 #		    make website - generate web site in folder $(HYPB_WEB_REPO_LOCATION)"
+#
+#               Lint all Hyperbole code files:
+#                   make lint
 #
 #               To setup Hyperbole to run directly from the latest test source
 #               code, use:
@@ -70,8 +73,9 @@
 #               * Developer targets
 #
 #               To run unit tests:
-#                   make test           - run not interactive tests in batch mode
-#                   make test-all       - run all tests startin an emacs in windowed mode
+#                   make test                  - run non-interactive tests in batch mode
+#                   make test-all              - run all tests starting an interactive Emacs
+#                   make test test=<test-name> - run a single test or tests matching the name
 #
 #               Verify hyperbole installation using different sources:
 #                   make install-<source>
@@ -85,7 +89,7 @@
 
 # This ver setup won't work under any make except GNU make, so set it manually.
 #HYPB_VERSION = "`head -3 hversion.el | tail -1 | sed -e 's/.*|\(.*\)|.*/\1/'`"
-HYPB_VERSION = 8.0.1pre
+HYPB_VERSION = 9.0.1
 
 # Emacs executable used to byte-compile .el files into .elc's.
 # To override which executable is used from the commandline, do something like this:
@@ -182,14 +186,14 @@ EL_COMPILE = hact.el hactypes.el hargs.el hbdata.el hbmap.el hbut.el \
 	     hib-social.el hibtypes.el \
 	     hinit.el hload-path.el hmail.el hmh.el hmoccur.el hmouse-info.el \
 	     hmouse-drv.el hmouse-key.el hmouse-mod.el hmouse-sh.el hmouse-tag.el \
-	     hpath.el hrmail.el hsettings.el hsmail.el hsys-org.el hsys-org-roam.el \
-             hsys-www.el hsys-youtube.el htz.el \
+	     hpath.el hrmail.el hsettings.el hsmail.el hsys-flymake.el hsys-org.el \
+             hsys-org-roam.el hsys-www.el hsys-xref.el hsys-youtube.el htz.el \
 	     hycontrol.el hui-jmenu.el hui-menu.el hui-mini.el hui-mouse.el hui-select.el \
 	     hui-treemacs.el hui-window.el hui.el hvar.el hversion.el hypb.el hyperbole.el \
 	     hyrolo-demo.el hyrolo-logic.el hyrolo-menu.el hyrolo.el hywconfig.el set.el hypb-ert.el \
 	     hui-dired-sidebar.el hypb-maintenance.el hui-em-but.el hui-register.el
 
-EL_SRC = $(EL_COMPILE) hvm.el
+EL_SRC = $(EL_COMPILE)
 
 EL_KOTL = kotl/kexport.el kotl/kfile.el kotl/kfill.el kotl/kimport.el kotl/klabel.el \
 	  kotl/klink.el kotl/kmenu.el kotl/kotl-mode.el kotl/kotl-orgtbl.el \
@@ -199,12 +203,12 @@ ELC_COMPILE = $(EL_COMPILE:.el=.elc)
 
 ELC_KOTL = $(EL_KOTL:.el=.elc)
 
-HY-TALK  = HY-TALK/.hypb HY-TALK/HYPB HY-TALK/HY-TALK.org
+HY-TALK  = HY-TALK/.hypb HY-TALK/HYPB HY-TALK/HY-TALK.org HY-TALK/HYPERAMP.org HY-TALK/HYPERORG.org
 
 HYPERBOLE_FILES = dir info html $(EL_SRC) $(EL_KOTL) \
-	$(ELC_COMPILE) $(HY-TALK) ChangeLog COPYING Makefile HY-ABOUT HY-ANNOUNCE \
+	$(HY-TALK) .mailmap ChangeLog COPYING Makefile HY-ABOUT HY-ANNOUNCE \
         HY-CONCEPTS.kotl HY-NEWS \
-	HY-WHY.kotl INSTALL DEMO DEMO-ROLO.otl FAST-DEMO MANIFEST README README.md TAGS _hypb \
+	HY-WHY.kotl INSTALL DEMO DEMO-ROLO.otl FAST-DEMO MANIFEST README.md TAGS _hypb \
         .hypb smart-clib-sym topwin.py hyperbole-banner.png $(man_dir)/hkey-help.txt \
 	$(man_dir)/hyperbole.texi $(man_dir)/hyperbole.css $(man_dir)/version.texi
 
@@ -259,7 +263,10 @@ help:
 all: help
 
 echo:
-	which emacs; echo $(TERM); echo "$(DISPLAY)"
+	@echo "Emacs: $(shell which ${EMACS})"
+	@echo "Version: $(shell ${EMACS} --version)"
+	@echo "TERM: $(TERM)"
+	@echo "DISPLAY: $(DISPLAY)"
 
 install: elc install-info install-html $(data_dir)/hkey-help.txt
 
@@ -324,26 +331,26 @@ remove-elc:
 bin: src remove-elc new-bin
 
 # Native compilation (Requires Emacs built with native compilation support.)
-eln: src
+eln: echo src
 	HYPB_NATIVE_COMP=yes make new-bin
 
 tags: TAGS
 TAGS: $(EL_TAGS)
-	$(ETAGS) --regex='/(ert-deftest[ \t]+\([^ \t\n\r\f()]+\) ?/' $(EL_TAGS)
+	$(ETAGS) --regex='{lisp}/(ert-deftest[ \t]+\([^ \t\n\r\f()]+\)/' $(EL_TAGS)
 
 clean:
 	$(RM) hyperbole-autoloads.el kotl/kotl-autoloads.el $(ELC_COMPILE) $(ELC_KOTL) TAGS
 
 version:
 	@ echo ""
-	@ fgrep -L $(HYPB_VERSION) Makefile HY-ABOUT HY-NEWS README.md hversion.el hyperbole.el man/hyperbole.texi man/version.texi > WRONG-VERSIONS
+	@ rm -f WRONG-VERSIONS
+	@ fgrep -L $(HYPB_VERSION) Makefile HY-ABOUT HY-ANNOUNCE HY-NEWS README.md hversion.el hyperbole.el man/hyperbole.texi man/version.texi > WRONG-VERSIONS
 	@ # If any file(s) have wrong version number, print them and exit with code 1
 	@ if [ -s WRONG-VERSIONS ]; then \
 	  echo "The following files do not have the proper Hyperbole version number, $(HYPB_VERSION):"; \
 	  cat WRONG-VERSIONS; rm -f WRONG-VERSIONS; exit 1; \
-	else \
-	  rm -f WRONG-VERSIONS; \
 	fi
+	@ rm -f WRONG-VERSIONS
 	@ echo ""
 
 # Build the README.md.html and Info, HTML and Postscript versions of the user manual
@@ -366,19 +373,15 @@ pdf: $(man_dir)/hyperbole.pdf
 $(man_dir)/hyperbole.pdf: $(TEXINFO_SRC)
 	cd $(man_dir) && $(TEXI2PDF) hyperbole.texi
 
-# md2html is a Python package that comes from the md2html-phuker repo on github.
-#   Documentation is here: https://github.com/Phuker/md2html
-#   Need the GNU sed call below because md2html generates ids with the wrong case and leaves URL encoded chars in ids.
-#   To test links in the generated html:
-#     Run a Python directory web browser in this directory: python -m http.server 8000
-#     Open the page in a web browser:                       http://localhost:8000/README.md.html
+# The `md_toc' table-of-contents generator program is available from:
+#   https://github.com/frnmst/md-toc
 #
-# Used to use github-markdown is an npm, installed with: npm install markdown-to-html -g
-#   But then it's links broke.  Documentation is here: https://www.npmjs.com/package/markdown-to-html
-#	github-markdown README.md > README.md.html
-README.md.html: README.md
-	md2html README.md -f -o - | sed - -e 's/\(id="[^%]*\)\(%[A-Z0-9][A-Z0-9]\)/\1/g' -e 's/\(id="[^"]*"\)/\L\1/g' > README.md.html
-	md2html README.md -f -o README.md.html
+# `pandoc' is available from:
+#    https://github.com/jgm/pandoc
+README.md.html: README.md README.toc.md
+	cp -p README.md README.toc.md && md_toc -p -m [TOC] github README.toc.md \
+	  && sed -i -e 's/^\[TOC\]//g' README.toc.md \
+	  && pandoc --from=gfm-tex_math_dollars --to=html+gfm_auto_identifiers -o README.md.html README.toc.md
 
 # website maintenance: "https://www.gnu.org/software/hyperbole/"
 # Locally update Hyperbole website
@@ -388,6 +391,7 @@ website-local: README.md.html
 # Push to public Hyperbole website
 website: website-local
 	cd $(HYPB_WEB_REPO_LOCATION) && $(CVS) commit -m "Hyperbole release $(HYPB_VERSION)"
+	@ echo "Website for Hyperbole $(HYPB_VERSION) is updated."
 
 # Generate a Hyperbole package suitable for distribution via the Emacs package manager.
 pkg: package
@@ -396,26 +400,28 @@ package: tags doc $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.sig
 # Generate and distribute a Hyperbole release to ftp.gnu.org.
 # One step in this is to generate an autoloads file for the Koutliner, kotl/kotl-autoloads.el.
 release: git-pull git-verify-no-update package $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz ftp website git-tag-release
-	@ echo; echo "Hyperbole $(HYPB_VERSION) released to ftp.gnu.org successfully."
+	@ echo "Hyperbole $(HYPB_VERSION) is released."
 
 # Ensure local hyperbole directory is synchronized with master before building a release.
 git-pull:
-	echo "If this step fails check your work directory for not committed changes"
+	@ echo "If this step fails check your work directory for not committed changes"
 	git checkout master && git pull
 	git diff-index --quiet master
 
 git-verify-no-update:
-	echo "If this step fails check your work directory for updated docs and push these to savannah"
+	@ echo "If this step fails check your work directory for updated docs and push these to savannah"
 	git diff-index --quiet master
 
 git-tag-release:
 	git tag -a hyperbole-$(HYPB_VERSION) -m "Hyperbole release $(HYPB_VERSION)"
 	git push origin hyperbole-$(HYPB_VERSION)
+	@ echo "Hyperbole $(HYPB_VERSION) is tagged as hyperbole-$(HYPB_VERSION)."
 
 # Send compressed tarball for uploading to GNU ftp site; this must be done from the directory
 # containing the tarball to upload.
 ftp: package $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz
 	cd $(pkg_parent) && $(GNUFTP) hyperbole-$(HYPB_VERSION).tar.gz
+	@ echo "Hyperbole $(HYPB_VERSION) uploaded to ftp.gnu.org."
 
 # Autoloads
 autoloads: kotl/kotl-autoloads.el hyperbole-autoloads.el
@@ -459,17 +465,41 @@ packageclean:
 	  cd $(pkg_hyperbole)/man/im && $(RM) -r .DS_Store core .place* ._* .*~ *~ \
 	    *.ps *\# *- *.orig *.rej .nfs* CVS .cvsignore; fi
 
-# Ert test
+# ERT test
 .PHONY: tests test test-ert all-tests test-all
 tests: test
 test: test-ert
 
+# enable-local-variables setting needed so local variables set in files like
+# FAST-DEMO are automatically obeyed without prompting when testing.
+LET_VARIABLES = (auto-save-default) (enable-local-variables :all)
 LOAD_TEST_ERT_FILES=$(patsubst %,(load-file \"%\"),${TEST_ERT_FILES})
 
+# Run make test test=<ert-test-selector> to limit batch test to
+# tests specified by the selector. See "(ert)test selectors"
+ifeq ($(origin test), command line)
+HYPB_ERT_BATCH = (ert-run-tests-batch-and-exit \"${test}\")
+else
+HYPB_ERT_BATCH = (ert-run-tests-batch-and-exit)
+endif
+
+# For full backtrace run make test FULL_BT=<anything or even empty>
+ifeq ($(origin FULL_BT), command line)
+HYPB_ERT_BATCH_BT = (ert-batch-backtrace-line-length nil)
+else
+HYPB_ERT_BATCH_BT = (ert-batch-backtrace-line-length 256)
+endif
+
+# Run non-interactive tests in batch mode
 test-ert:
 	@echo "# Tests: $(TEST_ERT_FILES)"
-	$(EMACS_BATCH) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-batch-and-exit))"
+	$(EMACS_BATCH) --eval "(load-file \"test/hy-test-dependencies.el\")" \
+	--eval "(let ((auto-save-default) (ert-batch-print-level 10) \
+	              (ert-batch-print-length nil) (backtrace-line-length 5000) \
+	              $(HYPB_ERT_BATCH_BT) (ert-batch-backtrace-right-margin 2048)) \
+	           $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_BATCH))"
 
+# Run all tests by starting an Emacs that runs the tests interactively in windowed mode.
 all-tests: test-all
 test-all:
 	@echo "# Tests: $(TEST_ERT_FILES)"
@@ -479,16 +509,16 @@ ifneq (,$(findstring .apple.,$(DISPLAY)))
 	TERM=xterm-256color $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-interactively t))"
 else
         # Not found, set TERM so tests will at least run within parent Emacs session
-	TERM=vt100 $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-interactively t))"
+	TERM=vt100 $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-interactively t))"
 endif
 else
         # Typical case, run emacs normally
-	$(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-interactively t))"
+	$(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-interactively t))"
 endif
 
 batch-tests: test-all-output
 test-all-output:
-	$(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default) (ert-quiet t)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-interactively t) (with-current-buffer \"*ert*\" (append-to-file (point-min) (point-max) \"ERT-OUTPUT\")) (kill-emacs))"
+	$(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES) (ert-quiet t)) $(LOAD_TEST_ERT_FILES) (ert-run-tests-batch t) (with-current-buffer \"*Messages*\" (append-to-file (point-min) (point-max) \"ERT-OUTPUT\")) (kill-emacs))"
 	@echo "# Results written to file: ERT-OUTPUT"
 
 # Hyperbole install tests - Verify that hyperbole can be installed
@@ -505,9 +535,31 @@ install-local:
 	(cd ./install-test/ && \
 	./local-install-test.sh $(subst install-,,$@) $(shell pwd) $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null))
 
-package-lint:
+lint:
 	$(EMACS_BATCH) \
 	--eval "(setq package-lint-main-file \"hyperbole.el\")" \
 	--eval "(load-file \"test/hy-test-dependencies.el\")" \
+	--eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" \
+	--eval "(hy-test-ensure-package-installed 'package-lint)" \
 	-l package-lint.el -f package-lint-batch-and-exit \
 	$(EL_KOTL) $(EL_SRC)
+
+# Run a build using a dockerized version of Emacs
+#
+# Usage:
+#   make dockerized version=28.1 targets='clean bin test'
+
+# Specify version and targets to run
+ifeq ($(origin targets), command line)
+DOCKER_TARGETS = ${targets}
+else
+DOCKER_TARGETS = clean bin test
+endif
+ifeq ($(origin version), command line)
+DOCKER_VERSION = ${version}-ci
+else
+DOCKER_VERSION = master-ci
+endif
+
+dockerized:
+	docker run -v $$(pwd):/hyperbole -it silex/emacs:${DOCKER_VERSION} bash -c cd hyperbole && make ${DOCKER_TARGETS}

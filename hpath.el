@@ -3,11 +3,11 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Nov-91 at 00:44:23
-;; Last-Mod:     15-Nov-23 at 01:52:26 by Bob Weiner
+;; Last-Mod:     18-Feb-24 at 12:20:15 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 1991-2022  Free Software Foundation, Inc.
+;; Copyright (C) 1991-2024  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -127,6 +127,9 @@ The format is ${variable}.  Match grouping 1 is the name of the variable.")
 (declare-function hargs:delimited "hargs")
 (declare-function hypb:object-p "hypb")
 (declare-function Info-find-node "info")
+
+(declare-function kcell-view:indent "kcell-view")
+(declare-function klink:act "klink")
 
 ;;; ************************************************************************
 ;;; MS WINDOWS PATH CONVERSIONS
@@ -442,10 +445,10 @@ format documentation."
 		  (error "Invalid file"))))))
 
     '("\\.rdb\\'" . rdb:initialize)))
-  "*Alist of (FILENAME-REGEXP . EDIT-FUNCTION) elements for calling special
-functions to display particular file types within Emacs.  See
-also the function (hpath:get-external-display-alist) for external
-display program settings."
+  "*Alist for calling special functions to display file types in Emacs.
+The alist consists of (FILENAME-REGEXP . EDIT-FUNCTION) elements.
+See also the function (hpath:get-external-display-alist) for
+external display program settings."
   :type '(alist :key-type regexp :value-type sexp)
   :group 'hyperbole-commands)
 
@@ -543,7 +546,7 @@ Used only if the function `image-mode' is defined."
 ;; link is later resolved.
 ;;
 (defcustom hpath:variables
-  '(hyperb:dir Info-directory Info-directory-list sm-directory load-path exec-path)
+  '(hyperb:dir load-path exec-path Info-directory-list sm-directory)
   "*List of Emacs Lisp variable symbols to substitute within matching link paths.
 Each variable value, if bound, must be either a pathname or a list of pathnames.
 When embedded within a path, the format is ${variable}."
@@ -704,8 +707,9 @@ Contains a %s for replacement of a specific section name.")
 ;;; ************************************************************************
 
 (defun hpath:abbreviate-file-name (path)
-  "Same as `abbreviate-file-name' but disables tramp-mode.
-This prevents improper processing of hargs with colons in them,
+  "Return a version of PATH shortened using `directory-abbrev-alist'.
+Same as `abbreviate-file-name' but disables `tramp-mode'.  This
+prevents improper processing of hargs with colons in them,
 e.g. `actypes::link-to-file'."
   (let (tramp-mode)
     (abbreviate-file-name path)))
@@ -789,7 +793,7 @@ match to empty string if present."
 
 (defun hpath:remote-at-p ()
   "Return a remote pathname that point is within or nil.
-See the `(emacs)Remote Files' info documentation for pathname format details.
+See the `(Emacs)Remote Files' info documentation for pathname format details.
 Always returns nil if (hpath:remote-available-p) returns nil."
   (let ((remote-package (hpath:remote-available-p))
 	(user (hpath:remote-default-user))
@@ -1206,54 +1210,69 @@ Any single ${variable} within PATH is resolved.  Then PATH is
 expanded from the first file matching regexp in
 `hpath:auto-variable-alist'.
 
+Return expanded path if it exists or it contains file wildcards of
+'[]', '*', or '?'.
+
 Return any absolute or invalid PATH unchanged unless optional
 EXISTS-FLAG is non-nil in which case, return the expanded path
 only if it exists, otherwise, return nil."
 
   (when (stringp path)
     (unless (string-match-p hpath:variable-regexp path)
+      ;; Replace any $VAR environment variable references
       (setq path (substitute-in-file-name path)))
     (let (variable-path
 	  substituted-path
 	  expanded-path)
-      (setq variable-path (hpath:expand-with-variable path)
-	    substituted-path (hpath:substitute-value variable-path)
-	    expanded-path
-	    (cond ((or (null substituted-path) (string-empty-p substituted-path))
-		   path)
-		  ((and (string-match-p hpath:variable-regexp variable-path)
-			(string-match-p hpath:variable-regexp substituted-path))
-		   ;; If a path is invalid, then a variable may have been prepended but
-		   ;; it will remain unresolved in `substituted-path', in which case we
-		   ;; want to return `path' without any further changes.
-		   path)
-		  ;; For compressed Elisp libraries, add any found compressed suffix to the path.
-		  ((string-match-p "\\.el\\(\\.\\|\\'\\)" substituted-path)
-		   (or (locate-library substituted-path t) path))
-		  ((or (string-match-p "\\`\\(#[^#+.]\\|([^\)\\/]+)\\|[^.\\/].*\\.[^.\\/]\\)" substituted-path)
-		       (string-match-p "[\\/~]" substituted-path))
-		   ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
-		   substituted-path)
-		  (t (expand-file-name substituted-path))))
-      (if (file-exists-p expanded-path)
+      (setq
+       ;; Expand relative path from appropriate multi-path prefix variables
+       variable-path (hpath:expand-with-variable path)
+       ;; Substitute values for Emacs Lisp variables and environment variables in PATH.
+       substituted-path (hpath:substitute-value variable-path)
+       expanded-path
+       (cond ((or (null substituted-path) (string-empty-p substituted-path))
+	      path)
+	     ((and (string-match-p hpath:variable-regexp variable-path)
+		   (string-match-p hpath:variable-regexp substituted-path))
+	      ;; If a path is invalid, then a variable may have been prepended but
+	      ;; it will remain unresolved in `substituted-path', in which case we
+	      ;; want to return `path' without any further changes.
+	      path)
+	     ;; For compressed Elisp libraries, add any found compressed suffix to the path.
+	     ((string-match-p "\\.el\\(\\.\\|\\'\\)" substituted-path)
+	      (or (locate-library substituted-path t) path))
+	     ((or (string-match-p "\\`\\(#[^#+.]\\|([^\)\\/]+)\\|[^.\\/].*\\.[^.\\/]\\)" substituted-path)
+		  (string-match-p "[\\/~]" substituted-path))
+	      ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
+	      substituted-path)
+	     (t (expand-file-name substituted-path))))
+      (if (and (stringp expanded-path)
+	       (or (file-exists-p expanded-path)
+		   (string-match "[[*?]" (file-local-name expanded-path))))
 	  expanded-path
 	(unless exists-flag
 	  path)))))
 
-(defun hpath:expand-list (paths match-regexp &optional exists-flag)
+(defun hpath:expand-list (paths &optional match-regexp exists-flag)
   "Return expansions of PATHS, a list of dirs or wildcarded file patterns.
-PATHS expansion filters out non-strings, expands file wildcards,
-substitutes up to one ${variable} per path, and recursively walks
-directory trees for files with MATCH-REGEXP."
+PATHS expansion recursively walks directory trees to include
+files with names matching optional MATCH-REGEXP (otherwise, all
+files), filters out non-strings and non-existent filenames when
+optional EXISTS-FLAG is non-nil, expands file wildcards when
+`find-file-wildcards' is non-nil (the default), substitutes for
+multiple $var environment variables, and substitutes up to one
+${variable} per path."
   (mapcan (lambda (path)
-	    (when (setq path (or (file-expand-wildcards path) (list path)))
+	    (setq path (hpath:expand path exists-flag))
+	    (when (setq path (or (when (and path find-file-wildcards)
+				   (file-expand-wildcards path))
+				 (unless exists-flag (list path))))
 	      (if (= (length path) 1)
 		  (setq path (car path))
 		(setq paths (nconc (cdr path) paths)
 		      path (car path)))
-	      (setq path (hpath:expand path exists-flag))
 	      (if (file-directory-p path)
-		  (directory-files-recursively path match-regexp)
+		  (directory-files-recursively path (or match-regexp ""))
 		(list path))))
 	  (seq-filter #'stringp paths)))
 
@@ -1606,7 +1625,7 @@ Move point to beginning of buffer if HASH is non-nil and ANCHOR is null."
 				    (referent-leading-spaces-regexp
 				     (when (and (not (string-empty-p referent-regexp))
 						(= (aref referent-regexp 0) ?^))
-				       (concat "^[ \t]+" (substring referent-regexp 1)))))
+				       (concat "^[ \t]*" (substring referent-regexp 1)))))
 			       (goto-char (point-min))
 			       (if (or (re-search-forward referent-regexp nil t)
 				       (and referent-leading-spaces-regexp
@@ -1623,7 +1642,7 @@ Move point to beginning of buffer if HASH is non-nil and ANCHOR is null."
 	(narrow-to-region omin omax)))))
 
 (defun hpath:find-executable (executable-list)
-  "Return first executable string from EXECUTABLE-LIST found in `exec-path'.
+  "Return first executable string from EXECUTABLE-LIST in variable `exec-path'.
 Return nil if none are found."
   (catch 'found
     (mapc
@@ -1695,7 +1714,7 @@ programs, such as a pdf reader.  The cdr of each element may be:
   a list of executable names \(the first valid one is used);
   or a function of one filename argument.
 See also `hpath:internal-display-alist' for internal,
-`window-system' independent display settings."
+window-system independent display settings."
   (cond ((memq window-system '(mac dps ns))
 	 hpath:external-display-alist-macos)
 	(hyperb:microsoft-os-p
@@ -1706,9 +1725,10 @@ See also `hpath:internal-display-alist' for internal,
 
 (defun hpath:is-p (path &optional type non-exist)
   "Return normalized PATH if PATH is a Posix or MSWindows path, else nil.
-If optional TYPE is the symbol \\='file or \\='directory, then only that path type
-is accepted as a match.  The existence of the path is checked only for
-locally reachable paths (Info paths are not checked).
+If optional TYPE is the symbol \\='file or \\='directory, then
+only that path type is accepted as a match.  The existence of the
+path is checked only for locally reachable paths (Info paths are
+not checked).
 
 Single spaces are permitted in the middle of existing pathnames, but not at
 the start or end.  With optional NON-EXIST equal to t, nonexistent local
@@ -2142,7 +2162,7 @@ Default-directory should be equal to the current Hyperbole button
 source directory when called, so that PATH is expanded relative
 to it."
   (unless (stringp path)
-    (error "(hpath:validate): \"%s\" is not a pathname." path))
+    (error "(hpath:validate): \"%s\" is not a pathname" path))
   (setq path (hpath:mswindows-to-posix path))
   (cond ((or (string-match "[()]" path) (hpath:remote-p path))
 	 ;; info or remote path, so don't validate
@@ -2156,12 +2176,13 @@ to it."
 
 ;;; URL Handling
 (defun hpath:find-file-urls-p ()
+  "Return t when file finding commands can handle remote urls."
   (and (boundp 'file-name-handler-alist) (hpath:remote-available-p) t))
 
-;; Partial setup which makes file finding commands recognize full and
-;; abbreviated ftp and www URLs when a remote file access library is
-;; available.
 (defun hpath:handle-urls ()
+  "Partially configure file finding commands to recognize ftp and www URLs.
+Recognizes full and abbreviated ftp and www URLs when a remote file
+access library is available."
   (let ((remote-fs-package (hpath:remote-available-p)))
     ;; www-url functions are defined in "hsys-www.el".
     (put 'expand-file-name   remote-fs-package   'www-url-expand-file-name)
@@ -2442,9 +2463,12 @@ function (hpath:get-external-display-alist) and the variable
 
 (defun hpath:match (filename regexp-alist)
   "If FILENAME matches the car of any element in REGEXP-ALIST, return its cdr.
-REGEXP-ALIST elements must be of the form (<filename-regexp>
-. <command-to-display-file>).  <command-to-display-file> may be a string
-representing an external `window-system' command to run or it may be a Lisp
+REGEXP-ALIST elements must be of the form
+
+    (<filename-regexp> . <command-to-display-file>).
+
+<command-to-display-file> may be a string representing an
+external window-system command to run or it may be a Lisp
 function to call with FILENAME as its single argument."
   (let ((cmd)
 	elt)

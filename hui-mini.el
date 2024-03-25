@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    15-Oct-91 at 20:13:17
-;; Last-Mod:      7-Oct-23 at 00:56:25 by Mats Lidell
+;; Last-Mod:     20-Jan-24 at 20:01:18 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -111,7 +111,7 @@ documentation, not the full text."
 ;;;###autoload
 (defun hyperbole-demo (&optional arg)
   "Display the Hyperbole FAST-DEMO.
-With a prefix arg, display the older, more extensive DEMO file."
+With a prefix ARG, display the older, more extensive \"DEMO\" file."
   (interactive "P")
   (hypb:display-file-with-logo (if arg "DEMO" "FAST-DEMO")))
 
@@ -375,7 +375,7 @@ If on the menu name prefix or the last item, move to the first item."
 
 (defun hui:menu-item-key (item)
   "Return ordered list of keys that activate Hypb minibuffer MENU-ALIST items.
-For each item, the key is either the first capital letter in item
+For each item, the key is either the first capital letter in ITEM
 or if there are none, then its first character."
   ;; Return either the first capital letter in item or if
   ;; none, then its first character.
@@ -567,7 +567,7 @@ The menu is a menu of commands from MENU-ALIST."
 	 (max-item-len
 	  (when menu-strings (+ 1 (apply 'max (mapcar #'length menu-strings))))))
     (unless menu-strings
-      (error "(hui:menu-multi-line): Invalid menu specified, '%s'." menu-alist))
+      (error "(hui:menu-multi-line): Invalid menu specified, '%s'" menu-alist))
     (with-temp-buffer
       (let (indent-tabs-mode)
 	(mapc
@@ -611,16 +611,23 @@ The menu is a menu of commands from MENU-ALIST."
     web-mini-menu))
 
 (defun hui-search-web ()
-  "Prompt for a web search engine and search term and then perform the search."
+  "Prompt for a web search engine and search term and then perform the search.
+
+If the key that invokes this command in `hyperbole-minor-mode' is also
+bound in the current major mode map, then interactively invoke that
+command instead.  Typically prevents clashes over {\\`C-c' /}."
   (interactive)
   (let* ((key (hypb:cmd-key-vector #'hui-search-web hyperbole-mode-map))
-	 (org-key-cmd (and (derived-mode-p 'org-mode)
-			   (called-interactively-p 'any)
-			   (equal (this-single-command-keys) key)
-			   (lookup-key org-mode-map key))))
-    (if org-key-cmd
-	;; Prevent a conflict with {C-c /} binding in Org mode
-	(call-interactively org-key-cmd)
+	 (major-mode-binding (lookup-key (current-local-map) key))
+	 (this-key-flag (and (called-interactively-p 'any)
+			     (equal (this-single-command-keys) key))))
+    (if (and major-mode-binding (not (integerp major-mode-binding))
+	     this-key-flag)
+	;; If the key that invokes this command in `hyperbole-minor-mode'
+	;; is also bound in the current major mode map, then
+	;; interactively invoke that command instead.  Typically
+	;; prevents clashes over {C-c /}.
+	(call-interactively major-mode-binding)
       ;;
       ;; No key conflicts, perform normal Hyperbole operation
       (hyperbole 'web))))

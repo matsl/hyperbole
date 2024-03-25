@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Oct-96 at 02:25:27
-;; Last-Mod:     22-Oct-23 at 17:26:49 by Mats Lidell
+;; Last-Mod:     19-Jan-24 at 18:17:28 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -53,7 +53,7 @@
 ;;   for how this is done).
 ;;
 ;;   The command, `hui-select-thing', may be bound to a key to provide the same
-;;   syntax-driven region selection functionality. {C-c RETURN} is a
+;;   syntax-driven region selection functionality.  {C-c RETURN} is a
 ;;   reasonable site-wide choice since this key is seldom used and it
 ;;   mnemonically indicates marking something; Hyperbole typically
 ;;   binds this key for you.  {C-c s} may be preferred as a personal binding.
@@ -109,8 +109,8 @@
 
 (require 'hvar)
 (eval-when-compile
-  (require 'mhtml-mode) ;; for MHTML mode
-  (require 'sgml-mode)  ;; for HTML mode
+  (require 'mhtml-mode) ;; for MHTML and HTML modes
+  (require 'sgml-mode)  ;; for SGML mode
   (require 'nxml-mode)  ;; for XML mode
   (require 'web-mode nil t))
 
@@ -245,9 +245,7 @@ Used to include a final line when marking indented code.")
 (defvar hkey-init)                      ; "hyperbole.el"
 (defvar hkey-value)                     ; "hui-mouse.el"
 (defvar hyperbole-mode-map)             ; "hyperbole.el"
-(defvar keymap-sym)                     ; "???"
 (defvar org-mode-map)                   ; "org.el"
-(defvar syntax-table-sym)               ; "???"
 
 (declare-function kview:valid-position-p "kotl/kview")
 (declare-function hkey-set-key "hyperbole")
@@ -258,10 +256,12 @@ Used to include a final line when marking indented code.")
 ;;; ************************************************************************
 
 (defconst hui-select-syntax-table
-  (let ((st (make-syntax-table emacs-lisp-mode-syntax-table)))
+  (let ((st (copy-syntax-table emacs-lisp-mode-syntax-table)))
     ;; Make braces be thing delimiters, not punctuation.
     (modify-syntax-entry ?\{ "(}" st)
     (modify-syntax-entry ?\} "){" st)
+    (modify-syntax-entry ?< "(>" st)
+    (modify-syntax-entry ?> ")<" st)
     st)
   "Syntax table to use when selecting delimited things.")
 
@@ -353,19 +353,27 @@ returned is the function to call to select that syntactic unit."
 
 ;;;###autoload
 (defun hui-select-goto-matching-delimiter ()
-  "Jump back and forth between the start and end delimiters of a thing."
+  "Jump back and forth between the start and end delimiters of a thing.
+
+If the key that invokes this command in `hyperbole-minor-mode' is
+also bound in the current major mode map, then interactively
+invoke that command instead.  Typically prevents clashes over
+{\\`C-c' .}."
   (interactive)
   (if (memq major-mode hui-select-markup-modes)
       (hui-select-goto-matching-tag)
     (let* ((key (hypb:cmd-key-vector #'hui-select-goto-matching-delimiter
 				     hyperbole-mode-map))
-	   (org-key-cmd (and (derived-mode-p 'org-mode)
-			     (called-interactively-p 'any)
-			     (equal (this-single-command-keys) key)
-			     (lookup-key org-mode-map key))))
-      (cond (org-key-cmd
-	     ;; Prevent a conflict with {C-c .} binding in Org mode
-	     (call-interactively org-key-cmd))
+	   (major-mode-binding (lookup-key (current-local-map) key))
+	   (this-key-flag (and (called-interactively-p 'any)
+			       (equal (this-single-command-keys) key))))
+      (cond ((and major-mode-binding (not (integerp major-mode-binding))
+		  this-key-flag)
+	     ;; If the key that invokes this command in `hyperbole-minor-mode'
+	     ;; is also bound in the current major mode map, then
+	     ;; interactively invoke that command instead.  Typically
+	     ;; prevents clashes over {C-c .}.
+	     (call-interactively major-mode-binding))
 	    ((and (preceding-char) (or (= ?\) (char-syntax (preceding-char)))
 				       (= ?\" (preceding-char))))
 	     (backward-sexp))
@@ -411,7 +419,10 @@ Also, add language-specific syntax setups to aid in thing selection."
   ;;
   ;; Make tag begin and end delimiters act like grouping characters,
   ;; for easy syntactical selection of tags.
-  (let (hook-sym mode-str)
+  (let (hook-sym
+	mode-str
+	syntax-table-sym
+	keymap-sym)
     (mapc (lambda (mode)
             (setq mode-str (symbol-name mode)
                   hook-sym (intern (concat mode-str "-hook"))
@@ -421,8 +432,8 @@ Also, add language-specific syntax setups to aid in thing selection."
 			          `(lambda ()
                                      (let ((syntax-table (symbol-value ',syntax-table-sym))
                                            (keymap (symbol-value ',keymap-sym)))
-			               (modify-syntax-entry ?\< "(>" syntax-table)
-			               (modify-syntax-entry ?\> ")<" syntax-table)
+			               ;; (modify-syntax-entry ?\< "(>" syntax-table)
+			               ;; (modify-syntax-entry ?\> ")<" syntax-table)
 			               (modify-syntax-entry ?\{ "(}" syntax-table)
 			               (modify-syntax-entry ?\} "){" syntax-table)
 			               (modify-syntax-entry ?\" "\"" syntax-table)
@@ -452,12 +463,24 @@ Also, add language-specific syntax setups to aid in thing selection."
     (when region-bounds
       (buffer-substring-no-properties (car region-bounds) (cdr region-bounds)))))
 
+(defun hui-select-scan-sexps (from count)
+  "Scan FROM point across COUNT sexpressions."
+  (if (memq major-mode hui-select-ignore-quoted-sexp-modes)
+      (scan-sexps from count)
+    (with-syntax-table hui-select-syntax-table
+      (scan-sexps from count))))
+
 ;;;###autoload
 (defun hui-select-thing ()
   "Select a region based on the syntax of the thing at point.
 If invoked repeatedly, this selects bigger and bigger things.
 If `hui-select-display-type' is non-nil and this is called
-interactively, the type of selection is displayed in the minibuffer."
+interactively, the type of selection is displayed in the minibuffer.
+
+If the key that invokes this command in `hyperbole-minor-mode' is
+also bound in the current major mode map, then interactively
+invoke that command instead.  Typically prevents clashes over
+{\\`C-c' RET}, {\\`C-c´ \\`C-m'}."
   (interactive
    (cond ((and (fboundp 'use-region-p) (use-region-p))
 	  nil)
@@ -468,13 +491,16 @@ interactively, the type of selection is displayed in the minibuffer."
 	  (hui-select-reset)
 	  nil)))
   (let* ((key (hypb:cmd-key-vector #'hui-select-thing hyperbole-mode-map))
-	 (org-key-cmd (and (derived-mode-p 'org-mode)
-			   (called-interactively-p 'any)
-			   (equal (this-single-command-keys) key)
-			   (lookup-key org-mode-map key))))
-    (cond (org-key-cmd
-	   ;; Prevent a conflict with {C-c RET} binding in Org mode
-	   (call-interactively org-key-cmd))
+	 (major-mode-binding (lookup-key (current-local-map) key))
+	 (this-key-flag (and (called-interactively-p 'any)
+			     (equal (this-single-command-keys) key))))
+    (cond ((and major-mode-binding (not (integerp major-mode-binding))
+		this-key-flag)
+	   ;; If the key that invokes this command in `hyperbole-minor-mode'
+	   ;; is also bound in the current major mode map, then
+	   ;; interactively invoke that command instead.  Typically
+	   ;; prevents clashes over {C-c RET}, {C-c C-m}.
+	   (call-interactively major-mode-binding))
 	  ;;
 	  ;; No key conflicts, perform normal Hyperbole operation
 	  (t (let ((region (hui-select-get-region-boundaries)))
@@ -517,10 +543,10 @@ displayed in the minibuffer."
 ;;;###autoload
 (defun hui-select-goto-matching-tag ()
   "Move point to start of the tag paired with closest tag point is at or precedes.
-Enabled in major modes in `hui-select-markup-modes'.  Returns t if
-point is moved, else nil.  Signals an error if no tag is found
-following point or if the closing tag does not have a `>'
-terminator character."
+Tag in this context is an sgml-like tag surrounded by angle brackets, <>.
+Enabled in major modes contained in the list, `hui-select-markup-modes'.
+Return t if point is moved, else nil.  Signal an error if no tag is found
+following point or if the closing tag does not have a `>' terminator character."
   (interactive)
   (when (memq major-mode hui-select-markup-modes)
     (let ((result)
@@ -704,9 +730,10 @@ The character at POS is selected if no other thing is matched."
 ;;;###autoload
 (defun hui-select-double-click-hook (event click-count)
   "Select region based on the character syntax where the mouse is double-clicked.
-If the double-click occurs at the same point as the last double-click, select
-the next larger syntactic structure.  If `hui-select-display-type' is non-nil,
-the type of selection is displayed in the minibuffer."
+If the double-click EVENT occurs at the same point as the last
+double-click, select the next larger syntactic structure.  If
+`hui-select-display-type' is non-nil, the type of selection is
+displayed in the minibuffer."
   (cond ((/= click-count 2)
 	 ;; Return nil so any other hooks are performed.
 	 nil)
@@ -765,7 +792,7 @@ Ignores any match if on an Emacs button and instead returns nil."
 
 (defun hui-select-delimited-thing ()
   "Select a markup pair, list, array/vector, set, comment or string at point.
-Return t is selected, else nil."
+Return t if selected, else nil."
   (interactive)
   (prog1 (and (hui-select-delimited-thing-call #'hui-select-thing) t)
     ;; If selected region is followed by only whitespace and then a
@@ -781,6 +808,7 @@ Return t is selected, else nil."
 	  (goto-char (match-end 0)))))))
 
 (defun hui-select-at-delimited-sexp-p ()
+  "Select a delimited sexp."
   (unless (eolp)
     (let ((syn-before (if (char-before) (char-syntax (char-before)) 0))
 	  (syn-after  (if (char-after)  (char-syntax (char-after)) 0)))
@@ -895,7 +923,7 @@ partially overlaps OLD-REGION, or if OLD-REGION is uninitialized."
 		      (max (cdr old-region) (car old-region))))))))
 
 (defun hui-select-reset ()
-  ;; Reset syntactic selection.
+  "Reset syntactic selection."
   (setq hui-select-prior-point (point)
 	hui-select-prior-buffer (current-buffer)
 	hui-select-previous 'char)
@@ -989,7 +1017,7 @@ language must be included in the list, hui-select-brace-modes."
 		      (ignore-errors
 			;; Leave point at opening brace.
 			(goto-char
-			 (scan-sexps (1+ (point)) -1))
+			 (hui-select-scan-sexps (1+ (point)) -1))
 			;; Test if these are defun braces.
 			(save-excursion
 			  (beginning-of-line)
@@ -1055,7 +1083,7 @@ language must be included in the list, hui-select-brace-modes."
 			  (error (point-max)))))
 	    (when (= (following-char) ?\})
 	      ;; Leave point at opening brace.
-	      (goto-char (scan-sexps (1+ (point)) -1)))
+	      (goto-char (hui-select-scan-sexps (1+ (point)) -1)))
 	    (when (= (following-char) ?\{)
 	      (while (and (zerop (forward-line -1))
 			  (not (hui-select-at-blank-line-or-comment))))
@@ -1131,9 +1159,9 @@ list, hui-select-indent-modes."
 	          '(?w ?_))
 	  (setq hui-select-previous 'symbol)
 	  (condition-case ()
-	      (let ((end (scan-sexps pos 1)))
+	      (let ((end (hui-select-scan-sexps pos 1)))
 		(hui-select-set-region
-		 (min pos (scan-sexps end -1)) end))
+		 (min pos (hui-select-scan-sexps end -1)) end))
 	    (error nil))))))
 
 (defun hui-select-sexp-start (pos)
@@ -1142,14 +1170,14 @@ list, hui-select-indent-modes."
       (hui-select-brace-def-or-declaration pos)
       (save-excursion
 	(setq hui-select-previous 'sexp-start)
-	(ignore-errors (hui-select-set-region pos (scan-sexps pos 1))))))
+	(ignore-errors (hui-select-set-region pos (hui-select-scan-sexps pos 1))))))
 
 (defun hui-select-sexp-end (pos)
   "Return (start . end) of sexp ending at POS."
   (or (hui-select-brace-def-or-declaration pos)
       (save-excursion
 	(setq hui-select-previous 'sexp-end)
-	(ignore-errors (hui-select-set-region (scan-sexps (1+ pos) -1) (1+ pos))))))
+	(ignore-errors (hui-select-set-region (hui-select-scan-sexps (1+ pos) -1) (1+ pos))))))
 
 (defun hui-select-sexp (pos)
   "Return (start . end) of the sexp that POS is within."
@@ -1333,7 +1361,7 @@ Delimiters may be single, double or open and close quotes."
 			     (progn (forward-sentence) (point))))))
 
 (defun hui-select-whitespace (pos)
-  "Return (start . end) of all whitespace at POS,
+  "Return (start . end) of all whitespace at POS.
 Return all whitespace, unless there is only one character of
 whitespace or this is leading whitespace on the line."
   (setq hui-select-previous 'whitespace)

@@ -3,11 +3,11 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:      7-Jul-23 at 17:09:59 by Mats Lidell
+;; Last-Mod:     21-Feb-24 at 23:47:33 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2022  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2024  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -19,13 +19,20 @@
 ;;; Code:
 
 (require 'ert)
-(require 'hmouse-drv)                   ;For `action-key'.
+(require 'hmouse-drv)                   ; For `action-key'
 (eval-when-compile (require 'cl-lib))
 
 (defun hy-test-helpers:consume-input-events ()
   "Use recusive-edit to consume the events kbd-key generates."
-  (run-with-timer 0.1 nil (lambda () (if (< 0 (recursion-depth)) (exit-recursive-edit))))
+  (run-with-timer 0.1 nil (lambda () (exit-recursive-edit)))
   (recursive-edit))
+
+(defun hy-test-helpers:ensure-link-possible-type (type)
+  "At point, ensure `hui:link-possible-types' returns a single TYPE."
+  (let* ((possible-types (hui:link-possible-types))
+	 (first-type (caar possible-types)))
+    (should (= (length possible-types) 1))
+    (should (equal first-type type))))
 
 (defun hy-test-helpers:should-last-message (msg)
   "Verify last message is MSG."
@@ -64,7 +71,7 @@
 
 (cl-defun hy-test-helpers-verify-hattr-at-p (&key actype args loc lbl-key name)
   "Verify the attribute of hbut at point.
-Checks ACTYPE, ARGS, LOC and LBL-KEY."
+Checks ACTYPE, ARGS, LOC, LBL-KEY and NAME."
   (let ((hbut-at-p (hbut:at-p)))
     (should (eq (hattr:get hbut-at-p 'actype) actype))
     (should (equal (hattr:get hbut-at-p 'args) args))
@@ -80,6 +87,18 @@ Checks ACTYPE, ARGS, LOC and LBL-KEY."
         (set-buffer-modified-p nil)
         (kill-buffer))))
   (delete-file file))
+
+(defun hy-delete-files-and-buffers (files)
+  "Delete all FILES and all buffers visiting those files."
+  (dolist (f files)
+    (hy-delete-file-and-buffer f)))
+
+(defun hy-delete-dir-and-buffer (dir)
+  "Delete DIR and buffer visiting directory."
+  (let ((buf (find-buffer-visiting dir)))
+    (when buf
+      (kill-buffer buf))
+    (delete-directory dir)))
 
 (provide 'hy-test-helpers)
 ;;; hy-test-helpers.el ends here

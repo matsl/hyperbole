@@ -3,11 +3,11 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    29-Jun-16 at 14:39:33
-;; Last-Mod:     28-Aug-23 at 01:45:24 by Bob Weiner
+;; Last-Mod:     10-Mar-24 at 12:07:48 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 1992-2022  Free Software Foundation, Inc.
+;; Copyright (C) 1992-2024  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -21,7 +21,7 @@
 ;;; ************************************************************************
 (defvar generated-autoload-file)
 
-(declare-function make-directory-autoloads "ext:autoload")
+(declare-function make-directory-autoloads "autoload")
 
 ;;; ************************************************************************
 ;;; Public variables
@@ -47,8 +47,9 @@ Use `hyperb:wsl-os-p' to test if running under WSL.")
 			    ""))
 		       (error
 			"(Hyperbole): Failed to set hyperb:dir.  Try setting it manually"))
-  "Directory where the Hyperbole executable code is kept.
-Valid values end with a directory separator character.")
+  "Absolute directory where the Hyperbole executable code is kept.
+Absolute path should be fully expanded.  Valid values end with a
+directory separator character.")
 
 ;; Add hyperb:dir to load-path so other Hyperbole libraries can be
 ;; found unless it is already there since the Emacs Package Manager
@@ -56,15 +57,19 @@ Valid values end with a directory separator character.")
 (add-to-list 'load-path (directory-file-name hyperb:dir))
 
 ;;; ************************************************************************
-;;; Koutliner mode and file suffix importation settings
+;;; Koutliner mode and file suffix settings
 ;;; ************************************************************************
-
-;; Perform Koutliner initializations.
 
 (add-to-list 'load-path (expand-file-name "kotl" hyperb:dir))
 ;; Invoke kotl-mode for files ending in ".kotl".
 ;; Also allow ".kot" for DOS and Windows users.
 (add-to-list 'auto-mode-alist '("\\.kotl?\\'" . kotl-mode))
+
+;;; ************************************************************************
+;;; Emacs Outline settings for .otl files
+;;; ************************************************************************
+
+(add-to-list 'auto-mode-alist '("\\.ou?tl\\'" . outline-mode))
 
 ;;; ************************************************************************
 ;;; Hyperbole test importation settings
@@ -143,10 +148,6 @@ directory or directories specified."
 
 ;; Menu items could call this function before Info is loaded.
 (autoload 'Info-goto-node   "info" "Jump to specific Info node."  t)
-
-;; Auto-autoload doesn't work for next item because it is defined
-;; within a condition-case, so autoload it here.
-(autoload 'Vm-init          "hvm"  "Initializes Hyperbole Vm support." t)
 
 (defun hyperb:autoloads-exist-p ()
   "Return t if all Hyperbole autoload files exist or nil otherwise."

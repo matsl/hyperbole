@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    19-Jun-21 at 22:42:00
-;; Last-Mod:     22-Mar-24 at 08:37:53 by Bob Weiner
+;; Last-Mod:      1-Jun-24 at 16:49:47 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -1612,16 +1612,15 @@ body
 
 (ert-deftest hyrolo-tests--goto-kotl-header-with-slash-match ()
   "Move from heading match to target line with a slash in kotl file."
-  :expected-result :failed
   (let* ((kotl-file1 (hyrolo-tests--gen-kotl-outline "h1 / h2" "body" 1))
          (hyrolo-file-list (list kotl-file1)))
     (unwind-protect
         (progn
+	  (kotl-mode:beginning-of-buffer)
           (hyrolo-grep "h2")
-          (hyrolo-next-match)
           (action-key)
           (should (string= (buffer-file-name) kotl-file1))
-          (should (looking-at-p "h2$"))
+          (should (looking-at-p "h1 / h2$"))
           (should (string= (buffer-substring-no-properties (point-min) (point-max))
                            "\
    1. h1 / h2
@@ -1633,6 +1632,31 @@ body
 "                           )))
       (kill-buffer hyrolo-display-buffer)
       (hy-delete-files-and-buffers hyrolo-file-list))))
+
+(ert-deftest hyrolo-test--grep-count ()
+  "Verify number of matched entries are correct."
+  (unwind-protect
+      (with-temp-buffer
+        (org-mode)
+        (insert "\
+* match
+match
+* match
+other
+* other
+match
+")
+        ;; Count number of entries that have a match
+        (should (= (hyrolo-grep "match" nil (current-buffer) t nil) 3))
+        ;; Count number of entries that only match on the first line
+        (should (= (hyrolo-grep "match" nil (current-buffer) t t) 2))
+        ;; Count max number of entries
+        (should (= (hyrolo-grep "match" 1 (current-buffer) t nil) 1))
+        ;; Nothing if there is no match
+        (should (= (hyrolo-grep "nothing" nil (current-buffer) t nil) 0)))
+    (and (get-buffer hyrolo-display-buffer)
+         (kill-buffer hyrolo-display-buffer)
+         (ert-fail "Buffer %s should not have been created" hyrolo-display-buffer))))
 
 (provide 'hyrolo-tests)
 

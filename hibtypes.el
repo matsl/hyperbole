@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 20:45:31
-;; Last-Mod:     27-Mar-24 at 20:15:24 by Mats Lidell
+;; Last-Mod:     25-May-24 at 10:11:05 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -11,6 +11,7 @@
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
+
 ;;; Commentary:
 ;;
 ;;   Implicit button types (ibtypes) in this file are defined in increasing
@@ -37,6 +38,7 @@
 ;;; ************************************************************************
 
 (require 'cl-lib) ;; for cl-count
+(require 'find-func) ;; used by grep-msg ibtype
 (eval-when-compile (require 'hversion))
 (require 'hactypes)
 (require 'hypb)
@@ -87,6 +89,12 @@
 ;; Don't use require below here for any libraries with ibtypes in
 ;; them.  Use load instead to ensure are reloaded when resetting
 ;; ibtype priorities.
+
+;;; ========================================================================
+;;; Creates and display personal wiki pages with auto-wikiword links
+;;; ========================================================================
+
+(load "hywiki")
 
 ;;; ========================================================================
 ;;; Jumps to source line from Python traceback lines
@@ -173,6 +181,54 @@ If the referenced location is found, return non-nil."
 	    (widen)
 	    (goto-char mpos)
 	    (kill-new (message (org-id-store-link)))))))))
+
+;;; ========================================================================
+;;; Composes mail, in another window, to the e-mail address at point.
+;;; ========================================================================
+
+(defun mail-address-at-p ()
+  "Return e-mail address, a string, that point is within or nil."
+  (let ((case-fold-search t))
+    (save-excursion
+      (skip-chars-backward "^ \t\n\r\f\"\'(){}[];:<>|")
+      (and (or (looking-at hypb:mail-address-regexp)
+               (looking-at (concat "mailto:" hypb:mail-address-regexp)))
+           (save-match-data
+             (string-match hypb:mail-address-tld-regexp (match-string-no-properties 1)))
+           (match-string-no-properties 1)))))
+
+(defib mail-address ()
+  "If on an e-mail address, compose mail to that address in another window.
+
+Applies to any major mode in `hypb:mail-address-mode-list', the HyRolo match
+buffer, any buffer attached to a file in `hyrolo-file-list', or any buffer with
+\"mail\" or \"rolo\" (case-insensitive) within its name.
+
+If `hypb:mail-address-mode-list' is set to nil, this button type is active
+in all buffers."
+  (when (let ((case-fold-search t))
+          (or
+           (and (or (null hypb:mail-address-mode-list)
+		    (apply #'derived-mode-p hypb:mail-address-mode-list))
+                (not (string-match "-Elements\\'" (buffer-name)))
+                ;; Don't want this to trigger within an OOBR-FTR buffer.
+                (not (string-match "\\`\\(OOBR.*-FTR\\|oobr.*-ftr\\)"
+                                   (buffer-name)))
+                (not (string-equal "*Implementors*" (buffer-name))))
+           (and
+            (string-match "mail\\|rolo" (buffer-name))
+            ;; Don't want this to trigger in a mail/news summary buffer.
+            (not (or (hmail:lister-p) (hnews:lister-p))))
+           (when (boundp 'hyrolo-display-buffer)
+             (equal (buffer-name) hyrolo-display-buffer))
+           (and buffer-file-name
+                (boundp 'hyrolo-file-list)
+                (set:member (current-buffer)
+                            (mapcar #'get-file-buffer (hyrolo-get-file-list))))))
+    (let ((address (mail-address-at-p)))
+      (when address
+        (ibut:label-set address (match-beginning 1) (match-end 1))
+        (hact 'mail-other-window nil address)))))
 
 ;;; ========================================================================
 ;;; Displays files and directories when a valid pathname is activated.
@@ -295,54 +351,6 @@ display options."
 (load "hsys-www")
 
 ;;; ========================================================================
-;;; Composes mail, in another window, to the e-mail address at point.
-;;; ========================================================================
-
-(defun mail-address-at-p ()
-  "Return e-mail address, a string, that point is within or nil."
-  (let ((case-fold-search t))
-    (save-excursion
-      (skip-chars-backward "^ \t\n\r\f\"\'(){}[];:<>|")
-      (and (or (looking-at hypb:mail-address-regexp)
-               (looking-at (concat "mailto:" hypb:mail-address-regexp)))
-           (save-match-data
-             (string-match hypb:mail-address-tld-regexp (match-string-no-properties 1)))
-           (match-string-no-properties 1)))))
-
-(defib mail-address ()
-  "If on an e-mail address, compose mail to that address in another window.
-
-Applies to any major mode in `hypb:mail-address-mode-list', the HyRolo match
-buffer, any buffer attached to a file in `hyrolo-file-list', or any buffer with
-\"mail\" or \"rolo\" (case-insensitive) within its name.
-
-If `hypb:mail-address-mode-list' is set to nil, this button type is active
-in all buffers."
-  (when (let ((case-fold-search t))
-          (or
-           (and (or (null hypb:mail-address-mode-list)
-		    (apply #'derived-mode-p hypb:mail-address-mode-list))
-                (not (string-match "-Elements\\'" (buffer-name)))
-                ;; Don't want this to trigger within an OOBR-FTR buffer.
-                (not (string-match "\\`\\(OOBR.*-FTR\\|oobr.*-ftr\\)"
-                                   (buffer-name)))
-                (not (string-equal "*Implementors*" (buffer-name))))
-           (and
-            (string-match "mail\\|rolo" (buffer-name))
-            ;; Don't want this to trigger in a mail/news summary buffer.
-            (not (or (hmail:lister-p) (hnews:lister-p))))
-           (when (boundp 'hyrolo-display-buffer)
-             (equal (buffer-name) hyrolo-display-buffer))
-           (and buffer-file-name
-                (boundp 'hyrolo-file-list)
-                (set:member (current-buffer)
-                            (mapcar #'get-file-buffer (hyrolo-get-file-list))))))
-    (let ((address (mail-address-at-p)))
-      (when address
-        (ibut:label-set address (match-beginning 1) (match-end 1))
-        (hact 'mail-other-window nil address)))))
-
-;;; ========================================================================
 ;;; Handles internal references within an annotated bibliography, delimiters=[]
 ;;; ========================================================================
 
@@ -358,16 +366,17 @@ attached file."
        (let ((chr (aref (buffer-name) 0)))
          (not (or (eq chr ?\ ) (eq chr ?*))))
        (not (apply #'derived-mode-p '(prog-mode c-mode objc-mode c++-mode java-mode markdown-mode org-mode)))
-       (let ((ref (hattr:get 'hbut:current 'lbl-key))
-	     (lbl-start (hattr:get 'hbut:current 'lbl-start)))
-         (and ref
-	      lbl-start
-	      (eq ?w (char-syntax (aref ref 0)))
-              (not (string-match "[#@]" ref))
-	      (save-excursion
-		(goto-char lbl-start)
-		(ibut:label-p t "[" "]" t))
-              (hact 'annot-bib ref)))))
+       (unless (ibut:label-p t "[[" "]]" t) ;; Org link
+	 (let ((ref (hattr:get 'hbut:current 'lbl-key))
+	       (lbl-start (hattr:get 'hbut:current 'lbl-start)))
+           (and ref
+		lbl-start
+		(eq ?w (char-syntax (aref ref 0)))
+		(not (string-match "[#@]" ref))
+		(save-excursion
+		  (goto-char lbl-start)
+		  (ibut:label-p t "[" "]" t))
+		(hact 'annot-bib ref))))))
 
 ;;; ========================================================================
 ;;; Follows Org links that are in non-Org mode buffers
@@ -380,8 +389,7 @@ attached file."
   "Follow an Org link in a non-Org mode buffer.
 This should be a very low priority so other Hyperbole types
 handle any links they recognize first."
-  (when (and (eq hsys-org-enable-smart-keys t)
-	     (not (funcall hsys-org-mode-function))
+  (when (and (not (funcall hsys-org-mode-function))
 	     ;; Prevent infinite recursion, e.g. if called via
 	     ;; `org-metareturn-hook' from `org-meta-return' invocation.
 	     (not (hyperb:stack-frame '(ibtypes::debugger-source org-meta-return))))
@@ -1042,7 +1050,9 @@ in grep and shell buffers."
                              (hbut:to-key-src t))))
           (if (stringp source-loc)
               (setq file (expand-file-name file (file-name-directory source-loc)))
-	    (setq file (or (hpath:prepend-shell-directory file) file)))
+	    (setq file (or (hpath:prepend-shell-directory file)
+			   (ignore-errors (find-library-name file))
+			   (expand-file-name file))))
 	  (when (file-exists-p file)
             (setq line-num (string-to-number line-num))
             (ibut:label-set but-label)

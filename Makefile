@@ -3,7 +3,7 @@
 # Author:       Bob Weiner
 #
 # Orig-Date:    15-Jun-94 at 03:42:38
-# Last-Mod:     29-Mar-24 at 23:29:53 by Mats Lidell
+# Last-Mod:     19-May-24 at 10:58:02 by Bob Weiner
 #
 # Copyright (C) 1994-2023  Free Software Foundation, Inc.
 # See the file HY-COPY for license information.
@@ -190,8 +190,9 @@ EL_COMPILE = hact.el hactypes.el hargs.el hbdata.el hbmap.el hbut.el \
              hsys-org-roam.el hsys-www.el hsys-xref.el hsys-youtube.el htz.el \
 	     hycontrol.el hui-jmenu.el hui-menu.el hui-mini.el hui-mouse.el hui-select.el \
 	     hui-treemacs.el hui-window.el hui.el hvar.el hversion.el hypb.el hyperbole.el \
-	     hyrolo-demo.el hyrolo-logic.el hyrolo-menu.el hyrolo.el hywconfig.el set.el hypb-ert.el \
-	     hui-dired-sidebar.el hypb-maintenance.el hui-em-but.el hui-register.el
+	     hyrolo-demo.el hyrolo-logic.el hyrolo-menu.el hyrolo.el hywconfig.el hywiki.el \
+             hasht.el set.el hypb-ert.el hui-dired-sidebar.el hypb-maintenance.el hui-em-but.el \
+             hui-register.el
 
 EL_SRC = $(EL_COMPILE)
 
@@ -209,8 +210,8 @@ HYPERBOLE_FILES = dir info html $(EL_SRC) $(EL_KOTL) \
 	$(HY-TALK) .mailmap ChangeLog COPYING Makefile HY-ABOUT HY-ANNOUNCE \
         HY-CONCEPTS.kotl HY-NEWS \
 	HY-WHY.kotl INSTALL DEMO DEMO-ROLO.otl FAST-DEMO MANIFEST README.md TAGS _hypb \
-        .hypb smart-clib-sym topwin.py hyperbole-banner.png $(man_dir)/hkey-help.txt \
-	$(man_dir)/hyperbole.texi $(man_dir)/hyperbole.css $(man_dir)/version.texi
+        .hypb hyrolo.py smart-clib-sym topwin.py hyperbole-banner.png $(man_dir)/hkey-help.txt \
+	$(man_dir)/hyperbole.texi $(man_dir)/hyperbole.css
 
 TEST_ERT_FILES = $(wildcard test/*tests.el) $(wildcard test/hy-test-*.el)
 
@@ -343,7 +344,7 @@ clean:
 
 version:
 	@echo ""
-	@fgrep -L $(HYPB_VERSION) Makefile HY-ABOUT HY-ANNOUNCE HY-NEWS README.md hversion.el hyperbole.el man/hyperbole.texi man/version.texi > WRONG-VERSIONS
+	@fgrep -L $(HYPB_VERSION) Makefile HY-ABOUT HY-ANNOUNCE HY-NEWS README.md hversion.el hyperbole.el man/hyperbole.texi > WRONG-VERSIONS
 	@# If any file(s) have wrong version number, print them and exit with code 1
 	@if [ -s WRONG-VERSIONS ]; then \
 	  echo "The following files do not have the proper Hyperbole version number, $(HYPB_VERSION):"; \
@@ -358,7 +359,7 @@ doc: version README.md.html manual
 # Build the Info, HTML and Postscript versions of the user manual
 manual: info html pdf
 
-TEXINFO_SRC = $(man_dir)/hyperbole.texi $(man_dir)/version.texi $(man_dir)/hkey-help.txt $(man_dir)/im/*.png
+TEXINFO_SRC = $(man_dir)/hyperbole.texi $(man_dir)/hkey-help.txt $(man_dir)/im/*.png
 
 info: $(man_dir)/hyperbole.info
 $(man_dir)/hyperbole.info: $(TEXINFO_SRC)
@@ -546,7 +547,8 @@ lint:
 # Run a build using a dockerized version of Emacs
 #
 # Usage:
-#   make dockerized version=28.1 targets='clean bin test'
+#   make dockerized version=master targets='clean bin test'
+#   make dockerized version=28.2 targets='clean bin test'
 
 # Specify version and targets to run
 ifeq ($(origin targets), command line)
@@ -561,4 +563,23 @@ DOCKER_VERSION = master-ci
 endif
 
 dockerized:
-	docker run -v $$(pwd):/hyperbole -it silex/emacs:${DOCKER_VERSION} bash -c cd hyperbole && make ${DOCKER_TARGETS}
+	docker run -v $$(pwd):/hyperbole -it silex/emacs:${DOCKER_VERSION} bash -c "make -C hyperbole ${DOCKER_TARGETS}"
+
+# Run with coverage. Run tests given by testspec and monitor the
+# coverage for the specified file.
+#
+# Usage:
+#    make coverage file=<file> testspec=<testspec>
+
+# Specify file to inspect for coverage while running tests given by testspec
+COVERAGE_FILE = ${file}
+ifeq ($(origin testspec), command line)
+COVERAGE_TESTSPEC = ${testspec}
+else
+COVERAGE_TESTSPEC = t
+endif
+coverage:
+	$(EMACS) --quick $(PRELOADS) \
+	--eval "(load-file \"test/hy-test-dependencies.el\")" \
+	--eval "(load-file \"test/hy-test-coverage.el\")" \
+	--eval "(hy-test-coverage-file \"${file}\" \"${COVERAGE_TESTSPEC}\")"

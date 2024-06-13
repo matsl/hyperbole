@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    18-Sep-91 at 02:57:09
-;; Last-Mod:     18-Feb-24 at 11:27:01 by Mats Lidell
+;; Last-Mod:     23-May-24 at 23:18:43 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -366,7 +366,9 @@ Autoloads action function if need be to get the parameter list."
 	     (compiled-function-arglist action)
 	   (action:params-emacs action)))
 	((symbolp action)
-	 (car (cdr (and (fboundp action) (hypb:indirect-function action)))))))
+	 (car (cdr (and (fboundp action) (hypb:indirect-function action)))))
+	((and (fboundp #'closurep) (closurep action))
+	 (aref action 0))))
 
 (defun action:param-list (action)
   "Return list of actual ACTION parameters (remove `&' special forms)."
@@ -411,7 +413,9 @@ performing ACTION."
 	   (setq args (hpath:absolute-arguments actype args)))
       (let ((hist-elt (hhist:element)))
 	(run-hooks 'action-act-hook)
-	(prog1 (or (if (or (symbolp action) (listp action)
+	(prog1 (or (when (and (fboundp #'closurep) (closurep action))
+			 (apply action args))
+		   (if (or (symbolp action) (listp action)
 			   (byte-code-function-p action)
 			   (subrp action)
 			   (and (stringp action) (not (integerp action))
@@ -516,7 +520,11 @@ Return symbol created when successful, else nil."
 
 (defun    actype:delete (type)
   "Delete an action TYPE (a symbol).  Return TYPE's symbol if it existed."
-  (symtable:delete type symtable:actypes)
+  (interactive
+   (list (intern (hargs:read-match
+		  "Delete from actypes: "
+		  (mapcar 'list (htype:names 'actypes))
+		  nil t nil 'actypes))))
   (htype:delete type 'actypes))
 
 (defun    actype:doc (but &optional full)

@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    28-Feb-21 at 23:26:00
-;; Last-Mod:     24-Mar-24 at 10:10:33 by Mats Lidell
+;; Last-Mod:      1-Jun-24 at 20:45:10 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -20,6 +20,7 @@
 
 (require 'ert)
 (require 'hpath)
+(require 'el-mock)
 (require 'hy-test-helpers "test/hy-test-helpers")
 
 (declare-function hy-test-helpers:action-key-should-call-hpath:find "hy-test-helpers")
@@ -207,10 +208,10 @@
                (default-directory hyperb:dir))
 	  (should explicit-shell-file-name)
           (hypb-run-shell-test-command shell-cmd shell-buffer)
-          (dolist (file '("COPYING" "man/hkey-help.txt" "man/version.texi" "man/im/demo.png"))
+          (dolist (file '("DEMO" "man/hkey-help.txt" "kotl/kotl-mode.el" "man/im/demo.png"))
             (goto-char (point-min))
             (should (search-forward (car (last (split-string file "/"))) nil t))
-            (backward-char 5)
+            (backward-char (/ (length file) 2))
             (hy-test-helpers:action-key-should-call-hpath:find (expand-file-name file hyperb:dir))))
       (kill-buffer shell-buffer))))
 
@@ -391,5 +392,63 @@ See `hpath:line-and-column-regexp'."
   (should-not (string-match hpath:line-and-column-regexp "/foo/bar.org:LL1"))
   (should-not (string-match hpath:line-and-column-regexp "/foo/bar.org:C1")))
 
+(ert-deftest hpath--hpath:delimited-possible-path ()
+  "Verify delimited path is found in an `ls -R' listings in `shell-mode'."
+  (let ((files
+         '(("file1.ext file2.ext file3.ext"                   ; Space delimited
+            ("file1" "file2" "file3"))
+           ("file1.ext\tfile2.ext\tfile3.ext"                 ; Tab delimited
+            ("file1" "file2" "file3"))
+           ("'file1.ext' 'file2.ext' 'file3.ext'"             ; Single quoted
+            ("file1" "file2" "file3"))
+           ("'file1.ext' file2.ext 'file3.ext'"               ; Single quoted mixed
+            ("file1" "file2" "file3"))
+           ("'file 1.ext' 'file 2.ext' 'file 3.ext'"          ; Single quoted with space
+            ("file 1" "file 2" "file 3"))
+           ("\"file1.ext\" \"file2.ext\" \"file3.ext\""       ; Double quoted
+            ("file1" "file2" "file3"))
+           ("\"file1.ext\" file2.ext \"file3.ext\""           ; Double quoted mixed
+            ("file1" "file2" "file3"))
+           ("\"file 1.ext\" \"file 2.ext\" \"file 3.ext\""    ; Double quoted with space
+            ("file 1" "file 2" "file 3"))
+           ("\"file1.ext\" 'file2.ext' \"file3.ext\""         ; Mixed quotes 1
+            ("file1" "file2" "file3"))
+           ("'file1.ext' \"file2.ext\" 'file3.ext'"           ; Mixed quotes 2
+            ("file1" "file2" "file3"))
+           (" file1.ext file2.ext file3.ext"                  ; Leading space
+            ("file1" "file2" "file3"))
+           ("\tfile1.ext file2.ext file3.ext"                 ; Leading tab
+            ("file1" "file2" "file3"))
+
+           ;; Failing cases
+           ;; ("'file1\".ext' 'file2\".ext' 'file3\".ext'"    ; Single quoted with double quote
+           ;;  ("file1\"" "file2\"" "file3\""))
+           ;; ("\"file1'.ext\" \"file2'.ext\" \"file3'.ext\"" ; Double quoted with single quote
+           ;;  ("file1'" "file2'" "file3'"))
+           )))
+    (dolist (fls files)
+      (with-temp-buffer
+        (insert "\
+$ ls -R dir
+dir/subdir:
+" (car fls))
+        (goto-char (point-min))
+        (shell-mode)
+        (dolist (v (cadr fls))
+          (let ((filename v))
+            (search-forward filename)
+            (should (looking-at-p "\\.ext"))
+            (mocklet (((file-exists-p "dir/subdir") => t))
+              (should (string= (expand-file-name (concat filename ".ext") "dir/subdir")
+                               (hpath:delimited-possible-path))))))))))
+
 (provide 'hpath-tests)
+
+:; This file can't be byte-compiled without the `el-mock' package
+;; which is not a dependency of Hyperbole.
+;;
+;; Local Variables:
+;; no-byte-compile: t
+;; End:
+
 ;;; hpath-tests.el ends here

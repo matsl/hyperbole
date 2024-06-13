@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    18-Sep-91 at 02:57:09
-;; Last-Mod:     21-Mar-24 at 15:30:13 by Bob Weiner
+;; Last-Mod:     25-May-24 at 16:30:50 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -762,7 +762,11 @@ Insert INSTANCE-FLAG after END, before ending delimiter."
 	(t (let* ((lbl-key (hbut:label-to-key label))
 		  (but (gbut:get lbl-key)))
 	     (if but
-		 (hbut:act but)
+		 (progn
+		   ;; Ensure gbut is activated with current-buffer as
+		   ;; the context, not the gbut's source buffer.
+		   (hattr:set but 'loc (current-buffer))
+		   (hbut:act but))
 	       (error "(gbut:act): No global button found for label: %s" label))))))
 
 (defun    gbut:delete (&optional lbl-key)
@@ -1035,32 +1039,36 @@ Default is the symbol hbut:current."
   (cond ((hbut:is-p hbut)
 	 (let ((orig-point (point-marker))
 	       (action (hattr:get hbut 'action))
+	       (loc (hattr:get hbut 'loc))
 	       text-point)
+	   (when loc
+	     ;; Button's location may be different than the current
+	     ;; buffer, so move point there if so.
+	     (hbut:key-src-set-buffer loc))
 	   (when (ibut:is-p hbut)
 	     ;; Determine whether point is already within hbut; if
 	     ;; not, it is moved there.
 	     ;;
-	     ;; The next line returns the lbl-key of the current
-	     ;; button only if point is within the optional name,
-	     ;; otherwise, nil.
-	     (let* ((lbl-key-start-end (ibut:label-p nil nil nil t t))
-		    (lbl-key (nth 0 lbl-key-start-end))
-		    (delim-text-start (or (nth 1 lbl-key-start-end)
-					  (hattr:get hbut 'lbl-start)))
-		    (delim-text-end (or (nth 2 lbl-key-start-end)
-				       (hattr:get hbut 'lbl-end))))
-	       (if (and lbl-key
-			(or (equal (hattr:get hbut 'loc) (current-buffer))
-			    (equal (hattr:get hbut 'loc) buffer-file-name))
-			(equal lbl-key (hattr:get hbut 'lbl-key)))
+	     ;; The next line returns the key version of the optional
+	     ;; name of the current button if and only if point is
+	     ;; within the name; otherwise, including if point is on
+	     ;; the text of the button, this returns nil.
+	     (let* ((name-key-start-end (ibut:label-p nil nil nil t t))
+		    (name-key (nth 0 name-key-start-end))
+		    (delim-text-start (hattr:get hbut 'lbl-start))
+		    (delim-text-end (hattr:get hbut 'lbl-end)))
+	       (if (and name-key
+			(or (equal loc buffer-file-name)
+			    (equal loc (current-buffer)))
+			(equal name-key (ibut:label-to-key (hattr:get hbut 'name))))
 		   (unless (and delim-text-start delim-text-end
 				(< delim-text-start (point))
 				(>= delim-text-end (point)))
 		     (goto-char delim-text-start)
 		     (skip-chars-forward "^-_a-zA-Z0-9"))
 		 ;; Here handle when there is no name preceding the implicit button.
-		 (unless (and (or (equal (hattr:get hbut 'loc) (current-buffer))
-				  (equal (hattr:get hbut 'loc) buffer-file-name))
+		 (unless (and (or (equal loc buffer-file-name)
+				  (equal loc (current-buffer)))
 			      delim-text-start delim-text-end
 			      (< delim-text-start (point))
 			      (>= delim-text-end (point)))
@@ -1220,15 +1228,17 @@ button file) or within the current buffer if both are null.  Use
 of point when desired.
 
 Caller must have used (ibut:at-p) to create hbut:current prior to
-calling this function."
+calling this function.  When KEY-SRC is given, this set's
+hbut:current's 'loc attribute to KEY-SRC."
   (if buffer
       (if (bufferp buffer)
 	  (set-buffer buffer)
 	(error "(ibut:get): Invalid buffer argument: %s" buffer))
-    (when (null key-src)
+    (if key-src
+	(hattr:set 'hbut:current 'loc key-src)
       (let ((loc (hattr:get 'hbut:current 'loc)))
 	(when loc
-	  (set-buffer (or (get-buffer loc) (find-file-noselect loc)))))
+	  (hbut:key-src-set-buffer loc)))
       (setq key-src (hbut:to-key-src 'full)
 	    ;; `hbut:to-key-src' sets current buffer to key-src buffer.
 	    buffer (or buffer (current-buffer))))
@@ -1346,9 +1356,9 @@ represent the output of particular document formatters."
 	    ((current-buffer))))))
 
 (defun    hbut:key-src-set-buffer (src)
-  "Set buffer to SRC, a buffer, buffer name, file, directory or symlink.
-If SRC is a directory, simply return it; otherwise, return SRC or
-nil if invalid."
+  "Temporarily set current buffer to SRC, a buffer, buffer name, or file.
+If SRC is a directory, simply return it; otherwise, return set current
+buffer to SRC and return it or return nil if SRC is invalid/unreadable."
   (cond ((null src) nil)
 	((or (bufferp src) (get-buffer src))
 	 (set-buffer src)
@@ -1362,7 +1372,8 @@ nil if invalid."
 	 (set-buffer (find-file-noselect src))
 	 src)
 	;; Buffer may be newly created with an attached file that has
-	;; not yet been saved, so it can't be read.
+	;; not yet been saved, so the file does not exist and cannot
+	;; be read.
 	((get-file-buffer src)
 	 (set-buffer (get-file-buffer src))
 	 src)))
@@ -1960,16 +1971,20 @@ If a new button is created, store its attributes in the symbol,
 	  (when (or is-type but-sym)
 	    (unless but-sym
 	      (setq but-sym 'hbut:current))
-	    (let ((current-categ     (hattr:get but-sym 'categ))
-		  (current-name      (hattr:get but-sym 'name))
-		  (current-lbl-key   (hattr:get but-sym 'lbl-key))
-		  (current-lbl-start (hattr:get but-sym 'lbl-start))
-		  (current-lbl-end   (hattr:get but-sym 'lbl-end))
-		  (current-loc       (hattr:get but-sym 'loc))
-		  (current-dir       (hattr:get but-sym 'dir))
-		  (current-action    (hattr:get but-sym 'action))
-		  (current-actype    (hattr:get but-sym 'actype))
-		  (current-args      (hattr:get but-sym 'args)))
+	    (let ((current-categ      (hattr:get but-sym 'categ))
+		  (current-name       (hattr:get but-sym 'name))
+		  (current-name-start (hattr:get but-sym 'name-start))
+		  (current-name-end   (hattr:get but-sym 'name-end))
+		  (current-lbl-key    (hattr:get but-sym 'lbl-key))
+		  (current-lbl-start  (hattr:get but-sym 'lbl-start))
+		  (current-lbl-end    (hattr:get but-sym 'lbl-end))
+		  (current-loc        (hattr:get but-sym 'loc))
+		  (current-dir        (hattr:get but-sym 'dir))
+		  (current-action     (hattr:get but-sym 'action))
+		  (current-actype     (hattr:get but-sym 'actype))
+		  (current-args       (hattr:get but-sym 'args))
+		  name-start
+		  name-end)
 
 	      (cond ((and but-sym-flag current-name)
 		     (setq name current-name))
@@ -1978,6 +1993,22 @@ If a new button is created, store its attributes in the symbol,
 		     (setq name current-name)))
 	      (when name
 		(hattr:set 'hbut:current 'name name))
+
+	      (cond ((and but-sym-flag current-name-start)
+		     (setq name-start current-name-start))
+		    ((or name-start name-and-lbl-key-flag))
+		    (current-name-start
+		     (setq name-start current-name-start)))
+	      (when name-start
+		(hattr:set 'hbut:current 'name-start name-start))
+
+	      (cond ((and but-sym-flag current-name-end)
+		     (setq name-end current-name-end))
+		    ((or name-end name-and-lbl-key-flag))
+		    (current-name-end
+		     (setq name-end current-name-end)))
+	      (when name-end
+		(hattr:set 'hbut:current 'name-end name-end))
 
 	      (cond ((and but-sym-flag current-lbl-key)
 		     (setq lbl-key current-lbl-key))
@@ -2647,7 +2678,8 @@ Summary of operations based on inputs (name arg from \\='hbut:current attrs):
 		       (if (<= arg2 1) "" (concat ":I" (number-to-string arg2))))))
       ('nil (error "(ibut:insert-text): actype must be a Hyperbole actype or Lisp function symbol, not '%s'" orig-actype))
       ;; Generic action button type
-      (_ (insert (format "<%s%s%s>" (actype:def-symbol actype) (if args " " "")
+      (_ (insert (format "<%s%s%s>" (or (actype:def-symbol actype) actype)
+			 (if args " " "")
 			 (if args (hypb:format-args args) "")))))
     (unless (looking-at "\\s-\\|\\'")
       (insert " "))))
@@ -3055,7 +3087,11 @@ commit changes."
 						      ,link-expr))
 						  t nil button-text)))
 		     ;; link-expr is a string
-		     (ibtype:activate-link referent)))))))
+		     (when referent
+		       (if (string-match "\\(\\`\\|[^%]\\)\\(%s\\)" ,link-expr)
+			   (ibut:label-set referent (match-beginning 1) (match-end 1))
+			 (ibut:label-set referent lbl-start lbl-end))
+		       (ibtype:activate-link referent))))))))
        (put (intern (format "ibtypes::%s" ',type))
 	    'function-documentation
 	    (or ,doc
@@ -3139,7 +3175,10 @@ is returned."
 (defun    ibtype:delete (type)
   "Delete an implicit button TYPE (a symbol).
 Return TYPE's symbol if it existed, else nil."
-  (symtable:delete type symtable:ibtypes)
+  (interactive (list (intern (hargs:read-match
+			      (concat "Delete from " (symbol-name 'ibtypes) ": ")
+			      (mapcar 'list (htype:names 'ibtypes))
+			      nil t nil 'ibtypes))))
   (htype:delete type 'ibtypes))
 
 ;; Return the full Elisp symbol for IBTYPE, which may be a string or symbol.

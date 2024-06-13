@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    31-Oct-91 at 23:17:35
-;; Last-Mod:     20-Jan-24 at 19:43:53 by Mats Lidell
+;; Last-Mod:     29-May-24 at 00:57:17 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -31,7 +31,8 @@
 (require 'etags)                        ; For `find-tag--default'
 (require 'hpath)
 (require 'hypb)
-(require 'set)
+;; Avoid any potential library name conflict by giving the load directory.
+(require 'set (expand-file-name "set" hyperb:dir))
 (require 'info)
 (require 'hmouse-drv) ;; loads hui-mouse and hmouse-key
 
@@ -100,7 +101,8 @@ Current button is being edited when EDITING-FLAG is t.
 Return nil if ACTION is not a list or `byte-code' object, has no
 interactive form or takes no arguments."
   (save-excursion
-    (and (or (subrp action) (byte-code-function-p action) (listp action))
+    (and (or (subrp action) (byte-code-function-p action) (listp action)
+             (and (fboundp #'closurep) (closurep action)))
 	 (let ((interactive-form (action:commandp action)))
 	   (when interactive-form
 	     (hpath:relative-arguments
@@ -226,23 +228,35 @@ button key (no spaces)."
 	       t)
 	     (< start end)
 	     (>= end opoint)
-	     (let ((string (hargs:buffer-substring start end))
-		   (string-with-delims (when (stringp exclude-regexp)
-					 (hargs:buffer-substring start-with-delim
-								 end-with-delim))))
-	       (unless (and string-with-delims
-			    (string-match exclude-regexp string-with-delims))
-		 ;; Normalize the string
-		 (setq string
-		       (if as-key
-			   (hbut:label-to-key string)
-			 (replace-regexp-in-string "[\n\r\f]\\s-*"
-						   " " string nil t)))
-		 (unless hyperb:microsoft-os-p
-		   (setq string (hpath:mswindows-to-posix string)))
+	     (if (eq as-key 'none)
 		 (if list-positions-flag
-		     (list string start end)
-		   string))))))))
+		     (list t start end)
+		   t)
+	       (let ((result (hargs:buffer-substring start end))
+		     (string-with-delims (when (stringp exclude-regexp)
+					   (hargs:buffer-substring start-with-delim
+								   end-with-delim))))
+		 (unless (and string-with-delims
+			      (string-match exclude-regexp string-with-delims))
+		   ;; Normalize the result
+		   (setq result
+			 (if as-key
+			     (hbut:label-to-key result)
+			   (replace-regexp-in-string "[\n\r\f]\\s-*"
+						     " " result nil t)))
+		   (unless hyperb:microsoft-os-p
+		     (setq result (hpath:mswindows-to-posix result)))
+		   (if list-positions-flag
+		       (list result start end)
+		     result)))))))))
+
+(defun hargs:delimited-p (start-delim end-delim
+			  &optional start-regexp-flag end-regexp-flag
+			  list-positions-flag exclude-regexp)
+  "Call `hargs:delimited' with its `as-key' arg set to 'none.
+See `hargs:delimited' for full documentation."
+  (hargs:delimited start-delim end-delim start-regexp-flag
+		   end-regexp-flag list-positions-flag exclude-regexp 'none))
 
 (defmacro hargs:make-iform-vector (&rest iform-alist)
   "Return a vector of interactive command code characters.

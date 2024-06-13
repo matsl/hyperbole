@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:      4-Feb-24 at 10:07:05 by Bob Weiner
+;; Last-Mod:      2-Jun-24 at 11:40:22 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -39,12 +39,13 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
-(require 'ert-results nil t) ;; Action Key support in ERT result buffers
+(require 'ert-results nil t) ;; Optional Action Key support in ERT result buffers
 ;; Library in next line (for code optionally used in `smart-eol') uses
 ;; `repeat-map' which was not added to the "repeat.el" library in Emacs 27.1,
 ;; so don't use if it fails to load properly.
 (ignore-errors (require 'hsys-flymake))
 (require 'hload-path)
+(require 'hsys-xref)
 (require 'hsys-org)
 (require 'hbut)
 (unless (fboundp 'smart-info)
@@ -318,7 +319,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;;
     ;; If in an xref buffer on a listing of matching identifier lines, go to
     ;; the source line referenced by the current entry.
-    ((and (fboundp 'xref--item-at-point) (xref--item-at-point))
+    ((hsys-xref-item-at-point)
      . ((xref-goto-xref) . (xref-show-location-at-point)))
     ;;
     ;; The Smart Menu system is an attractive in-buffer menu system
@@ -574,7 +575,12 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;;
     ;; Todotxt
     ((eq major-mode 'todotxt-mode)
-     . ((smart-todotxt) . (smart-todotxt-assist))))
+     . ((smart-todotxt) . (smart-todotxt-assist)))
+    ;;
+    ;; Any other programming modes not specially supported
+    ;; Use xref which supports various Language Servers
+    ((setq hkey-value (smart-prog-at-tag-p))
+     . ((smart-prog-tag hkey-value) . (smart-prog-tag hkey-value))))
   "Alist of predicates and form-conses for the Action and Assist Keyboard Keys.
 Each element is: (PREDICATE-FORM . (ACTION-KEY-FORM . ASSIST-KEY-FORM)).
 When the Action or Assist Key is pressed, the first or second form,
@@ -1778,25 +1784,38 @@ If not on a file name, returns nil."
 ;;; smart-org functions
 ;;; ************************************************************************
 
+(defun smart-org-agenda-item-action ()
+  "Action/Assist Key action when point is on an Org Agenda item.
+On Action Key press, invoke Agenda's <return> key binding, typically
+`org-agenda-switch-to'.  On Assist Key press, display `smart-org' help."
+  (hsys-org-set-ibut-label (cons (line-beginning-position)
+				 (line-end-position)))
+  (if assist-flag
+      (hact (lambda () (describe-function 'smart-org)))
+    ;; Execute Agenda's {RET} binding using Hyperbole display setting
+    (cl-letf (((symbol-function 'pop-to-buffer-same-window)
+	       #'hpath:display-buffer))
+      (hact (lambda () (call-interactively (key-binding (kbd "RET"))))))))
+
 (defun smart-org ()
   "Follow Org mode references, cycle outline visibility and execute code blocks.
 Active when `hsys-org-enable-smart-keys' is non-nil,
 
 When the Action Key is pressed:
 
-  1. If on an Org todo keyword, cycle through the keywords in
-     that set or if final done keyword, remove it.
+  1. On an Org todo keyword, cycle through the keywords in that
+     set or if final done keyword, remove it.
 
-  2. If on an Org agenda view item, jump to the item for editing.
+  2. On an Org agenda view item, jump to the item for editing.
 
   3. Within a radio or internal target or a link to it, jump between
      the target and the first link to it, allowing two-way navigation.
 
-  4. Follow other internal links in Org mode files.
+  4. On another internal link in an Org mode file, jump to its referent.
 
-  5. Follow Org mode external links.
+  5. On an Org mode external link, jump to its referent.
 
-  6. When on a Hyperbole button, activate the button.
+  6. On a Hyperbole button, activate the button.
 
   7. With point on the :dir path of a code block definition, display the
      directory given by the path.
@@ -1805,8 +1824,8 @@ When the Action Key is pressed:
      or #+end_example header, execute the code block via the Org mode
      standard binding of {\\`C-c' \\`C-c'}, (org-ctrl-c-ctrl-c).
   
-  9. When point is on an Org mode heading, cycle the view of the subtree
-     at point.
+  9. With point on an Org mode heading, cycle the view of the subtree at
+     point.
 
   10. In any other context besides the end of a line, invoke the Org mode
       standard binding of {M-RET}, (org-meta-return).
@@ -1814,10 +1833,10 @@ When the Action Key is pressed:
 When the Assist Key is pressed, it behaves just like the Action Key except
 in these contexts:
 
-  1. If on an Org todo keyword, move to the first todo keyword in
-     the next set, if any.
+  1. On an Org todo keyword, move to the first todo keyword in the next
+     set, if any.
 
-  2. If on an Org mode link or agenda view item, display Hyperbole
+  2. On an Org mode link or agenda view item, display Hyperbole
      context-sensitive help.
 
   3. On a Hyperbole button, perform the Assist Key function, generally
@@ -1852,10 +1871,7 @@ handled by the separate implicit button type, `org-link-outside-org-mode'."
 			(hact 'hsys-org-todo-cycle)
 		      (hact 'hsys-org-todo-set-cycle)))
 		   ((hsys-org-agenda-item-at-p)
-		    (if (not assist-flag)
-			(progn (hsys-org-set-ibut-label (cons (line-beginning-position) (line-end-position)))
-			       (hact 'org-agenda-show-and-scroll-up current-prefix-arg))
-		      (hact 'hkey-help))
+		    (smart-org-agenda-item-action)
 		    ;; Ignore any further Smart Key non-Org contexts
 		    t)
 		   ((hsys-org-radio-target-def-at-p)
@@ -1915,14 +1931,21 @@ handled by the separate implicit button type, `org-link-outside-org-mode'."
 		    ;; Fall through until Hyperbole button context and
 		    ;; activate normally.
 		    nil)
-		   ((equal (hsys-org-get-value :language) "python")
+		   ((and (apply #'derived-mode-p '(org-mode))
+			 (equal (hsys-org-get-value :language) "python"))
 		    (setq hkey-value (smart-python-at-tag-p))
 		    (hact 'smart-python hkey-value ''next-tag))
-		   (t
+		   ((apply #'derived-mode-p '(org-mode))
 		    (when (hsys-org-meta-return-shared-p)
 		      (hact 'hsys-org-meta-return))
 		    ;; Ignore any further Smart Key non-Org contexts
-		    t)))
+		    t)
+		   ((hsys-org-agenda-item-at-p)
+		    (smart-org-agenda-item-action)
+		    ;; Ignore any further Smart Key non-Org contexts
+		    t)
+		   ;; Ignore any further Smart Key non-Org contexts
+		   (t)))
 	    (t
 	     ;; hsys-org-enable-smart-keys is set to t, so try other Smart
 	     ;; contexts
@@ -2072,63 +2095,6 @@ With optional POS, use that instead of point."
     t))
 
 ;;; ************************************************************************
-;;; smart-todotxt functions
-;;; ************************************************************************
-
-(defun smart-todotxt ()
-  "Use a single key or mouse key to manipulate `todotxt' items.
-
-If key is pressed:
- (1) at the end of buffer, bury buffer
- (2) on a todo item, toggle the completion"
-  (interactive)
-  (cond ((smart-eobp) (todotxt-bury))
-	(t (todotxt-complete-toggle))))
-
-(defun smart-todotxt-assist ()
-  "Use a single assist key or mouse assist key to manipulate `todotxt' items.
-
-If key is pressed:
- (1) at the end of buffer, archive completed items
- (2) on a todo item, edit it"
-
-  (interactive)
-  (cond ((smart-eobp) (todotxt-archive))
-	(t (todotxt-edit-item))))
-
-;;;###autoload
-(defun smart-eobp ()
-  "Return t if point is past the last visible buffer line with text."
-  (and (or (eobp)
-	   ;; On a blank line and nothing but whitespace until eob
-	   (save-excursion
-	     (beginning-of-line)
-	     (looking-at "[ \t\n\r\f]+\\'")))
-       (or (not (smart-outline-char-invisible-p))
-	   (not (smart-outline-char-invisible-p (1- (point)))))))
-
-(defun smart-eolp ()
-  "Return t if point is at the end of a visible line but not the end of the buffer."
-  ;; smart-helm handles eol for helm buffers
-  (unless (or (and (smart-helm-alive-p) (equal (helm-buffer-get) (buffer-name)))
-	      ;; Allow for org global cycling at start of buffer on a
-	      ;; non-heading line in Hyperbole doc files when
-	      ;; displayed from Hyperbole menu items.
-	      (smart-org-bob-and-non-heading-p)
-	      ;; If there is a flymake diagnostic issue at eol,
-	      ;; drop through this clause to handle it later.
-	      (and (featurep 'hsys-flymake)
-		   (boundp 'flymake-mode)
-		   flymake-mode
-		   (eolp)
-		   (hsys-flymake-get-issue-at-position)))
-    (if (eq major-mode 'kotl-mode)
-	(and (not (kotl-mode:eobp)) (kotl-mode:eolp t))
-      (and (not (smart-eobp)) (eolp)
-	   (or (not (smart-outline-char-invisible-p))
-	       (not (smart-outline-char-invisible-p (1- (point)))))))))
-
-;;; ************************************************************************
 ;;; smart-push-button functions
 ;;; ************************************************************************
 
@@ -2205,6 +2171,63 @@ If assist key is pressed:
 	 (tar-unflag (- (count-lines (point-min) (point-max))))
 	 (goto-char (point-max)))
 	(t (tar-flag-deleted 1))))
+
+;;; ************************************************************************
+;;; smart-todotxt functions
+;;; ************************************************************************
+
+(defun smart-todotxt ()
+  "Use a single key or mouse key to manipulate `todotxt' items.
+
+If key is pressed:
+ (1) at the end of buffer, bury buffer
+ (2) on a todo item, toggle the completion"
+  (interactive)
+  (cond ((smart-eobp) (todotxt-bury))
+	(t (todotxt-complete-toggle))))
+
+(defun smart-todotxt-assist ()
+  "Use a single assist key or mouse assist key to manipulate `todotxt' items.
+
+If key is pressed:
+ (1) at the end of buffer, archive completed items
+ (2) on a todo item, edit it"
+
+  (interactive)
+  (cond ((smart-eobp) (todotxt-archive))
+	(t (todotxt-edit-item))))
+
+;;;###autoload
+(defun smart-eobp ()
+  "Return t if point is past the last visible buffer line with text."
+  (and (or (eobp)
+	   ;; On a blank line and nothing but whitespace until eob
+	   (save-excursion
+	     (beginning-of-line)
+	     (looking-at "[ \t\n\r\f]+\\'")))
+       (or (not (smart-outline-char-invisible-p))
+	   (not (smart-outline-char-invisible-p (1- (point)))))))
+
+(defun smart-eolp ()
+  "Return t if point is at the end of a visible line but not the end of the buffer."
+  ;; smart-helm handles eol for helm buffers
+  (unless (or (and (smart-helm-alive-p) (equal (helm-buffer-get) (buffer-name)))
+	      ;; Allow for org global cycling at start of buffer on a
+	      ;; non-heading line in Hyperbole doc files when
+	      ;; displayed from Hyperbole menu items.
+	      (smart-org-bob-and-non-heading-p)
+	      ;; If there is a flymake diagnostic issue at eol,
+	      ;; drop through this clause to handle it later.
+	      (and (featurep 'hsys-flymake)
+		   (boundp 'flymake-mode)
+		   flymake-mode
+		   (eolp)
+		   (hsys-flymake-get-issue-at-position)))
+    (if (eq major-mode 'kotl-mode)
+	(and (not (kotl-mode:eobp)) (kotl-mode:eolp t))
+      (and (not (smart-eobp)) (eolp)
+	   (or (not (smart-outline-char-invisible-p))
+	       (not (smart-outline-char-invisible-p (1- (point)))))))))
 
 (provide 'hui-mouse)
 

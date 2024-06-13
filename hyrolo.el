@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     7-Jun-89 at 22:08:29
-;; Last-Mod:     30-Mar-24 at 23:51:18 by Bob Weiner
+;; Last-Mod:     29-May-24 at 00:57:28 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -42,7 +42,8 @@
 (require 'outline)
 (require 'package)
 (require 'reveal)
-(require 'set)
+;; Avoid any potential library name conflict by giving the load directory.
+(require 'set (expand-file-name "set" hyperb:dir))
 (require 'sort)
 (require 'xml)
 (declare-function kotl-mode:to-valid-position "kotl/kotl-mode")
@@ -74,7 +75,11 @@
 (declare-function kotl-mode:to-valid-position "kotl/kotl-mode")
 (declare-function org-fold-initialize "org-fold")
 (declare-function org-fold-core-set-folding-spec-property "org-fold")
+
 (declare-function org-roam-db-autosync-mode "ext:org-roam")
+(declare-function org-roam-node-find "ext:org-roam")
+(declare-function org-roam-node-level "ext:org-roam")
+
 (declare-function outline-apply-default-state "outline")
 (declare-function xml-node-child-string "ext:google-contacts")
 (declare-function xml-node-get-attribute-type "ext:google-contacts")
@@ -519,6 +524,77 @@ entry which begins with the parent string."
       (run-hooks 'hyrolo-add-hook)
       (when (called-interactively-p 'interactive)
 	(message "Edit entry at point.")))))
+
+;;;###autoload
+(defun hyrolo-consult-grep (&optional regexp max-matches path-list)
+  "Interactively search `hyrolo-file-list' with a consult package grep command.
+Use ripgrep (rg) if found, otherwise, plain grep.  Interactively
+show all matches from `hyrolo-file-list'.  Initialize search with
+optional REGEXP and interactively prompt for changes.  Limit matches
+per file to the absolute value of MAX-MATCHES, if given and not 0.  If
+0, match to headlines only (lines that start with a '^[*#]+[ \t]+' regexp)."
+  (interactive "i\nP")
+  (unless (package-installed-p 'consult)
+    (package-install 'consult))
+  (require 'consult)
+  (let ((consult-version (hyrolo-get-consult-version)))
+    ;; Multi-file support added after consult version "0.32"
+    (when (not (and consult-version (string-greaterp consult-version "0.32")))
+      (error "(hyrolo-consult-grep): consult package version is %s; update required"
+	     consult-version)))
+  (let* ((grep-includes (concat "--include *.kot --include *.kotl"
+				" --include *.md --include *.markdown --include *.mkd --include *.mdown --include *.mkdn --include *.mdwn"
+				" --include *.org --include *.otl --include *.outl"))
+	 (ripgrep-globs "--glob *.{kot,kotl,md,markdown,mkd,mdown,mkdn,mdwn,org,otl,outl}")
+	 (consult-grep-args
+	  (if (listp consult-grep-args)
+	      (append consult-grep-args (list grep-includes))
+	    (concat consult-grep-args " " grep-includes)))
+	 (consult-ripgrep-args
+	  (if (listp consult-ripgrep-args)
+	      (append consult-ripgrep-args (list ripgrep-globs))
+            (concat consult-ripgrep-args " " ripgrep-globs)))
+	 (paths (if find-file-wildcards
+		    ;; Use only the directory of paths with wildcards
+		    ;; since the grep command filters to desired file
+		    ;; types much more efficiently.
+		    (mapcar (lambda (path)
+			      (if (string-match "[\\/]?\\([^*?\\/]*[*?][^\\/]+\\'\\)" path)
+				  (substring path 0 (match-beginning 1))
+				path))
+			    (or path-list hyrolo-file-list))
+		  (or path-list hyrolo-file-list))))
+    (hyrolo-consult-grep-paths paths regexp max-matches)))
+
+;;;###autoload
+(defun hyrolo-consult-org-roam-grep (&optional regexp max-matches)
+  "Interactively narrow and select Org Roam nodes by line.
+Use ripgrep (rg) if found, otherwise, plain grep to search Org
+files within `org-roam-directory'.  Initialize search with
+optional REGEXP and interactively prompt for changes.  Limit
+matches per file to the absolute value of MAX-MATCHES, if given
+and not 0.  If 0, match to headlines only (lines that start with
+a '^[*#]+[ \t]+' regexp)."
+  (interactive "i\nP")
+  (hyrolo-org-roam-call-function
+   (lambda ()
+     (let ((consult-grep-args
+	    (if (listp consult-grep-args)
+		(append consult-grep-args (list "--include *.org"))
+	      (concat consult-grep-args " --include *.org")))
+	   (consult-ripgrep-args
+	    (if (listp consult-ripgrep-args)
+		(append consult-ripgrep-args (list "--glob *.org"))
+              (concat consult-ripgrep-args " --glob *.org"))))
+       (hyrolo-consult-grep-paths (list org-roam-directory) regexp max-matches)))))
+
+;;;###autoload
+(defun hyrolo-consult-org-roam-title ()
+  "Interactively narrow and select Org Roam nodes by title."
+  (interactive)
+  (hyrolo-org-roam-call-function
+   (lambda ()
+     (org-roam-node-find nil nil (lambda (node) (zerop (org-roam-node-level node)))))))
 
 ;;;###autoload
 (defun hyrolo-display-matches (&optional display-buf return-to-buffer)
@@ -1789,17 +1865,10 @@ returned to the number given."
 OPTIONAL prefix arg, MAX-MATCHES, limits the number of matches
 returned to the number given."
   (interactive "sFind Org Roam directory string (or logical sexpression): \nP")
-  (unless (package-installed-p 'org-roam)
-    (package-install 'org-roam))
-  (require 'org-roam)
-  (unless (file-readable-p org-roam-directory)
-    (make-directory org-roam-directory))
-  (unless org-roam-db-autosync-mode
-    (org-roam-db-autosync-mode))
-  (if (file-readable-p org-roam-directory)
-      (let ((hyrolo-file-list (directory-files org-roam-directory t "\\.org$")))
-	(hyrolo-fgrep string max-matches))
-    (error "(hyrolo-org-roam): `org-roam-directory', \"%s\", does not exist" org-roam-directory)))
+  (hyrolo-org-roam-call-function
+   (lambda ()
+     (let ((hyrolo-file-list (directory-files org-roam-directory t "\\.org$")))
+       (hyrolo-fgrep string max-matches)))))
 
 ;;; ************************************************************************
 ;;; Public functions
@@ -1812,42 +1881,6 @@ returned to the number given."
     ;; and ends up at the beginning of buffer every time under Emacs 27.1:
     ;; (goto-char (previous-single-char-property-change (point) 'invisible))))
     (goto-char (1- (point)))))
-
-;;;###autoload
-(defun hyrolo-consult-grep (&optional regexp max-matches)
-  "Interactively search `hyrolo-file-list' with a consult package grep command.
-Use ripgrep (rg) if found, otherwise, plain grep.  Interactively
-show all matches from `hyrolo-file-list'.  Initialize search with
-optional REGEXP and interactively prompt for changes.  Limit matches
-per file to the absolute value of MAX-MATCHES if given."
-  (interactive "i\nP")
-  (unless (package-installed-p 'consult)
-    (package-install 'consult))
-  (require 'consult)
-  (let ((consult-version (hyrolo-get-consult-version)))
-    ;; Multi-file support added after consult version "0.32"
-    (when (not (and consult-version (string-greaterp consult-version "0.32")))
-      (error "(hyrolo-consult-grep): consult package version is %s; update required"
-	     consult-version)))
-  (let ((files (seq-filter #'file-readable-p (hyrolo-get-file-list)))
-	(consult-grep-args (if (integerp max-matches)
-			       (if (listp consult-grep-args)
-				   (append consult-grep-args
-					   (list (format "-m %d" (abs max-matches))))
-				 (concat consult-grep-args
-					 (format " -m %d" (abs max-matches))))
-			     consult-grep-args))
-	(consult-ripgrep-args (if (integerp max-matches)
-				  (if (listp consult-ripgrep-args)
-				      (append consult-ripgrep-args
-					      (list (format "-m %d" (abs max-matches))))
-				    (concat consult-ripgrep-args
-					    (format " -m %d" (abs max-matches))))
-				consult-ripgrep-args))
-	(grep-func (cond ((executable-find "rg")
-			  #'consult-ripgrep)
-			 (t #'consult-grep))))
-    (funcall grep-func files regexp)))
 
 ;;;###autoload
 (defun hyrolo-fgrep-directories (file-regexp &rest dirs)
@@ -2002,12 +2035,11 @@ Return number of matching entries found."
 			(setq hdr-pos (cons (point-min) (point))))
 		      (let* ((case-fold-search t)
 			     match-end)
-			(re-search-forward hyrolo-hdr-and-entry-regexp nil t)
 			(while (and (or (null max-matches) (< num-found max-matches))
 				    (funcall hyrolo-next-match-function search-pattern))
 			  (setq match-end (point))
 			  ;; If no entry delimiters found, just return
-			  ;; the line of the match alone.
+			  ;; the single line of the match alone.
 			  (unless (re-search-backward hyrolo-hdr-and-entry-regexp nil t)
 			    (goto-char (line-beginning-position)))
 			  (setq entry-start (point))
@@ -2230,11 +2262,15 @@ When found, return the match start position; otherwise, return nil."
 ;; normal modes whenever they are displayed.
 (defun hyrolo-normalize-mode-function (frame)
   (with-selected-frame frame
-    (when (apply #'derived-mode-p '(hyrolo-markdown-mode hyrolo-org-mode))
-      ;; Display buffer before `normal-mode' triggers possibly long-running font-locking
-      (sit-for 0.1)
-      (normal-mode))))
-(push 'hyrolo-normalize-mode-function window-buffer-change-functions)
+    (walk-windows
+     (lambda (window)
+       (with-selected-window window
+	 (when (apply #'derived-mode-p '(hyrolo-markdown-mode hyrolo-org-mode))
+	   ;; Display buffer before `normal-mode' triggers possibly
+	   ;; long-running font-locking
+	   (sit-for 0.1)
+	   (normal-mode)))))))
+(add-to-list 'window-buffer-change-functions 'hyrolo-normalize-mode-function nil 'eq)
 
 ;;; In `hyrolo-mode' replace `outline-minor-mode' bindings with hyrolo-* overrides.
 ;;; Wrap outline movement commands with a `hyrolo-funcall-match' call.
@@ -2739,9 +2775,10 @@ entire subtree.  Return INCLUDE-SUB-ENTRIES flag value."
 	(progn
 	  (outline-end-of-subtree)
 	  (goto-char (1+ (point))))
-      ;; Error means point is before the first buffer heading; move
-      ;; past file header to any next entry.
-      (error (hyrolo-hdr-move-after-p))))
+      ;; Error or any signal condition (all caught with the 't' symbol)
+      ;; means point is before the first buffer heading; move past
+      ;; file header to any next entry.
+      (t (hyrolo-hdr-move-after-p))))
   include-sub-entries)
 
 (defun hyrolo-to-next-loc ()
@@ -2875,6 +2912,67 @@ HYROLO-BUF may be a file-name, `buffer-name', or buffer."
 			     hyrolo-buf))
 	     (buffer-list))))
 
+(defun hyrolo-consult-grep-paths (paths &optional regexp max-matches)
+  "Interactively search PATHS with a consult package grep command.
+Use ripgrep (rg) if found, otherwise, plain grep.  Interactively
+show all matches from PATHS; see the documentation for the `dir'
+argument in `consult-grep' for valid values of PATHS. 
+
+Initialize search with optional REGEXP and interactively prompt
+for changes.  Limit matches per file to the absolute value of
+MAX-MATCHES, if given and not 0.  If 0, match to headlines
+only (lines that start with a '^[*#]+[ ]t]+' regexp)."
+  (unless (package-installed-p 'consult)
+    (package-install 'consult))
+  (require 'consult)
+  (let ((consult-version (hyrolo-get-consult-version)))
+    ;; Multi-file support added after consult version "0.32"
+    (when (not (and consult-version (string-greaterp consult-version "0.32")))
+      (error "(hyrolo-consult-grep): consult package version is %s; update required"
+	     consult-version)))
+  (when max-matches
+    (setq max-matches (prefix-numeric-value max-matches)))
+  (when (and (integerp max-matches) (zerop max-matches))
+    ;; Final space in leading regexp in next line makes it work with
+    ;; the Orderless package.
+    (setq regexp (concat "^[*#]+[ \t]+ " (or regexp ""))))
+  (let ((consult-grep-args (if (and (integerp max-matches) (not (zerop max-matches)))
+			       (if (listp consult-grep-args)
+				   (append consult-grep-args
+					   (list (format "-m %d" (abs max-matches))))
+				 (concat consult-grep-args
+					 (format " -m %d" (abs max-matches))))
+			     consult-grep-args))
+	(consult-ripgrep-args (if (and (integerp max-matches) (not (zerop max-matches)))
+				  (if (listp consult-ripgrep-args)
+				      (append consult-ripgrep-args
+					      (list (format "-m %d" (abs max-matches))))
+				    (concat consult-ripgrep-args
+					    (format " -m %d" (abs max-matches))))
+				consult-ripgrep-args))
+	(grep-func (cond ((executable-find "rg")
+			  #'consult-ripgrep)
+			 (t #'consult-grep))))
+    ;; Consult split style usually uses '#' as a separator char but
+    ;; that interferes with matching to Markdown # chars at the start
+    ;; of a line in the regexp, so disable the separator char as it is
+    ;; not needed for simple regexp searches.
+    (let ((consult-async-split-style nil))
+      (funcall grep-func paths regexp))))
+
+(defun hyrolo-org-roam-call-function (func)
+  "Install Org Roam and then call an Org Roam FUNC."
+  (unless (package-installed-p 'org-roam)
+    (package-install 'org-roam))
+  (require 'org-roam)
+  (unless (file-readable-p org-roam-directory)
+    (make-directory org-roam-directory))
+  (unless org-roam-db-autosync-mode
+    (org-roam-db-autosync-mode))
+  (if (file-readable-p org-roam-directory)
+      (funcall func)
+    (error "`org-roam-directory', \"%s\", does not exist" org-roam-directory)))
+
 (defun hyrolo-current-date ()
   "Return the current date (a string) in a form used for rolo entry insertion."
   (format-time-string hyrolo-date-format))
@@ -2992,38 +3090,39 @@ Name is returned as `last, first-and-middle'."
 (defun hyrolo-name-at-p ()
   "Iff point is at or within an entry in `hyrolo-display-buffer', return non-nil.
 Any non-nil value returned is a cons of (<entry-name> . <entry-source>)."
-  (let ((entry-source (hbut:get-key-src t))
-	(col-num (current-column))
-	(line-start (line-beginning-position))
-	(line-end (line-end-position)))
-    (when entry-source
-      (save-excursion
-	(forward-line 0)
-	(let (case-fold-search
-	      entry-line
-	      entry-name)
-	  (if (and (or (looking-at hyrolo-hdr-and-entry-regexp)
-		       (re-search-backward hyrolo-hdr-and-entry-regexp nil t))
-		   (save-match-data (not (looking-at hyrolo-hdr-regexp))))
-	      (progn (goto-char (match-end 0))
-		     (skip-chars-forward " \t")
-		     (when (or (looking-at "[^ \t\n\r]+ ?, ?[^ \t\n\r]+")
-			       (looking-at "\\( ?[^ \t\n\r]+\\)+"))
-		       (setq entry-name (match-string-no-properties 0)
-			     entry-line (buffer-substring-no-properties line-start line-end))
-		       ;; Add a text-property of 'hyrolo-name-entry with
-		       ;; value of (entry-line . current-column) to entry-name.
-		       (put-text-property 0 1 'hyrolo-name-entry
-					  (cons entry-line col-num)
-					  entry-name)
-		       (cons entry-name entry-source)))
-	    ;; If not blank, return the current line as the name with
-	    ;; a text-property of 'hyrolo-line-entry with value of (current-column).
-	    (goto-char line-start)
-	    (when (not (looking-at "[ \t\f]*$"))
-	      (setq entry-line (buffer-substring-no-properties line-start line-end))
-	      (put-text-property 0 1 'hyrolo-line-entry col-num entry-line)
-	      (cons entry-line entry-source))))))))
+  (when (eq (current-buffer) (get-buffer hyrolo-display-buffer))
+    (let ((entry-source (hbut:get-key-src t))
+	  (col-num (current-column))
+	  (line-start (line-beginning-position))
+	  (line-end (line-end-position)))
+      (when entry-source
+	(save-excursion
+	  (forward-line 0)
+	  (let (case-fold-search
+		entry-line
+		entry-name)
+	    (if (and (or (looking-at hyrolo-hdr-and-entry-regexp)
+			 (re-search-backward hyrolo-hdr-and-entry-regexp nil t))
+		     (save-match-data (not (looking-at hyrolo-hdr-regexp))))
+		(progn (goto-char (match-end 0))
+		       (skip-chars-forward " \t")
+		       (when (or (looking-at "[^ \t\n\r]+ ?, ?[^ \t\n\r]+")
+				 (looking-at "\\( ?[^ \t\n\r]+\\)+"))
+			 (setq entry-name (match-string-no-properties 0)
+			       entry-line (buffer-substring-no-properties line-start line-end))
+			 ;; Add a text-property of 'hyrolo-name-entry with
+			 ;; value of (entry-line . current-column) to entry-name.
+			 (put-text-property 0 1 'hyrolo-name-entry
+					    (cons entry-line col-num)
+					    entry-name)
+			 (cons entry-name entry-source)))
+	      ;; If not blank, return the current line as the name with
+	      ;; a text-property of 'hyrolo-line-entry with value of (current-column).
+	      (goto-char line-start)
+	      (when (not (looking-at "[ \t\f]*$"))
+		(setq entry-line (buffer-substring-no-properties line-start line-end))
+		(put-text-property 0 1 'hyrolo-line-entry col-num entry-line)
+		(cons entry-line entry-source)))))))))
 
 (define-derived-mode hyrolo-org-mode outline-mode "HyRoloOrg"
   "Basic Org mode for use in HyRolo display match searches."

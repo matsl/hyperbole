@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    22-Nov-91 at 01:37:57
-;; Last-Mod:     18-Feb-24 at 11:39:41 by Mats Lidell
+;; Last-Mod:     30-Jun-24 at 02:19:16 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -105,7 +105,7 @@ Return t if the sequence appears to be valid, else nil."
   "Execute a key series (series of key sequences) around point.
 The key series is delimited by curly braces, {}.  Key sequences
 should be in human readable form, e.g. {C-x C-b}, or what
-`key-description' returns.  Forms such as {\C-b}, {\^b}, and {^M}
+`key-description' returns.  Forms such as {\\`C-b'}, {\\`^b'}, and {\\`^M'}
 will not be recognized.
 
 Any key sequence within the series must be a string of one of the following:
@@ -140,9 +140,12 @@ Any key sequence within the series must be a string of one of the following:
 	;; Match only when start delimiter is preceded by whitespace,
 	;; double quotes or is the 1st buffer character, so do not
 	;; match to things like ${variable}.
-	(when (memq (char-before start) '(nil ?\ ?\t ?\n ?\r ?\f ?\"))
-	  (when (and (stringp key-series)
-		     (not (string-equal key-series "")))
+	(when (or (memq (char-before start) '(nil ?\ ?\t ?\n ?\r ?\f ?\"))
+		  ;; In Texinfo, allow for @bkbd{} or @kbd{}, so an
+		  ;; alpha char preceding
+		  (and (derived-mode-p 'texinfo-mode)
+		       (= (char-syntax (char-before start)) ?w)))
+	  (when (and (stringp key-series) (not (string-empty-p key-series)))
 	    ;; Replace any ${} internal or env vars; leave
 	    ;; $VAR untouched for the shell to evaluate.
 	    (let ((hpath:variable-regexp "\\${\\([^}]+\\)}"))
@@ -260,8 +263,8 @@ With optional prefix arg FULL, display full documentation for command."
 When STR is a curly-brace {} delimited key series, a
 non-delimited, normalized form is returned, else nil.  Key
 sequences should be in human readable form, e.g. {\\`C-x' \\`C-b'}, or
-what `key-description' returns.  Forms such as {\\`C-b'}, {\^b}, and
-{^M} will not be recognized.
+what `key-description' returns.  Forms such as {\\`C-b'}, {\\`^b'}, and
+{\\`^M'} will not be recognized.
 
 Any key sequence within the series must be a string of one of the following:
   a Hyperbole minibuffer menu item key sequence,

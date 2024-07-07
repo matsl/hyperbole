@@ -7,7 +7,7 @@
 @c Author:       Bob Weiner
 @c
 @c Orig-Date:     6-Nov-91 at 11:18:03
-@c Last-Mod:     16-Apr-24 at 22:13:33 by Bob Weiner
+@c Last-Mod:      6-Jul-24 at 00:42:11 by Bob Weiner
 
 @c %**start of header (This is for running Texinfo on a region.)
 @setfilename hyperbole.info
@@ -25,8 +25,8 @@
 @set txicodequoteundirected
 @set txicodequotebacktick
 
-@set UPDATED June, 2024
-@set UPDATED-MONTH June 2024
+@set UPDATED July, 2024
+@set UPDATED-MONTH July 2024
 @set EDITION 9.0.2pre
 @set VERSION 9.0.2pre
 
@@ -159,7 +159,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</P>
 
 <PRE>
 Edition 9.0.2pre
-Printed June 2, 2024.
+Printed July 6, 2024.
 
   Published by the Free Software Foundation, Inc.
   Author:    Bob Weiner
@@ -201,7 +201,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 @example
 Edition 9.0.2pre
-June 2, 2024
+July 6, 2024
 
   Published by the Free Software Foundation, Inc.
   Author:    Bob Weiner
@@ -2281,6 +2281,7 @@ by any number of :, - or = separator characters, including none.
 
 @cindex ibtypes, list of
 @cindex implicit button types
+@vindex file, hibtypes.el
 Below is a list of standard implicit button types in the order in
 which Hyperbole tries to match to the types when looking for an
 implicit button (decreasing priority order).  @bkbd{C-h h i t
@@ -2301,6 +2302,9 @@ priority).
 @findex org-meta-return
 @findex hsys-org-mode-p
 @vindex file, hsys-org.el
+@cindex smart org
+@cindex Action Key, Org Mode
+@cindex Assist Key, Org Mode
 @item smart-org
 @code{smart-org} is not an actual implicit button type, just an Elisp function,
 but it behaves similarly, so it is documented here.
@@ -2309,17 +2313,31 @@ Hyperbole recognizes Org mode constructs in any of these modes:
 @code{org-mode}, @code{org-agenda-mode}, @code{outshine-mode}
 or @code{poporg-mode}.  (See the function @code{hsys-org-mode-p}).
 
+@vindex hsys-org-enable-smart-keys
 @noindent
 Hyperbole does quite a few things for Org mode users.  When the Action
-Key is pressed:
+Key is pressed and @code{hsys-org-enable-smart-keys} is @samp{t}:
 
 @enumerate
+@cindex org view tags
+@cindex org tags
+@findex hsys-org-agenda-tags-p
 @item
-If on an Org todo keyword, cycle through the keywords in
+On an Org tag, call @code{hsys-org-agenda-tags-p} and an
+appropriate view tags function based on current directory or buffer
+name, matching to the tag.  If on a colon between tags, match to all
+tags on the line.
+
+@item
+On an Org todo keyword, cycle through the keywords in
 that set or if final done keyword, remove it.
 
 @item
-If on an Org agenda view item, jump to the item for editing.
+On an Org agenda view item, jump to the item for editing.
+
+@noindent
+When the Action Key is pressed and @code{hsys-org-enable-smart-keys}
+is either @samp{t} or @samp{'buttons}:
 
 @item
 Within a radio or internal target or a link to it, jump between
@@ -2357,6 +2375,15 @@ When the Assist Key is pressed, it behaves just like the Action Key
 except in these contexts:
 
 @enumerate
+@cindex org tags, consult grep
+@cindex consult grep org tags
+@findex hsys-consult-org-grep-tags-p
+@item
+On an Org tag, call @code{hsys-consult-org-grep-tags-p} and an
+appropriate consult grep function based on current directory or buffer
+name, prompting with and matching to the tag.  If on a colon between
+tags, prompt and match to all tags on the line.
+
 @item
 On an Org todo keyword, move to the first todo keyword in the next
 set, if any.
@@ -2928,7 +2955,7 @@ Recognize Action Buttons of the form @code{<hyperbole-run-test
 test-name>} which when activated run individual Hyperbole tests, each
 given by the @code{<test-name>} argument, an unquoted name.
 
-@finex ibtypes python-tb-previous-line ()
+@findex ibtypes python-tb-previous-line ()
 @cindex python traceback
 @cindex stack frame
 @item python-tb-previous-line
@@ -3518,7 +3545,7 @@ implicit button, only the explicit button will be selected.  Explicit
 button labels are not allowed to overlap; Hyperbole's behavior in such
 cases is undefined.
 
-@cindex ibtype, evaluation order
+@cindex ibtype priority
 If there is no explicit button at point during a selection request,
 then each implicit button type predicate is tested in turn until one
 returns non-nil or all are exhausted.  Since two implicit button types
@@ -7175,23 +7202,46 @@ same thing without any special definitions.
 @cindex ibtype
 @findex defib
 @findex ibtype:create
-An implicit button type is created or loaded via the @code{(defib)}
-function (which is an alias for @code{(ibtype:create)}).  The calling
-signature for this function is given in its documentation; it is the
-same as that of @code{(defun)}, but with a number of constraints.  The
-parameter list should always be empty since no parameters will be used.
-A documentation string is required; it is followed by the body of the
-type.
+@cindex ibtype predicate
+@cindex ibtype argument
+@cindex ibtype return val
+@cindex ibtype actype
+@cindex ibtype at-p
+An implicit button type is defined or updated via the @code{(defib)}
+macro (@code{ibtype:create} is alias for this).  It may be called just
+as @code{(defun)} is, but with a number of constraints.  The parameter
+list should always be empty since no parameters will be used.  A
+documentation string is required.  The last required form is the
+@code{at-p} predicate which when non-@samp{nil}, must do three things:
+@enumerate
+@item determine if there is a button at point that matches the type being defined;
+@item if so, call @code{ibut:set-label} to identify the label text of the button;
+@item if so, call @code{hact} to invoke the button's action, typically using the label.
+@end enumerate
 
-@cindex ibtype, predicate
-@cindex ibtype, argument
-@cindex ibtype, return val
-@cindex ibtype, actype
-The body of an implicit button type is a predicate which determines
-whether or not point is within an implicit button of the type.  If
-not, the predicate returns @samp{nil}.  If the type is delimited,
-Hyperbole automatically sets up to flash the button when activated.
-Action invocations have the form: @code{(hact 'actype &rest
+@findex ibut:label-set
+@cindex ibtype ibut:label-set
+The call to @code{ibut:label-set} may contain just the button's label
+argument or the label plus its start and end positions in the buffer,
+if you wnat the button to flash when pressed.
+
+@cindex ibtype hact
+The @code{hact} call, run whenever a button of the type is activated,
+must be the last expression within the @code{at-p} form unless the
+action itself ends with a call to @code{hact}.  This call will always
+return @samp{t} when the @code{at-p} form is tested for a boolean
+value since the implicit button type's check has already evaluated
+true before this is called.  The arguments to the call to @code{hact}
+are an action function and whatever arguments it takes.  The action
+may be a Hyperbole action type created with @code{defact} or a regular
+Emacs Lisp function.  However, the action should not return @samp{nil}
+since any @samp{nil} value returned is converted to @samp{t} to ensure
+the implicit button checker recognizes that the action has been
+executed.
+
+@cindex action
+@cindex ibtype action
+Action invocations have the form: @code{(hact actype &rest
 actype-arguments)} where @code{actype} is a Hyperbole action type
 symbol or an Emacs Lisp function name or lambda;
 @code{actype-arguments} are the arguments fed to the action invocation
@@ -7201,11 +7251,11 @@ It is imperative that all actions (non-predicate code) be invoked
 through the @code{(hact)} function or your ibtypes will not work
 properly.  (Hyperbole first tests to see if any ibtype matches the
 current context before activating any type, so it ensures that
-@code{(hact)} calls are disabled during this testing.)  Any action
+@code{(hact)} calls are disabled during this testing).  Any action
 types used in the definition of an implicit button type may be created
 before or after the definition, but obviously, must be defined before
-any implicit buttons of the given type are activated; an error will
-result, otherwise.
+any implicit buttons of the given type are activated or an error will
+result.
 
 If an implicit button type create is successful, the symbol that
 Hyperbole uses internally to reference the type is returned.  On
@@ -7214,6 +7264,21 @@ operation succeeds.  Implicit button type names and action type names
 may be the same without any conflict.  In fact, such naming is
 encouraged when an implicit button type is the exclusive user of an
 action type.
+
+@cindex ibtype priorities
+@cindex priority of ibtypes
+@cindex types, implicit button
+@findex hui:htype-help 'ibtypes
+@kindex C-h h i t
+When the Action Key is pressed, each implicit button type predicate is
+checked in priority order and the first one whose @code{at-p} form
+evaluates non-@samp{nil} is activated (its action is run using the
+button label at point).  The first time an implicit button type is
+defined, it becomes the highest priority type; repeated definitions of
+the same type update the type but do not change its priority order.
+@bkbd{C-h h i t @key{RET}} @code{(hui:htype-help 'ibtypes 'no-sort)}
+displays the doc strings for all current implicit button types in
+descending priority order.
 
 @findex ibtype:delete
 Call @code{(ibtype:delete)} to remove an implicit button type from a
@@ -7224,9 +7289,6 @@ by the implicit button; that must be done separately.
 
 @cindex ibtype, help
 @findex ibut:at-p
-@vindex class, hattr
-@vindex class, hbut
-@vindex file, hib-kbd.el
 By default, a request for help on an implicit button will display the
 button's attributes in the same manner as is done for explicit
 buttons.  For some implicit button types, other forms of help will be
@@ -7241,6 +7303,11 @@ context).  Remember that the standard help for buttons with custom
 help functions is still available with @bkbd{C-h A} for the Action Key
 and @bkbd{C-u C-h A} for the Assist Key.
 
+@vindex class, hattr
+@vindex class, hbut
+@cindex hbut class
+@cindex hattr class
+@vindex file, hib-kbd.el
 To programmatically query implicit buttons for their attributes, use
 the functions from the @samp{hbut} and @samp{hattr} classes.  See
 the @file{hib-kbd.el} file for an example of a custom help function.
@@ -7591,13 +7658,14 @@ An Emacs extension package that provides asynchronous search and narrow
 wrappers around common search commands like grep, ripgrep, find and
 locate.
 
-Hyperbole uses this package to provide convenience commands for line-oriented searches.
+Hyperbole uses this package to provide convenience commands for interactive,
+line-oriented searches.
 @table @kbd
 @item @{M-x hsys-org-roam-consult-grep @key{RET}@}
-Searches Org Roam notes in @code{org-roam-directory} with consult.
+Interactively searches Org Roam notes in @code{org-roam-directory} with consult.
 
 @item @{M-x hsys-org-consult-grep @key{RET}@}
-Searches Org notes in @code{org-directory} with consult.
+Interactively searches Org notes in @code{org-directory} with consult.
 @end table
 
 @item Context

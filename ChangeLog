@@ -1,4 +1,286 @@
+2024-07-06  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (org-id): Fix bug in older versions of Org where where
+    'org-uuid-regexp' was not bound.
+
+* hbut.el (ibut:create): Improved when err occurs in type to print the err before
+    triggering a backtrace when in batch mode.
+
+* man/hyperbole.texi (Implicit Button Types): smart-org add new Org tags view
+    handling and improve index entries.
+
+2024-07-05  Bob Weiner  <rsw@gnu.org>
+
+* hui-mouse.el   (smart-org): Update to handle when point is on Org tags and
+    then search for matching Org tags with 'hsys-org-agenda-tags-p'.
+    With Assist Key, instead prompt and search with consult grep functions
+    for appropriate tag matches via 'hsys-org-consult-grep-tags-p'.
+  hsys-org-roam.el (hsys-org-roam-tags-view): Add.
+  hsys-org.el (hsys-org--agenda-tags-string, hsys-org-agenda-tags-p,
+               hsys-org-get-agenda-tags, hsys-org-hywiki-agenda-tags,
+               hsys-org-agenda-tags, hsys-org-roam-agenda-tags,
+               hsys-org-tags-view):
+    Add to match to display matching Org tags, including inheritance, using Org
+    agendas.
+
+* hsys-org.el    (hsys-org-directory-at-tags-p,
+                  hsys-org-at-tags-p): Add.
+  hsys-org-roam.el (hsys-org-roam-directory-at-tags-p): Add.
+  hywiki.el      (hywiki-at-tags-p): Add.
+  hsys-consult.el (hsys-consult--grep-paths): Change to use "[ \t]*" instead of
+    "[ \t]+" so handles space afterwards included to support Orderless.
+                  (hsys-consult--org-match-tags-string,
+                   hsys-consult-org-grep-tags-p, hsys-consult-grep-tags,
+                   hsys-consult-hywiki-grep-tags, hsys-consult-org-grep-tags,
+                   hsys-consult-org-roam-grep-tags): Add to consult-grep based
+    on dir and buffer name.  Use in 'smart-org'.
+  hui-mouse.el    (smart-org): Update doc for above change.
+
+2024-07-04  Bob Weiner  <rsw@gnu.org>
+
+* hsys-consult.el: Add and move/rename hyrolo consult support functions to
+     hsys-consult functions in here so they can be used in other parts
+     of Hyperbole.
+  hyrolo.el (hyrolo-org-roam-call-function): Rename to
+    'hsys-consult-org-roam-call-function'.
+            (hyrolo-consult-org-roam-title): Rename to 'hsys-consult-org-roam-title'.
+            (hyrolo-consult-org-roam-grep): Rename to 'hsys-consult-org-roam-grep'.
+    And move all to "hsys-consult.el".
+  hywiki.el (hywiki-consult-grep): Rewrite to use 'hsys-consult-grep'.
+    and add optional arguments to allow more flexibility in usage.
+  hsys-org.el (hsys-org-consult-grep): Rewrite to use 'hsys-consult-grep'.
+    and add optional arguments to allow more flexibility in usage.
+              (hsys-org-consult-grep-func): Remove this customization;
+    'hsys-consult-grep' automatically selects the grep function to use.
+
+2024-07-03  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-grep-tags): Rename to 'hywiki-tags-view' to align with
+    Org command with similar name.
+
+2024-07-02  Bob Weiner  <rsw@gnu.org>
+
+* hsys-org.el (hsys-org-meta-return): Trigger an error if called in an Org
+    read-only buffer.
+
+* hibtypes.el (org-id): Tighten match to uuids only to prevent false matches, e.g.
+    if matching to any custom id, my-list-function-name would match as an id.
+
+* hywiki.el (require 'thingatpt): Add.
+
+2024-06-30  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:find-line): Allow line-num and col-num to be strings.
+  hibtypes.el (hib-link-to-file-line): Add to share among multiple grep
+    file ibtypes.
+  hibtypes.el (ipython-stack-frame, ripgrep-msg, grep-msg): Standardize
+    by using above new function.
+
+2024-06-30  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (internal-docker-all-tests-ert-output): Target for running all
+    tests using ert from within docker used by docker-all-tests.
+    (VERSIONS_VERSIONS): List of Emacs versions to run batch-tests and
+    all-tests to check same versions as the CI/CD run locally.
+    (docker-all-tests, docker-batch-tests): Targets for running
+    batch-tests and all-tests for all DOCKER_VERSIONS.
+    Update developer target documentation.
+
+2024-06-30  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (grep-msg): Fix bug where 'find-library-name' was called
+    on a non-Elisp library file and stripped its suffix and replaced it with
+    a different one; now uses only if file lacks a suffix or the suffix
+    matches one from 'get-load-suffixes'.  So "hyperbole.texi" will not lead
+    to a path ending in "hyperbole.el".
+
+* hbut.el (defib): Remove requirement for call to 'hact' since sometimes
+    the action includes this instead.
+
+* hibtypes.el (annot-bib, gnus-push-button, hyp-address, elink, glink, ilink,
+               python-tb-previous-line, debugger-source):
+    Add 'ibut:label-set' call.
+
+* man/hyperbole.texi (Programmatic Implicit Button Types): Expand doc on
+    'at-p' argument and explain its 'ibut:label-set' and 'hact' calls.
+
+* hib-kbd.el (kbd-key): Add support for key sequences in Texinfo mode.
+
+2024-06-29  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ibut:to-text): Add current ibtype to the error when lbl-key attr is nil.
+  hib-debbugs.el (debbugs-version-sufficient-p): Update to get version number
+    from either the package pathname or from "debbugs.el" or "debbugs-gnu.el".
+    Fixes bug where debbugs is installed bug not used so bug ibuts are not
+    active.
+          (defib debbugs-gnu-mode, defib debbugs-gnu-query): Add `ibut:label-set'
+    call.
+          (defib): Improve doc to mention requirement for call to 'ibut:label-set'.
+
+* test/hui-tests.el (hui-ebut-create-link-to-info-index-using-completion):
+    When finished, kill all *info*<#> buffers.
+
+* hui-em-but.el: Rename to "hproperty.el".
+
+* hui-em-but.el (hproperty:char-property-start, hproperty:char-property-end,
+                 hproperty:char-property-range, hproperty:overlay-range)
+                 hproperty:char-property-contains-p):
+    Add char-property and overlay utility functions and use in "hsys-org.el"
+    and "hsys-org-tests.el"; adds compatibility with Org mode 9.7 and earlier.
+
+2024-06-25  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (hynote): Add for Org and Org Roam links by name.
+  MANIFEST (hynote.el): Add.
+  Makefile (EL_COMPILE): Add hynote.el.
+
+* hynote.el (hynote-directory-list, hynote-find-file-stem): Add.
+
+* hbut.el (ibut:create): Add debugging to show the type name if an ibtype
+    evaluation fails.
+  hmouse-drv.el (hkey-execute, hkey-help): Change 'eval' to 'hypb:eval-debug'
+    to show a backtrace whenever an error occurs.
+
+2024-06-24  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (docker, docker-run, docker-update): Use simpler "docker" for
+    the docker targets. Make docker and docker-run depend on docker-update
+    to ensure we always use the latest version of the docker image.
+
+2024-06-23  Bob Weiner  <rsw@gnu.org>
+
+* hynote.el (hynote-get-files, hynote-get-file-stem-list, hynote-find-file,
+             hynote-file-stem-start-end-at):
+    Add these functions to find non-HyWikiWord files in `hywiki-directory' when
+    referenced by stem name, e.g. Action key on Non-Wiki-Word displays
+    Non-Wiki-Word.org.
+            (hynote-file): Add ibtype to display non-HyWikiWord files in
+    hywiki-directory'.
+
+* Makefile: (docker-run): Add to intweractively run docker versions
+    of Emacs with Hyperbole.  Update Commentary to summarize docker
+    targets that build, byte-compile and run Hyperbole.
+
+2024-06-22  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el
+    (hywiki-tests--get-page-list-when-new-wiki-directory): Verify cache is
+    empty for a new hywiki-directory.
+
+* Makefile (dockerized-update): Target to update (pull) the Emacs docker
+    image.
+    (dockererized): Copy source to docker so not local workspace is affected
+    when running targets in the docker environment.
+
+2024-06-22  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-org-mode): Fix Org mode breakage with Emacs 30 and Org 9.7
+    and up by removing internal variable ref in
+    'org-fold-core-set-folding-spec-property' call and using 'org-link symbol
+    instead.
+
+* hywiki.el (hywiki-active-in-current-buffer-p): Fix to highlight HyWikiWords
+    in 'kotl-mode' which is a special class buffer.
+            (Commentary): Update this documentation, focusing on use.
+
+2024-06-21  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-at): Fix to use 'hywiki-word-with-optional-section-regexp'
+    instead of 'hywiki-word-regexp' so handles sections properly.
+            (hywiki-word-highlight-flag): Improve documentation.
+	    (hywiki-get-page-file): Allow name to include 'hywiki-file-suffix'
+    for non-HyWikiWord files.  Also, rename to 'hywiki-get-file'.
+
+2024-06-20  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--at-wikiword-finds-word-and-section)
+    (hywiki-tests--maybe-at-wikiword-beginning, hywiki-tests--in-page-p)
+    (hywiki-tests--active-in-current-buffer-p)
+    (hywiki-tests--directory-get-mod-time)
+    (hywiki-tests--directory-modified-p, hywiki-tests--get-page-list)
+    (hywiki-tests--get-page-list-multiple-words): Add hywiki tests.
+
+2024-06-19  Bob Weiner  <rsw@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--face-property-for-wikiword-with-wikipage,
+                        hywiki-tests--no-face-property-for-no-wikipage): Basic
+    improvements.
+
+* hywiki.el (hywiki-highlight-page-name): Ensure either 'hywiki-mode'
+    or (hywiki-in-page-p) is true and not in the minibuffer.
+            (hywiki-buttonize-character-commands,
+             hywiki-buttonize-non-character-commands): Move most checks to
+    'hywiki-highlight-page-name'.
+            (hywiki-page-flag): Add as internal buffer-local flag set when
+    current buffer is a HyWiki page.
+            (hywiki-highlight-page-name): Rename all such prefixed functions to
+    'hywiki-maybe-highlight-page-name'.
+            (hywiki-active-in-current-buffer-p): Exclude minibuffer.
+	    (hywiki-maybe-highlight-page-name): Test with
+    'hywiki-active-in-current-buffer-p'.
+            (hywiki-dehighlight-page-names): Rename to
+    'hywiki-maybe-dehighlight-page-names'.
+            (hywiki-mode): Remove auto-HyWikiWord highlighting/dehighlighting from
+    the minor mode and associate it with the setting of 'hywiki-word-highlight-flag'
+    so that the same hooks can be used for HyWikiWord page highlighting as are used
+    in all buffers when 'hywiki-mode' is enabled.
+            (defib hywiki-word):
+            (hywiki-find-page): Move call of (hywiki-maybe-highlight-page-name t)
+    here from the defib since may need to create the page before highlighting will
+    work properly.
+            (hywiki-maybe-highlight-page-name): Skip back over buttonize-chars only
+    when 'on-page-name' is nil.  Also, remove sanity check line which fails when
+    called from control-key cmds like C-o (open-line):
+      (eq (char-before) last-command-event) ;; Sanity check
+            (hywiki-word-at): Fix doc to explain when this returns non-nil.
+            (hywiki-maybe-highlight-page-names): Fix setting of hywiki--start/end
+    and prevent infinite looping due to wrong positions.
+            (hywiki-word-highlight-flag-changed): Fix remove-hook from
+    'post-command-hook' to remove the correct function.
+
+2024-06-17  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-mode): Require 'hyperbole.
+            (find-file-hook): Remove 'hywiki-find-page hook and just highlight when
+    any frame window changes what buffer it displays.
+            (hywiki-buttonize-character-commands,
+             hywiki-buttonize-non-character-commands): Do this only if not in an
+    active minibuffer window.
+
+2024-06-16  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki--buttonize-characters): Remove setting from `hywiki-mode' and
+    set when hywiki library is loaded.
+            (hywiki--word-and-buttonize-character-regexp): Add.
+	    (hywiki-highlight-page-name, hywiki-word-at,
+	     hywiki-highlight-page-names) Use above regexp.
+            (hywiki--buttonize-character-regexp): Add and use in
+    'hywiki--word-and-buttonize-character-regexp'.
+
+2024-06-09  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-highlight-flag-changed): Disable 'hywiki-mode'
+    when disabling this global flag.
+            (hywiki-at-wikiword): Rename to 'hywiki-word-at' for consistency.
+	    (hywiki-mode): When enabling, enable `hywiki-word-highlight-flag' too.
+	    (hywiki-word-with-optional-section-exact-regexp): Fix doc to reflect
+    that regexp allows spaces and tabs.
+            (hywiki-buffer-highlighted-state): Add to skip HyWikiWord highlighting/
+    dehighlighting per buffer if already done.  Set it in
+    'hywiki-maybe-highlight-page-names' and 'hywiki-maybe-dehighlight-page-names'.
+
+2024-06-08  Bob Weiner  <rsw@gnu.org>
+
+* hypb.el (hypb:split-seq-into-sublists): Add for use with hywiki.
+
+* hywiki.el (hywiki-grep-tags): Fix so `org-redo-cmd' works properly.
+
 2024-06-02  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki--pages-directory): Add to track changes in
+    'hywiki-directory'.
+    (hywiki-make-pages-hasht, hywiki-get-page-hasht): Use above new
+    variable to rebuild hash table whenever directory changes.
 
 * hyperbole.el (hyperbole--disable-mode): Add disabling of 'hywiki-mode'.
 

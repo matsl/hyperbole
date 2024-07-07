@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 20:45:31
-;; Last-Mod:     25-May-24 at 10:11:05 by Bob Weiner
+;; Last-Mod:      6-Jul-24 at 01:43:04 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -42,7 +42,8 @@
 (eval-when-compile (require 'hversion))
 (require 'hactypes)
 (require 'hypb)
-(require 'subr-x) ;; For string-trim
+(require 'org-macs) ;; for org-uuid-regexp
+(require 'subr-x) ;; for string-trim
 (require 'thingatpt)
 
 ;;; ************************************************************************
@@ -91,7 +92,13 @@
 ;; ibtype priorities.
 
 ;;; ========================================================================
-;;; Creates and display personal wiki pages with auto-wikiword links
+;;; Displays Org and Org Roam files and sections by name link
+;;; ========================================================================
+
+(load "hynote")
+
+;;; ========================================================================
+;;; Creates and displays personal wiki pages and sections with auto-wikiword links
 ;;; ========================================================================
 
 (load "hywiki")
@@ -107,8 +114,7 @@ reference line so since not on a Hyperbole button, move back a
 line and check for a source reference line again."
   (save-excursion
     (unless (/= (forward-line -1) 0)
-      ;; Don't wrap this next line in (hact) since has hact call
-      ;; in the function itself.
+      (ibut:label-set "temp") ;; Real value set in action call below
       (hib-python-traceback))))
 
 ;;; ========================================================================
@@ -129,9 +135,10 @@ line and check for a source reference line again."
 ;;; ========================================================================
 
 (defib org-id ()
-  "Display Org roam or Org node referenced by id at point, if any.
-If on the :ID: definition line, display a message about how to copy the id.
-If the referenced location is found, return non-nil."
+  "Display Org roam or Org node referenced by uuid at point, if any.
+If on the :ID: definition line, display a message about how to copy the uuid.
+If the referenced location is found, return non-nil.  Match to uuids
+only to prevent false matches."
   (when (featurep 'org-id)
     (let* ((id (thing-at-point 'symbol t)) ;; Could be a uuid or some other form of id
            (bounds (when id (bounds-of-thing-at-point 'symbol)))
@@ -139,7 +146,9 @@ If the referenced location is found, return non-nil."
 	   (end   (when bounds (cdr bounds)))
 	   m)
       ;; Ignore ID definitions or when not on a possible ID
-      (when (and id (string-match "\\`[:alnum:][-[:alnum:]:.@]+\\'" id))
+      (when (and id (if (fboundp 'org-uuidgen-p)
+			(org-uuidgen-p id)
+		      (string-match org-uuid-regexp (downcase id))))
 	(when (and start end)
 	  (ibut:label-set id start end))
 	(if (and (not assist-flag)
@@ -228,7 +237,7 @@ in all buffers."
     (let ((address (mail-address-at-p)))
       (when address
         (ibut:label-set address (match-beginning 1) (match-end 1))
-        (hact 'mail-other-window nil address)))))
+        (hact 'compose-mail-other-window address)))))
 
 ;;; ========================================================================
 ;;; Displays files and directories when a valid pathname is activated.
@@ -368,14 +377,16 @@ attached file."
        (not (apply #'derived-mode-p '(prog-mode c-mode objc-mode c++-mode java-mode markdown-mode org-mode)))
        (unless (ibut:label-p t "[[" "]]" t) ;; Org link
 	 (let ((ref (hattr:get 'hbut:current 'lbl-key))
-	       (lbl-start (hattr:get 'hbut:current 'lbl-start)))
+	       (lbl-start (hattr:get 'hbut:current 'lbl-start))
+	       lbl-start-end)
            (and ref
 		lbl-start
 		(eq ?w (char-syntax (aref ref 0)))
 		(not (string-match "[#@]" ref))
 		(save-excursion
 		  (goto-char lbl-start)
-		  (ibut:label-p t "[" "]" t))
+		  (setq lbl-start-end (ibut:label-p t "[" "]" t)))
+		(apply #'ibut:label-set lbl-start-end)
 		(hact 'annot-bib ref))))))
 
 ;;; ========================================================================
@@ -818,7 +829,9 @@ context of the current buffer.
 Recognizes the format '<elink:' button_label [':' button_file_path] '>',
 where : button_file_path is given only when the link is to another file,
 e.g. <elink: project-list: ~/projs>."
-  (hlink 'link-to-ebut "" elink:start elink:end))
+  (progn
+    (ibut:label-set "temp") ;; Real value set in action call below
+    (hlink 'link-to-ebut "" elink:start elink:end)))
 
 (defconst glink:start "<glink:"
   "String matching the start of a link to a Hyperbole global button.")
@@ -832,7 +845,9 @@ of the current buffer.
 
 Recognizes the format '<glink:' button_label '>',
 e.g. <glink: open todos>."
-  (hlink 'link-to-gbut "" glink:start glink:end))
+  (progn
+    (ibut:label-set "temp") ;; Real value set in action call below
+    (hlink 'link-to-gbut "" glink:start glink:end)))
 
 (defconst ilink:start "<ilink:"
   "String matching the start of a link to a Hyperbole implicit button.")
@@ -847,7 +862,9 @@ current buffer.
 Recognizes the format '<ilink:' button_label [':' button_file_path] '>',
 where button_file_path is given only when the link is to another file,
 e.g. <ilink: my series of keys: ${hyperb:dir}/HYPB>."
-  (hlink 'link-to-ibut "" ilink:start ilink:end))
+  (progn
+    (ibut:label-set "temp") ;; Real value set in action call below
+    (hlink 'link-to-ibut "" ilink:start ilink:end)))
 
 ;;; ========================================================================
 ;;; Displays files at specific lines and optional column number
@@ -886,6 +903,29 @@ See `hpath:find' function documentation for special file display options."
 ;;; compilation errors or HyRolo stuck position error messages.
 ;;; ========================================================================
 
+(defun hib-link-to-file-line (file line-num)
+  "Expand FILE and jump to its LINE-NUM in Hyperbole specified window.
+The variable `hpath:display-where' determines where to display the file.
+LINE-NUM may be an integer or string."
+  ;; RSW 12-05-2021 - Added hpath:expand in next line to
+  ;; resolve any variables in the path before checking if absolute.
+  (let ((source-loc (unless (file-name-absolute-p (hpath:expand file))
+                      (hbut:to-key-src t)))
+	ext)
+    (if (stringp source-loc)
+        (setq file (expand-file-name file (file-name-directory source-loc)))
+      (setq file (or (hpath:prepend-shell-directory file)
+		     ;; find-library-name will strip file
+		     ;; suffixes, so use it only when the file
+		     ;; either doesn't have a suffix or has a
+		     ;; library suffix.
+		     (and (or (null (setq ext (file-name-extension file)))
+			      (member (concat "." ext) (get-load-suffixes)))
+			  (ignore-errors (find-library-name file)))
+		     (expand-file-name file))))
+    (when (file-exists-p file)
+      (actypes::link-to-file-line file line-num))))
+
 (defib ipython-stack-frame ()
   "Jump to the line associated with an ipython stack frame line numbered msg.
 ipython outputs each pathname once followed by all matching lines
@@ -918,15 +958,8 @@ than a helm completion buffer)."
                       (not (re-search-forward " in " nil (line-end-position)))
                       (and (setq file (buffer-substring-no-properties (line-beginning-position) (match-beginning 0)))
                            (string-empty-p (string-trim file))))
-            (let* ((but-label (concat file ":" line-num))
-                   (source-loc (unless (file-name-absolute-p file)
-                                 (hbut:to-key-src t))))
-              (when (stringp source-loc)
-                (setq file (expand-file-name file (file-name-directory source-loc))))
-              (when (file-readable-p file)
-                (setq line-num (string-to-number line-num))
-                (ibut:label-set but-label)
-                (hact 'link-to-file-line file line-num)))))))))
+	    (ibut:label-set (concat file ":" line-num))
+	    (hact 'hib-link-to-file-line file line-num)))))))
 
 (defib ripgrep-msg ()
   "Jump to the line associated with a ripgrep (rg) line numbered msg.
@@ -961,18 +994,8 @@ than a helm completion buffer)."
           (unless (or (looking-at "[1-9][0-9]*[-:]\\|--$")
                       (and (setq file (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
                            (string-empty-p (string-trim file))))
-            (let* ((but-label (concat file ":" line-num))
-		   ;; RSW 12-05-2021 - Added hpath:expand in next line to
-		   ;; resolve any variables in the path before checking if absolute.
-		   (source-loc (unless (file-name-absolute-p (hpath:expand file))
-                                 (hbut:to-key-src t))))
-              (if (stringp source-loc)
-                  (setq file (expand-file-name file (file-name-directory source-loc)))
-		(setq file (or (hpath:prepend-shell-directory file) file)))
-              (when (file-readable-p file)
-                (setq line-num (string-to-number line-num))
-                (ibut:label-set but-label)
-                (hact 'link-to-file-line file line-num)))))))))
+	    (ibut:label-set (concat file ":" line-num))
+	    (hact 'hib-link-to-file-line file line-num)))))))
 
 (defib hyrolo-stuck-msg ()
   "Jump to the position where a HyRolo search has become stuck from the error.
@@ -1042,21 +1065,9 @@ in grep and shell buffers."
              (and (string-match "grep\\|shell" (buffer-name))
                   (looking-at "\\([^ \t\n\r:\"'`]+\\)-\\([1-9][0-9]*\\)-")))
         (let* ((file (match-string-no-properties 1))
-               (line-num  (or (match-string-no-properties 2) "1"))
-               (but-label (concat file ":" line-num))
-	       ;; RSW 12-05-2021 - Added hpath:expand in next line to
-	       ;; resolve any variables in the path before checking if absolute.
-               (source-loc (unless (file-name-absolute-p (hpath:expand file))
-                             (hbut:to-key-src t))))
-          (if (stringp source-loc)
-              (setq file (expand-file-name file (file-name-directory source-loc)))
-	    (setq file (or (hpath:prepend-shell-directory file)
-			   (ignore-errors (find-library-name file))
-			   (expand-file-name file))))
-	  (when (file-exists-p file)
-            (setq line-num (string-to-number line-num))
-            (ibut:label-set but-label)
-            (hact 'link-to-file-line file line-num)))))))
+               (line-num  (or (match-string-no-properties 2) "1")))
+	  (ibut:label-set (concat file ":" line-num))
+	  (hact 'hib-link-to-file-line file line-num))))))
 
 ;;; ========================================================================
 ;;; Jumps to source line associated with debugger stack frame or breakpoint
@@ -1082,9 +1093,8 @@ xdb.  Such lines are recognized in any buffer."
     (beginning-of-line)
     (cond
      ;; Python pdb or traceback, pytype error
-     ;; Don't wrap this next line in (hact) since has hact call
-     ;; in the function itself.
-     ((hib-python-traceback))
+     ((progn (ibut:label-set "temp") ;; Real value set in action call below
+	     (hib-python-traceback)))
 
      ;; JavaScript traceback
      ((or (looking-at "[a-zA-Z0-9-:.()? ]+? +at \\([^() \t]+\\) (\\([^:, \t()]+\\):\\([0-9]+\\):\\([0-9]+\\))$")
@@ -1378,9 +1388,15 @@ documentation string is displayed."
   "Activate GNUS-specific article push-buttons, e.g. for hiding signatures.
 GNUS is a news and mail reader."
   (and (fboundp 'get-text-property)
-       (get-text-property (point) 'gnus-callback)
        (fboundp 'gnus-article-press-button)
-       (hact 'gnus-article-press-button)))
+       (get-text-property (point) 'gnus-callback)
+       (let* ((but (button-at (point)))
+	      (but-start (when but (button-start but)))
+	      (but-end (when but (button-end but))))
+	 (when but
+	   (ibut:label-set (buffer-substring-no-properties but-start but-end)
+			   but-start but-end)
+	   (hact 'gnus-article-press-button)))))
 
 ;;; ========================================================================
 ;;; Displays Info nodes when double quoted "(file)node" button is activated.
@@ -1428,11 +1444,13 @@ also the documentation for `actypes::hyp-config'.
 For example, an Action Mouse Key click on <hyperbole-users@gnu.org> in
 a mail composer window would activate this implicit button type."
   (when (memq major-mode (list 'mail-mode hmail:composer hnews:composer))
-    (let ((addr (thing-at-point 'email)))
+    (let ((addr (thing-at-point 'email t)))
       (cond ((null addr) nil)
             ((member addr '("hyperbole" "hyperbole-users@gnu.org" "bug-hyperbole@gnu.org"))
+	     (ibut:label-set addr)
              (hact 'hyp-config))
             ((string-match "\\(hyperbole\\|hyperbole-users@gnu\\.org\\|bug-hyperbole@gnu\\.org\\)\\(-\\(join\\|leave\\|owner\\)\\)" addr)
+	     (ibut:label-set addr)
              (hact 'hyp-request))))))
 
 ;;; ========================================================================
@@ -1568,6 +1586,7 @@ action type, function symbol to call or test to execute, i.e.
 		       args `(',action)))))
 
 	;; Create implicit button object and store in symbol hbut:current.
+	(ibut:label-set lbl)
 	(ibut:create :lbl-key lbl-key :lbl-start start-pos :lbl-end end-pos
 		     :categ 'ibtypes::action :actype actype :args args)
 

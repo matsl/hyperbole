@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    18-Sep-91 at 02:57:09
-;; Last-Mod:     22-Jun-24 at 22:50:10 by Mats Lidell
+;; Last-Mod:     17-Aug-24 at 15:09:52 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -368,7 +368,7 @@ Autoloads action function if need be to get the parameter list."
 	   (action:params-emacs action)))
 	((symbolp action)
 	 (car (cdr (and (fboundp action) (hypb:indirect-function action)))))
-	((and (fboundp #'closurep) (closurep action))
+	((and (fboundp 'closurep) (closurep action))
 	 (aref action 0))))
 
 (defun action:param-list (action)
@@ -384,7 +384,12 @@ Autoloads action function if need be to get the parameter list."
 
 (defun hact (&rest args)
   "Perform action formed from rest of ARGS and return the result.
-The value of `hrule:action' determines what effect this has.
+The value of `hrule:action' determines what effect this has.  The
+default for `hrule:action' is `actype:act' which returns the
+result of the action unless it is nil, in which case t is
+returned instead, to ensure that implicit button types register
+the performance of the action.
+
 Alternatively act as a no-op when testing implicit button type contexts.
 First arg may be a symbol or symbol name for either an action type or a
 function.  Runs `action-act-hook' before performing action."
@@ -414,7 +419,7 @@ performing ACTION."
 	   (setq args (hpath:absolute-arguments actype args)))
       (let ((hist-elt (hhist:element)))
 	(run-hooks 'action-act-hook)
-	(prog1 (or (when (and (fboundp #'closurep) (closurep action))
+	(prog1 (or (when (and (fboundp 'closurep) (closurep action))
 			 (apply action args))
 		   (if (or (symbolp action) (listp action)
 			   (byte-code-function-p action)

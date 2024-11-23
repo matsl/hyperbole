@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Nov-91 at 00:44:23
-;; Last-Mod:     30-Jun-24 at 17:09:25 by Bob Weiner
+;; Last-Mod:     18-Nov-24 at 20:16:58 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -554,7 +554,7 @@ Used only if the function `image-mode' is defined."
 ;; link is later resolved.
 ;;
 (defcustom hpath:variables
-  '(hyperb:dir load-path exec-path Info-directory-list sm-directory)
+  '(hyperb:dir hywiki-directory load-path exec-path Info-directory-list sm-directory)
   "*List of Emacs Lisp variable symbols to substitute within matching link paths.
 Each variable value, if bound, must be either a pathname or a list of pathnames.
 When embedded within a path, the format is ${variable}."
@@ -940,14 +940,16 @@ if (hpath:remote-available-p) returns nil."
 
 (defun hpath:at-p (&optional type non-exist)
   "Return delimited path or non-delimited remote path at point, if any.
-Path is expanded and normalized.  World-Wide Web urls are ignored
-and therefore dealt with by other code.  Delimiters may be:
-double quotes, open and close single quote, whitespace, or
-Texinfo file references.  If optional TYPE is the symbol \\='file or
-\\='directory, then only that path type is accepted as a match.
-Only locally reachable paths are checked for existence.  With
-optional NON-EXIST, nonexistent local paths are allowed.
-Absolute pathnames must begin with a `/' or `~'."
+Path is expanded and normalized.  See `hpath:is-p' for how the path
+is normalized.
+
+World-Wide Web urls are ignored and therefore dealt with by other
+code.  Delimiters may be: double quotes, open and close single
+quote, whitespace, or Texinfo file references.  If optional TYPE
+is the symbol \\='file or \\='directory, then only that path type
+is accepted as a match.  Only locally reachable paths are checked
+for existence.  With optional NON-EXIST, nonexistent local paths
+are allowed.  Absolute pathnames must begin with a `/' or `~'."
   (let ((path (hpath:delimited-possible-path non-exist))
 	subpath)
     (when path
@@ -1063,7 +1065,7 @@ Make any existing path within a file buffer absolute before returning."
 			;; match to in-file #anchor references
 			(string-match "\\`#[^+\'\"<>#]+\\'" path))
 		   (setq path (concat mode-prefix buffer-file-name path)))
-		  ((string-match "\\`\\([^#]+\\)\\(#[^#+]*\\)\\'" path)
+		  ((string-match "\\`\\([^#]+\\)\\(#[^#+]*.*\\)\\'" path)
 		   ;; file and #anchor reference
 		   (setq suffix (match-string 2 path)
 			 path (match-string 1 path))
@@ -1085,7 +1087,8 @@ Make any existing path within a file buffer absolute before returning."
 			   (file-name-absolute-p expanded-path) ;; absolute path
 			   (string-match-p hpath:variable-regexp expanded-path) ;; path with var
 			   (string-match-p "\\`([^\):]+)" expanded-path)))) ;; Info node
-	  (when (or non-exist (file-exists-p expanded-path))
+	  (when (or non-exist (file-exists-p expanded-path)
+		    (string-match-p ".+\\.info\\([.#]\\|\\'\\)" expanded-path))
 	    (concat prefix mode-prefix expanded-path suffix)))))))
 
 (defun hpath:is-path-variable-p (path-var)
@@ -1264,31 +1267,39 @@ only if it exists, otherwise, return nil."
 	(unless exists-flag
 	  path)))))
 
-(defun hpath:expand-list (paths &optional match-regexp exists-flag)
+(defun hpath:expand-list (paths &optional match-regexp filter)
   "Return expansions of PATHS, a list of dirs or wildcarded file patterns.
 PATHS expansion recursively walks directory trees to include
 files with names matching optional MATCH-REGEXP (otherwise, all
-files), filters out non-strings and non-existent filenames when
-optional EXISTS-FLAG is non-nil, expands file wildcards when
+files), filters out non-strings and any filenames not matching the
+optional predicate FILTER, expands file wildcards when
 `find-file-wildcards' is non-nil (the default), substitutes for
 multiple $var environment variables, and substitutes up to one
 ${variable} per path."
-  (mapcan (lambda (path)
-	    (setq path (hpath:expand path exists-flag))
-	    (when (setq path (or (when (and path find-file-wildcards)
-				   (file-expand-wildcards path))
-				 (if exists-flag
-				     (when (and path (file-exists-p path))
-				       (list path))
-				   (list path))))
-	      (if (= (length path) 1)
-		  (setq path (car path))
-		(setq paths (nconc (cdr path) paths)
-		      path (car path)))
-	      (if (and path (file-directory-p path))
-		  (directory-files-recursively path (or match-regexp ""))
-		(list path))))
-	  (seq-filter #'stringp paths)))
+  ;; Previously `filter' was a flag which when t, invoked
+  ;; `file-exists-p'; maintain this backward compatibility.
+  (when (eq filter t) (setq filter #'file-exists-p))
+
+  (setq paths (mapcan (lambda (path-pat-or-list)
+			(setq path-pat-or-list (hpath:expand path-pat-or-list filter))
+			(when (setq path-pat-or-list
+				    (or (when (and path-pat-or-list find-file-wildcards)
+					  (file-expand-wildcards path-pat-or-list))
+					(if filter
+					    (when (and path-pat-or-list (funcall filter path-pat-or-list))
+					      (list path-pat-or-list))
+					  (list path-pat-or-list))))
+			  (if (= (length path-pat-or-list) 1)
+			      (setq path-pat-or-list (car path-pat-or-list))
+			    (setq paths (nconc (cdr path-pat-or-list) paths)
+				  path-pat-or-list (car path-pat-or-list)))
+			  (if (and path-pat-or-list (file-directory-p path-pat-or-list))
+			      (directory-files-recursively path-pat-or-list (or match-regexp ""))
+			    (list path-pat-or-list))))
+		      (seq-filter #'stringp paths)))
+  (if filter
+      (seq-filter filter paths)
+    paths))
 
 (defun hpath:prepend-shell-directory (&optional filename)
   "Prepend subdir to a filename in an \\='ls'-file listing.
@@ -1420,10 +1431,9 @@ PATHNAME may start with a special prefix character that is handled as follows:
 
 If PATHNAME does not start with a prefix character:
 
-  it may be followed by a hash-style link reference to HTML, XML,
-  SGML, shell script comment, Markdown or Emacs outline headings
-  of the form, <file>#<anchor-name>, e.g. \"~/.bashrc#Alias
-  Section\";
+  it may be followed by a hash-style link reference to Org, HTML, XML,
+  SGML, shell script comment, Markdown or Emacs outline headings of the
+  form, <file>#<anchor-name>, e.g. \"~/.bashrc#Alias Section\";
 
   it may end with a line number (starts from 1) and optional column number
   (starts from 0) to which to go, of the form,
@@ -1820,6 +1830,7 @@ form is what is returned for PATH."
 							  (or
 							   ;; Info or remote path, so don't check for.
 							   (string-match-p "[()]" path)
+							   (string-match-p ".+\\.info\\([.#]\\|\\'\\)" path)
 							   (hpath:remote-p path)
 							   (setq suffix (hpath:exists-p path t))
 							   ;; Don't allow spaces in non-existent pathnames
@@ -2015,12 +2026,25 @@ prior to calling this function."
 	  (error ""))
       var-group)))
 
-(defun hpath:shorten (path)
-  "Shorten and return a PATH.
+(defun hpath:shorten (path &optional relative-to)
+  "Shorten and return a PATH optionally RELATIVE-TO other path.
+If RELATIVE-TO is omitted or nil, set it to `default-directory'.
 Replace Emacs Lisp variables and environment variables (format of
 ${var}) with their values in PATH.  The first matching value for
 variables like `${PATH}' is used.  Then abbreviate any remaining
 path."
+  (setq path (expand-file-name (hpath:substitute-value path)))
+  (unless relative-to
+    (setq relative-to default-directory))
+  (when (stringp relative-to)
+    (setq relative-to (expand-file-name
+		       (hpath:substitute-value relative-to))
+	  path
+	  (cond ((string-equal path relative-to)
+		 "")
+		((string-equal (file-name-directory path) relative-to)
+		 (file-name-nondirectory path))
+		(t (hpath:relative-to path relative-to)))))
   (hpath:abbreviate-file-name (hpath:substitute-var path)))
 
 (defun hpath:substitute-value (path)
@@ -2154,6 +2178,15 @@ Return LINKNAME unchanged if it is not a symbolic link but is a pathname."
 	 (not (eq (aref referent 0) ?/))
 	 (setq referent (expand-file-name referent dirname))))
   referent)
+
+(defun hpath:to-Info-ref (path)
+  "Reformat Info PATH \"file.info#ref\" into \"(file)ref\" format.
+Leave any other format unchanged and return the resulting path."
+  (if (string-match "\\(.+\\)\\.info\\(-[0-9]+\\)?\\(\\.gz\\|\\.Z\\|-z\\)?\\(#\\(.+\\)\\)?\\'" path)
+      (format "(%s)%s"
+	      (match-string 1 path)
+	      (or (match-string 5 path) ""))
+    path))
 
 (defun hpath:to-line (line-num)
   "Move point to the start of an absolute LINE-NUM or the last line.

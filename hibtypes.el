@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 20:45:31
-;; Last-Mod:      6-Jul-24 at 01:43:04 by Bob Weiner
+;; Last-Mod:     13-Nov-24 at 13:08:00 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -50,36 +50,36 @@
 ;;; Public declarations
 ;;; ************************************************************************
 
-(declare-function markdown-footnote-goto-text "ext:markdown")
-(declare-function markdown-footnote-marker-positions "ext:markdown")
-(declare-function markdown-footnote-return "ext:markdown")
-(declare-function markdown-link-p "ext:markdown")
-(declare-function markdown-link-url "ext:markdown")
-(declare-function markdown-reference-goto-definition "ext:markdown")
-(declare-function markdown-reference-goto-link "ext:markdown")
-(declare-function markdown-wiki-link-p "ext:markdown")
-(declare-function markdown-footnote-text-positions "ext:markdown")
-(declare-function org-roam-id-find "ext:org-roam")
+(defvar cscope-output-line-regexp)
+(defvar id-cflow-repeated-indicator)
 (defvar markdown-regex-link-reference)
 (defvar markdown-regex-reference-definition)
-
-(defvar id-cflow-repeated-indicator)
-
-(defvar cscope-output-line-regexp)
+(defvar org-uuid-regexp)
 
 (declare-function actype:eval "hact")
 (declare-function actype:identity "hact")
+(declare-function ert-test-boundp "ert")
 (declare-function hact "hact")
 (declare-function hpath:display-buffer "hpath")
 (declare-function htype:def-symbol "hact")
 (declare-function hui:help-ebut-highlight "hui")
 (declare-function hyperb:stack-frame "hversion")
+(declare-function hyrolo-get-file-list "hyrolo")
+(declare-function hywiki-get-singular-page-name "hywiki")
+(declare-function hywiki-page-exists-p "hywiki")
+(declare-function markdown-footnote-goto-text "ext:markdown")
+(declare-function markdown-footnote-marker-positions "ext:markdown")
+(declare-function markdown-footnote-return "ext:markdown")
+(declare-function markdown-footnote-text-positions "ext:markdown")
+(declare-function markdown-link-p "ext:markdown")
+(declare-function markdown-link-url "ext:markdown")
+(declare-function markdown-reference-goto-definition "ext:markdown")
+(declare-function markdown-reference-goto-link "ext:markdown")
+(declare-function markdown-wiki-link-p "ext:markdown")
+(declare-function org-roam-id-find "ext:org-roam")
 (declare-function set:member "set")
 (declare-function symset:add "hact")
 (declare-function symtable:add "hact")
-
-(declare-function hyrolo-get-file-list "hyrolo")
-(declare-function ert-test-boundp "ert")
 
 ;;; ************************************************************************
 ;;; Public implicit button types
@@ -280,84 +280,131 @@ display options."
 	   (path (hpath:at-p))
 	   elisp-suffix
            full-path)
-      (if path
-	  (cond ((and (not (string-empty-p path))
- 		      (= (aref path 0) ?-)
-		      (or (setq elisp-suffix (string-match "\\`[^\\\\/~]+\\.el[cn]?\\(\\.gz\\)?\\'" path))
-			  (string-match "\\`[^.\\/\t\n\r\f]+\\'" path))
-		      (string-match hpath:prefix-regexp path))
-                 (setq path (substring path (match-end 0))
-		       full-path (locate-library path elisp-suffix))
-                 (cond (full-path
-			(setq path (concat "-" path))
-			(apply #'ibut:label-set orig-path (hpath:start-end orig-path))
-			(hact 'hpath:find path))
-		       (elisp-suffix
-			(hact 'error "(pathname): \"%s\" not found in `load-path'" path))
-		       ;; Don't match as a pathname ibut; could be a Lisp
-		       ;; symbol or something else starting with a '-'.
-		       (t nil)))
-		(t (when (string-match "\\`file://" path)
-                     (setq path (substring path (match-end 0))))
-		   (if (or (> (cl-count ?: orig-path) 2)
-			   (> (cl-count ?\; orig-path) 2))
-		       ;; PATH-like set of values; select just the one point is on
-                       (apply #'ibut:label-set path (hpath:start-end path))
-		     ;; Otherwise, use the unchanged orig-path
-                     (apply #'ibut:label-set orig-path (hpath:start-end orig-path)))
-                   (hact 'link-to-file path)))
-        ;;
-        ;; Match PATH-related Environment and Lisp variable names and
-	;; Emacs Lisp and Info files without any directory component.
-        (when (setq path orig-path)
-          (cond ((and (string-match hpath:path-variable-regexp path)
-		      (setq path (match-string-no-properties 1 path))
-		      (hpath:is-path-variable-p path))
-		 (setq path (if (or assist-flag (hyperb:stack-frame '(hkey-help)))
-				path
-			      (hpath:choose-from-path-variable path "Display")))
-		 (unless (or (null path) (string-blank-p path)
-			     ;; Could be a shell command from a semicolon
-			     ;; separated list; ignore if so.
-			     (and (string-match "\\`\\s-*\\([^; 	]+\\)" path)
-				  (executable-find (match-string-no-properties 1 path))))
-                   (apply #'ibut:label-set path (hpath:start-end path))
-		   (hact 'link-to-file path)))
-		((setq elisp-suffix (string-match "\\`[^\\\\/~]+\\.el[cn]?\\(\\.gz\\)?\\'" path))
-                 (cond ((string-match hpath:prefix-regexp path)
-			(apply #'ibut:label-set path (hpath:start-end path))
-			(hact 'hpath:find path))
-                       ((setq full-path
-			      (let ((load-suffixes '(".el")))
-				(locate-library path elisp-suffix)))
-			(apply #'ibut:label-set orig-path (hpath:start-end orig-path))
-			(hact 'link-to-file full-path))
-		       (elisp-suffix
-			(hact 'error "(pathname): \"%s\" not found in `load-path'" path))
-		       ;; Don't match as a pathname ibut; could be a Lisp
-		       ;; symbol or something else starting with a '-'.
-		       (t nil)))
-                ;; Match only if "(filename)" references a valid Info file
-                ;; and point is within the filename, not on any delimiters
-                ;; so that delimited thing matches trigger later.
-                ((and (not (looking-at "[\"()]"))
-                      (string-match "\\`(\\([^ \t\n\r\f]+\\))\\'" path)
-                      (save-match-data (require 'info))
-                      (Info-find-file (match-string-no-properties 1 path) t))
-                 (apply #'ibut:label-set orig-path (hpath:start-end orig-path))
-                 (hact 'link-to-Info-node (format "%sTop" path)))
-                ((string-match hpath:info-suffix path)
-                 (apply #'ibut:label-set orig-path (hpath:start-end orig-path))
-                 (hact 'link-to-Info-node (format "(%s)Top" path)))
-                ;; Otherwise, fall through and allow other implicit
-                ;; button types to handle this context.
-                ))))))
+      ;; If an Info path without parens, don't handle it here, use the
+      ;; `Info-node' ibtype
+      (unless (and path (string-match-p ".+\\.info\\([.#]\\|\\'\\)" path))
+	(if path
+	    (cond ((and (not (string-empty-p path))
+ 			(= (aref path 0) ?-)
+			(or (setq elisp-suffix (string-match "\\`[^\\\\/~]+\\.el[cn]?\\(\\.gz\\)?\\'" path))
+			    (string-match "\\`[^.\\/\t\n\r\f]+\\'" path))
+			(string-match hpath:prefix-regexp path))
+                   (setq path (substring path (match-end 0))
+			 full-path (locate-library path elisp-suffix))
+                   (cond (full-path
+			  (setq path (concat "-" path))
+			  (apply #'ibut:label-set orig-path (hpath:start-end orig-path))
+			  (hact 'hpath:find path))
+			 (elisp-suffix
+			  (hact 'error "(pathname): \"%s\" not found in `load-path'" path))
+			 ;; Don't match as a pathname ibut; could be a Lisp
+			 ;; symbol or something else starting with a '-'.
+			 (t nil)))
+		  (t (when (string-match "\\`file://" path)
+                       (setq path (substring path (match-end 0))))
+		     (if (or (> (cl-count ?: orig-path) 2)
+			     (> (cl-count ?\; orig-path) 2))
+			 ;; PATH-like set of values; select just the one point is on
+			 (apply #'ibut:label-set path (hpath:start-end path))
+		       ;; Otherwise, use the unchanged orig-path
+                       (apply #'ibut:label-set orig-path (hpath:start-end orig-path)))
+                     (hact 'link-to-file path)))
+          ;;
+          ;; Match PATH-related Environment and Lisp variable names and
+	  ;; Emacs Lisp and Info files without any directory component.
+          (when (setq path orig-path)
+            (cond ((and (string-match hpath:path-variable-regexp path)
+			(setq path (match-string-no-properties 1 path))
+			(hpath:is-path-variable-p path))
+		   (setq path (if (or assist-flag (hyperb:stack-frame '(hkey-help)))
+				  path
+				(hpath:choose-from-path-variable path "Display")))
+		   (unless (or (null path) (string-blank-p path)
+			       ;; Could be a shell command from a semicolon
+			       ;; separated list; ignore if so.
+			       (and (string-match "\\`\\s-*\\([^; 	]+\\)" path)
+				    (executable-find (match-string-no-properties 1 path))))
+                     (apply #'ibut:label-set path (hpath:start-end path))
+		     (hact 'link-to-file path)))
+		  ((setq elisp-suffix (string-match "\\`[^\\\\/~]+\\.el[cn]?\\(\\.gz\\)?\\'" path))
+                   (cond ((string-match hpath:prefix-regexp path)
+			  (apply #'ibut:label-set path (hpath:start-end path))
+			  (hact 'hpath:find path))
+			 ((setq full-path
+				(let ((load-suffixes '(".el")))
+				  (locate-library path elisp-suffix)))
+			  (apply #'ibut:label-set orig-path (hpath:start-end orig-path))
+			  (hact 'link-to-file full-path))
+			 (elisp-suffix
+			  (hact 'error "(pathname): \"%s\" not found in `load-path'" path))
+			 ;; Don't match as a pathname ibut; could be a Lisp
+			 ;; symbol or something else starting with a '-'.
+			 (t nil)))
+                  ;; Match only if "(filename)" references a valid Info file
+                  ;; and point is within the filename, not on any delimiters
+                  ;; so that delimited thing matches trigger later.
+                  ((and (not (looking-at "[\"()]"))
+			(string-match "\\`(\\([^ \t\n\r\f]+\\))\\'" path)
+			(save-match-data (require 'info))
+			(Info-find-file (match-string-no-properties 1 path) t))
+                   (apply #'ibut:label-set orig-path (hpath:start-end orig-path))
+                   (hact 'link-to-Info-node (format "%sTop" path)))
+                  ((string-match hpath:info-suffix path)
+                   (apply #'ibut:label-set orig-path (hpath:start-end orig-path))
+                   (hact 'link-to-Info-node (format "(%s)Top" path)))
+                  ;; Otherwise, fall through and allow other implicit
+                  ;; button types to handle this context.
+                  )))))))
 
 ;;; ========================================================================
 ;;; Follows URLs by invoking a web browser.
 ;;; ========================================================================
 
 (load "hsys-www")
+
+;;; ========================================================================
+;;; Uses web browser to display links to Hyperbole HTML manual sections;
+;;; Links are of the form "hyperbole.html#Smart Keys"
+;;; ========================================================================
+
+(defib hyp-manual ()
+  "When on a Hyperbole manual file path, display it.
+For example, display \"hyperbole.html#Smart Keys\" in a web
+browser using the local html version of the Hyperbole manual.
+When on \"hyperbole.texi#Smart Keys\", jump to the \"Smart Keys\"
+node in the local Texinfo manual.  Without a node name, go to the
+top node.
+
+Info file links like \"hyperbole.info#Smart Keys\" are handled by
+the `Info-node' implicit button type and displayed in the Emacs
+Info browser."
+  (let* ((path-start-end (hargs:delimited "\"" "\"" nil nil t))
+	 (path (nth 0 path-start-end))
+	 (start (nth 1 path-start-end))
+	 (end (nth 2 path-start-end))
+	 node)
+    (when (stringp path)
+      (setq path (string-trim path))
+      (when (string-match "\\`hyperbole.\\(html\\|texi\\)\\(#.*\\)?\\'" path)
+	(save-match-data
+	  (setq node (match-string 2 path))
+	  (when node
+	    (setq node (string-trim (substring node 1))))
+	  (ibut:label-set path start end))
+	(if (equal "html" (match-string 1 path))
+	    (progn
+	      ;; Any spaces in #section must be replaced with dashes to match html ids
+	      (when node
+		(setq node (replace-regexp-in-string "\\s-+" "-" node)))
+	      (hact 'www-url (concat "file://"
+				     (expand-file-name "hyperbole.html" (hpath:expand "${hyperb:dir}/man/"))
+				     (when node "#") node)))
+	  ;; texi file
+	  (hact 'link-to-file (concat
+			       (expand-file-name
+				"hyperbole.texi"
+				(hpath:expand "${hyperb:dir}/man/"))
+			       (when node "#") node)))))))
 
 ;;; ========================================================================
 ;;; Handles internal references within an annotated bibliography, delimiters=[]
@@ -374,7 +421,9 @@ attached file."
        buffer-file-name
        (let ((chr (aref (buffer-name) 0)))
          (not (or (eq chr ?\ ) (eq chr ?*))))
-       (not (apply #'derived-mode-p '(prog-mode c-mode objc-mode c++-mode java-mode markdown-mode org-mode)))
+       (not (apply #'derived-mode-p
+                   '(c++-mode c++-ts-mode c-mode c-ts-mode java-mode java-ts-mode
+                              markdown-mode objc-mode org-mode prog-mode)))
        (unless (ibut:label-p t "[[" "]]" t) ;; Org link
 	 (let ((ref (hattr:get 'hbut:current 'lbl-key))
 	       (lbl-start (hattr:get 'hbut:current 'lbl-start))
@@ -992,8 +1041,9 @@ than a helm completion buffer)."
           (while (and (= (forward-line -1) 0)
                       (looking-at "[1-9][0-9]*[-:]\\|--$")))
           (unless (or (looking-at "[1-9][0-9]*[-:]\\|--$")
-                      (and (setq file (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
-                           (string-empty-p (string-trim file))))
+                      (and (setq file (string-trim (buffer-substring-no-properties (line-beginning-position) (match-beginning 0))))
+                           (or (string-empty-p file)
+		               (not (file-exists-p file)))))
 	    (ibut:label-set (concat file ":" line-num))
 	    (hact 'hib-link-to-file-line file line-num)))))))
 
@@ -1180,13 +1230,13 @@ This works when activated anywhere within file line references."
             (save-excursion
               (and (re-search-backward "^[^ \t\n\r]" nil t)
                    (looking-at "While compiling\\|In \\([^ \n]+\\):$"))))
-    (let (src buffer-p label start-end
-	  lbl-start-end)
+    (let ((case-fold-search t)
+	  src buffer-p label start-end lbl-start-end)
       (or
        ;; Emacs Regression Test (ERT) output lines
        (when (or (save-excursion
 		   (forward-line 0)
-		   (or (looking-at "\\s-+\\(passed\\|failed\\|skipped\\)\\s-+[0-9]+/[0-9]+\\s-+\\(\\S-+\\)\\s-+(")
+		   (or (looking-at "\\s-+\\(passed\\|failed\\|skipped\\)\\s-+\\(?:[0-9]+/[0-9]+\\s-+\\)\\(\\S-+\\)")
 		       (looking-at "\\(Test\\)\\s-+\\(\\S-+\\)\\s-+\\(backtrace\\|condition\\):")))
 		 ;; Handle symbols and pathnames in a backtrace from an ERT test exception
 		 (save-match-data
@@ -1404,10 +1454,11 @@ GNUS is a news and mail reader."
 
 (defib Info-node ()
   "Make a \"(filename)nodename\" button display the associated Info node.
-Also make a \"(filename)itemname\" button display the associated Info index item.
-Examples are \"(hyperbole)Implicit Buttons\" and ``(hyperbole)C-c /''.
-
-Activates only if point is within the first line of the Info-node name."
+Also make a \"(filename)itemname\" button display the associated Info
+index item.  Examples are \"(hyperbole)Implicit Buttons\" and
+``(hyperbole)C-c /''.  Pathname formats like:
+\"hyperbole.info#Implicit Buttons\" are also accepted.  Activates only
+if point is within the first line of the Info reference."
   (let* ((node-ref-and-pos (or ;; HTML
 			       (hbut:label-p t "&quot;" "&quot;" t t)
 			       ;; Embedded double quotes
@@ -1425,8 +1476,17 @@ Activates only if point is within the first line of the Info-node name."
                                (hbut:label-p t "`" "'" t t)))
          (ref (car node-ref-and-pos))
          (node-ref (and (stringp ref)
+			(setq ref (hpath:to-Info-ref ref))
                         (or (string-match-p "\\`([^\): \t\n\r\f]+)\\'" ref)
                             (string-match-p "\\`([^\): \t\n\r\f]+)[^ :;\"'`]" ref))
+			;; Below handle decoding of Info node names in
+			;; Hyperbole Help buffer lbl-key: lines,
+			;; eliminating excess underscores.
+			(save-excursion
+			  (beginning-of-line)
+			  (when (looking-at "\\s-+lbl-key:\\s-+\"")
+			    (setq ref (ibut:key-to-label ref)))
+			  t)
                         (hpath:is-p ref nil t))))
     (and node-ref
          (ibut:label-set node-ref-and-pos)
@@ -1621,6 +1681,22 @@ If a boolean function or variable, display its value."
 		 (when (memq actype '(display-boolean display-variable))
 		   (apply #'actype:eval actype args)))
 	(error "(action:help): No action button labeled: %s" label)))))
+
+;;; ========================================================================
+;;; Activates HyWikiWords with existing HyWiki pages.
+;;; Non-existing HyWikiWords are handled by the (load "hywiki") at a low
+;;; priority earlier in this file which defines the `hywiki-word' ibtype.
+;;; ========================================================================
+
+(defib hywiki-existing-word ()
+  "On a HyWiki word with an existing page, display its page and optional section."
+  (cl-destructuring-bind (page-name start end)
+      (hywiki-page-exists-p :range)
+    (when page-name
+      (if (and start end)
+	  (ibut:label-set page-name start end)
+	(ibut:label-set page-name))
+      (hact 'hywiki-find-page (hywiki-get-singular-page-name page-name)))))
 
 ;;; ========================================================================
 ;;; Inserts completion into minibuffer or other window.

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    28-Oct-94 at 10:59:44
-;; Last-Mod:      2-Feb-24 at 21:41:16 by Mats Lidell
+;; Last-Mod:     27-Oct-24 at 17:59:52 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -209,6 +209,24 @@ Return t if cutoff, else nil."
 	  '(hypb:display-file-with-logo "HY-ABOUT")
 	  t))
 
+(defconst hui-menu-org-meta-return-options
+  '("Org M-RET Overrides"
+     "----"
+     "----"
+     ["All-Hyperbole-Contexts"
+      (customize-save-variable 'hsys-org-enable-smart-keys t)
+      :style radio :selected (when (boundp 'hsys-org-enable-smart-keys)
+			       (eq hsys-org-enable-smart-keys t))]
+     ["Hyperbole-Buttons-Only"
+      (customize-save-variable 'hsys-org-enable-smart-keys :buttons)
+      :style radio :selected (when (boundp 'hsys-org-enable-smart-keys)
+			       (memq hsys-org-enable-smart-keys '(:buttons buttons)))]
+     ["None"
+      (customize-save-variable 'hsys-org-enable-smart-keys nil)
+      :style radio :selected (when (boundp 'hsys-org-enable-smart-keys)
+			       (eq hsys-org-enable-smart-keys nil))])
+  "Settings for Hyperbole Smart Key overrides to {M-RET} within Org mode.")
+
 (defconst hui-menu-options
   (append '(["All-Hyperbole-Options" (customize-browse 'hyperbole) t]
 	     "----"
@@ -252,21 +270,7 @@ Return t if cutoff, else nil."
 	  '("----")
 	  (hui-menu-browser "Display-Web-Searches-in" hyperbole-web-search-browser-function)
 	  '("----")
-	  '(("Org-M-RETURN"
-	     "----"
-	     "----"
-	     ["All-Programmed-Contexts"
-	      (customize-save-variable 'hsys-org-enable-smart-keys t)
-	      :style radio :selected (when (boundp 'hsys-org-enable-smart-keys)
-					(eq hsys-org-enable-smart-keys t))]
-	     ["Hypb-Buttons-Only"
-	      (customize-save-variable 'hsys-org-enable-smart-keys 'buttons)
-	      :style radio :selected (when (boundp 'hsys-org-enable-smart-keys)
-					(eq hsys-org-enable-smart-keys 'buttons))]
-	     ["Ignore"
-	      (customize-save-variable 'hsys-org-enable-smart-keys nil)
-	      :style radio :selected (when (boundp 'hsys-org-enable-smart-keys)
-					(eq hsys-org-enable-smart-keys nil))]))
+	  hui-menu-org-meta-return-options
 	  '("----")
 	  '(("Smart-Key-Press-at-Eol"
 	     "----"
@@ -296,6 +300,27 @@ Return t if cutoff, else nil."
 	    ["Toggle-Smart-Key-Debug (HyDebug)" hkey-toggle-debug
 	     :style toggle :selected hkey-debug]))
   "Untitled menu of Hyperbole options.")
+
+(defconst hui-menu-hywiki
+  (delq nil
+	(list
+	 ["Manual"               (id-info "(hyperbole)HyWiki") t]
+	 "----"
+	 ["Activate-HyWiki-Word" hywiki-word-activate t]
+	 ["Create-HyWiki-Page"   hywiki-add-page-and-display t]
+	 ["Edit-HyWiki-Pages"    hywiki-directory-edit t]
+	 ["Find-HyWiki-Page"     hywiki-find-page t]
+	 (when (fboundp 'consult-grep) ;; allow for autoloading
+	   ["Grep-Consult-Pages" hywiki-consult-grep t])
+	 ["Help"                 hkey-help t]
+	 ["Add-HyWiki-Link"      hywiki-add-link t]
+	 hui-menu-org-meta-return-options
+	 ["HyWiki-Mode-Toggle"   hywiki-mode t]
+	 ["Publish-HyWiki"       hywiki-publish-to-html t]
+	 ["HyWiki-Tag-Find"      hywiki-tags-view t]
+	 (when (fboundp 'consult-grep) ;; allow for autoloading
+	   ["HyWiki-Word-Consult"   hywiki-word-consult-grep t])))
+  "Menu items for HyWiki editing and publishing.")
 
 (defvar infodock-hyperbole-menu nil)
 
@@ -443,6 +468,7 @@ REBUILD-FLAG is non-nil, in which case the menu is rebuilt."
 		   ["Help"   gbut:help t]
 		   ["Link"   hui:gbut-link-directly t]
                    ["Rename" hui:gbut-rename t])
+		 (cons "HyWiki" hui-menu-hywiki)
 		 '("Implicit-Button"
 		   ["Manual"   (id-info "(hyperbole)Implicit Buttons") t]
 		   "----"
@@ -450,7 +476,7 @@ REBUILD-FLAG is non-nil, in which case the menu is rebuilt."
 		   ["Create"   hui:ibut-create t]
 		   ["Delete-Type" (hui:htype-delete 'ibtypes) t]
 		   ["Edit"   hui:ibut-edit t]
-		   ["Help"   hui:hbut-help t]
+		   ["Help"   hkey-help t]
 		   ["Link"   hui:ibut-link-directly t]
 		   ["Name"   hui:ibut-label-create t]
 		   ["Rename" hui:ibut-rename t]

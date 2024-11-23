@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    23-Sep-91 at 20:34:36
-;; Last-Mod:     30-Jun-24 at 17:12:44 by Bob Weiner
+;; Last-Mod:     18-Nov-24 at 23:27:33 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -18,7 +18,7 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
-(eval-and-compile (mapc #'require '(bookmark hvar hsettings comint hbut hpath hargs hmail man hsys-org)))
+(eval-and-compile (mapc #'require '(bookmark hvar hsettings comint hbut hpath hargs hmail hsys-org)))
 
 ;;; ************************************************************************
 ;;; Public declarations
@@ -499,15 +499,17 @@ suffix."
 (defact link-to-Info-node (string)
   "Display an Info node given by STRING.
 If not found, try to display it as an Info index item.
-STRING must be a string of the form \"(filename)name\".  During
-button creation, completion for both filename and node names is
-available.  Filename may be given without the .info suffix."
+STRING must be a string of the form \"(filename)name\" or
+\"filename.info#name\".  During button creation, completion for both
+filename and node names is available.  Filename may be given without
+the .info suffix in the format with parentheses."
   (interactive "+IInfo (file)nodename to link to: ")
   (require 'info)
-  (when (stringp string)
-    ;; Remove any tabs or newlines that might be in string.
-    (setq string (replace-regexp-in-string "[ \t\n\r\f]+" " " string t t)))
-  (if (and (stringp string) (string-match "^(\\([^\)]+\\))\\(.*\\)" string))
+  (if (and (stringp string)
+	   ;; Remove any tabs or newlines that might be in string.
+	   (setq string (replace-regexp-in-string "[ \t\n\r\f]+" " " string t t)
+		 string (hpath:to-Info-ref string))
+	   (string-match "\\`(\\([^\)]+\\))\\(.*\\)" string))
       (id-info string)
     (hypb:error "(link-to-Info-node): Invalid Info node: `%s'" string)))
 
@@ -684,10 +686,13 @@ Return t if found, nil if not."
   "Display the Texinfo FILE and NODE (a string).
 FILE may be a string or nil, in which case the current buffer is used."
   (interactive "fTexinfo file to link to: \nsNode within file to link to: ")
-  (when (stringp node)
-    ;; Remove any tabs or newlines that might be in node name.
-    (setq node (replace-regexp-in-string "[ \t\n\r\f]+" " " node t t)))
+  (if (stringp node)
+      ;; Remove any tabs or newlines that might be in node name.
+      (setq node (replace-regexp-in-string "[ \t\n\r\f]+" " " (string-trim node) t t))
+    (setq node "Top"))
   (let (node-point)
+    (when (equal file "hyperbole.texi")
+      (setq file (expand-file-name file (hpath:expand "${hyperb:dir}/man/"))))
     (if file
         (set-buffer (find-file-noselect (hpath:substitute-value file)))
       (setq file buffer-file-name))

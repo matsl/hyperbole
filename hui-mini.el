@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    15-Oct-91 at 20:13:17
-;; Last-Mod:     20-Jan-24 at 20:01:18 by Mats Lidell
+;; Last-Mod:     27-Oct-24 at 18:10:37 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -28,10 +28,12 @@
 ;;; ************************************************************************
 
 (defvar hargs:reading-type)             ; "hargs.el"
-(defvar hui:menu-mode-map)              ; "hui.el"
 (defvar hbmap:dir-user)                 ; "hbmap.el"
 (defvar hbmap:filename)                 ; "hbmap.el"
-(defvar hui:menu-rolo)                  ; "hui.el"
+(defvar hui:menu-highlight-flag)        ; "hui-mini.el"
+(defvar hui:menu-hywiki nil)            ; "hui-mini.el"
+(defvar hui:menu-mode-map)              ; "hui-mini.el"
+(defvar hui:menu-rolo nil)              ; "hui-mini.el"
 (defvar hyperbole-mode-map)             ; "hyperbole.el"
 (defvar hyrolo-add-hook)                ; "hyrolo.el"
 (defvar hyrolo-edit-hook)               ; "hyrolo.el"
@@ -389,11 +391,43 @@ or if there are none, then its first character."
       (aref item 0)))
 
 (defun hui:menu-item-keys (menu-alist)
-  "Return ordered list of keys that activate Hypb minibuffer MENU-ALIST items.
+  "Return ordered list of keys that activate Hypb minibuffer MENU-A[LIST items.
 For each item, the key is either the first capital letter in item
 or if there are none, then its first character."
   (mapcar (lambda (item) (hui:menu-item-key item))
 	  (mapcar 'car (cdr menu-alist))))
+
+(defun hui:menu-item-toggle-highlight (&optional arg)
+  "Toggle highlighting Hyperbole minibuffer menu item keys.
+With optional ARG, enable iff ARG is positive."
+  (interactive "P")
+  (if (or (and arg (<= (prefix-numeric-value arg) 0))
+	  (and (not (and arg (> (prefix-numeric-value arg) 0)))
+	       hui:menu-highlight-flag))
+      (progn (customize-set-variable 'hui:menu-highlight-flag nil)
+	     (message "Menu key highlighting is off."))
+    (customize-set-variable 'hui:menu-highlight-flag t)
+    (message "Menu key highlighting is on")))
+
+(defun hui:menu-read-from-minibuffer (prompt &optional initial-contents keymap read
+				      hist default-value inherit-input-method)
+  "Hyperbole minibuffer menu replacement for `read-from-minibuffer'.
+Allows custom handling of menu lines before selecting an item."
+  (when (and (stringp initial-contents)
+	     (string-prefix-p "Org M-RET" initial-contents))
+    (let* ((org-m-ret-options (cddr (assq 'cust-org hui:menus)))
+	   (option-lookups (mapcar (lambda (option)
+				     (cons (car (last (nth 1 option)))
+					   (car option)))
+				   org-m-ret-options))
+	   (current-name (cdr (assq hsys-org-enable-smart-keys option-lookups))))
+      (when (and (stringp current-name) (stringp initial-contents))
+	(setq initial-contents (string-replace current-name
+					       (concat "==" current-name "==")
+					       initial-contents)))))
+  (setq initial-contents (hui:menu-maybe-highlight-item-keys initial-contents))
+  (read-from-minibuffer prompt initial-contents keymap read
+			hist default-value inherit-input-method))
 
 (defun hui:menu-choose (menu-alist &optional doc-flag help-string-flag)
   "Prompt user to choose the first capitalized char of any item from MENU-ALIST.
@@ -424,7 +458,7 @@ documentation, not the full text."
 	 (hargs:reading-type 'hmenu))
     (while (not (memq (setq key (upcase
 				 (string-to-char
-				  (read-from-minibuffer
+				  (hui:menu-read-from-minibuffer
 				   "" menu-line hui:menu-mode-map nil t))))
 		      keys))
       (beep)
@@ -542,6 +576,34 @@ constructs.  If not given, the top level Hyperbole menu is used."
 	  (if (eq act-form #'hui:menu-to-personal-section)
 	      (list #'hui:menu-to-personal-section label)
 	    act-form))))))
+
+(defun hui:menu-maybe-highlight-item-keys (menu-str)
+  "Maybe highlight the first capital letter of each MENU-STR item.
+Highlight if customization variable `hui:menu-highlight-flag' is
+non-nil and the display supports underlined faces.  Return the
+potentially modified MENU-STR."
+  (if (and hui:menu-highlight-flag
+           (display-supports-face-attributes-p
+            '(:underline t) (window-frame)))
+      (let ((after-menu-name-flag)
+	    (after-word-capital-letter-flag)
+	    (pos 0))
+	(mapc (lambda (c)
+		(cond ((= c ?>)
+		       (setq after-menu-name-flag t))
+		      ((= c ?\ )
+		       (setq after-word-capital-letter-flag nil))
+		      ((and after-menu-name-flag
+			    (not after-word-capital-letter-flag)
+			    (<= ?A c) (>= ?Z c))
+		       (put-text-property pos (1+ pos)
+					  'face 'read-multiple-choice-face
+					  menu-str)
+		       (setq after-word-capital-letter-flag t)))
+		(setq pos (1+ pos)))
+	      menu-str)
+	menu-str)
+    menu-str))
 
 (defun hui:menu-line (menu-alist)
   "Return a menu line string built from MENU-ALIST."
@@ -687,8 +749,7 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	   ("Ebut/"       (menu . ebut)     "Explicit button commands.")
 	   ("Find/"       (menu . find)     "Find matching line commands.")
 	   ("Gbut/"       (menu . gbut)     "Global button commands.")
-	   ("Hist"        hhist:pop
-	    "Jumps back to location prior to last Hyperbole button follow.")
+	   ("HyWiki/"     (menu . hywiki)   "HyWiki commands.")
 	   ("Ibut/"       (menu . ibut)     "Implicit button and button type commands.")
 	   ("Kotl/"       (menu . kotl)     "Autonumbered outlining and hyperlink capabilities.")
 	   ("Msg/"        (menu . msg)      "Mail and News messaging capabilities.")
@@ -696,6 +757,8 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	   ("Screen/"     (menu . screen)   "Screen display management commands.")
 	   ;; ("To/"         (menu . to)       "A-Z menu to search and add Emacs artifacts")
 	   ("Win/"        (menu . win)      "Window configuration management commands.")
+	   ("historY"     hhist:pop
+	    "Jump back to location prior to last Hyperbole button follow.")
 	   )))
        '(butfile .
 	 (("Butfile>")
@@ -715,14 +778,15 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	   "Toggle display of Smart Key context after each press, for debugging.")
 	  ("Find-File-URLs"    hpath:find-file-urls-mode
 	   "Toggle find-file support for ftp and www URLs.")
+	  ("Highlight-Menu-Keys-Toggle" hui:menu-item-toggle-highlight
+	   "Toggle highlighting of minibuffer menu keys.")
 	  ("Isearch-Invisible" hypb:toggle-isearch-invisible
 	   "Toggle whether isearch searches invisible text or not.")
 	  ("KeyBindings/"      (menu . cust-keys) "Rebinds global Hyperbole keys.")
 	  ("Msg-Toggle-Ebuts"  hyperbole-toggle-messaging
 	   "Toggle Hyperbole support for explicit buttons in mail and news buffers.")
 	  ("Org-M-RET/"        (menu . cust-org)
-	   "Ses how much of Hyperbole Smart Key behavior is enabled in Org mode.")
-
+	   "Set how much of Hyperbole Smart Key behavior is enabled in Org mode.")
 	  ("Referents/"        (menu . cust-referents)
 	   "Set where Hyperbole button referents are displayed.")
 	  ("Smart-Key-at-Eol/" (menu . cust-eol)
@@ -749,10 +813,13 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	  ("WinControl"    (hui:bind-key #'hycontrol-enable-windows-mode))      ;; {C-c \}
 	  ))
        '(cust-org .
-         (("Org M-RETURN>")
-	  ("All-Programmed-Contexts" (customize-save-variable 'hsys-org-enable-smart-keys t))
-	  ("Hypb-Buttons-Only"       (customize-save-variable 'hsys-org-enable-smart-keys 'buttons))
-	  ("Ignore"                  (customize-save-variable 'hsys-org-enable-smart-keys nil))))
+         (("Org M-RET Overrides>")
+	  ("All-Hyperbole-Contexts" (customize-save-variable 'hsys-org-enable-smart-keys t)
+	   "Smart Keys override Org M-RET in all Org mode Smart Key contexts (see `smart-org').")
+	  ("Hyperbole-Buttons-Only" (customize-save-variable 'hsys-org-enable-smart-keys :buttons)
+	   "Smart Keys override Org M-RET only when on a Hyperbole recognized button.")
+	  ("None"                   (customize-save-variable 'hsys-org-enable-smart-keys nil)
+	   "Smart Keys never override Org M-RET operation.")))
        '(cust-referents .
          (("Ref Display>")
 	  ("Any-Frame"   (setq hpath:display-where 'other-frame))
@@ -838,6 +905,7 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	   "Display manual section on global buttons.")
 	  ("Link"   hui:gbut-link-directly "Add a named global button link to point in other/another window.")
 	  ("Rename" hui:gbut-rename "Rename a global button.")))
+       (cons 'hywiki hui:menu-hywiki)
        '(ibut .
 	 (("IButton>")
 	  ("Act"            hui:ibut-act
@@ -846,8 +914,8 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	    "Label and create an implicit button of any type.")
 	  ("DeleteType"     (hui:htype-delete 'ibtypes)
 	   "Delete specified implicit button type.")
-	  ("Edit"           hui:ibut-edit "Edits/modifies named implicit button attributes.")
-	  ("Help"           hui:hbut-help "Reports on button's attributes.")
+	  ("Edit"           hui:ibut-edit "Edit/modify named implicit button attributes.")
+	  ("Help"           hkey-help "Report on button's attributes.")
 	  ("Info"           (id-info "(hyperbole)Implicit Buttons")
 	   "Display manual section on implicit buttons.")
 	  ("Link"           hui:ibut-link-directly "Insert an ibut link at point to other/another window.")
@@ -945,6 +1013,59 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 ;;; Public Customizations - must come after menus are defined
 ;;; ************************************************************************
 
+(defcustom hui:menu-highlight-flag t
+  "*If non-nil, highlight the first capitalized character of each menu item.
+Highlight with `read-multiple-choice-face'.  The display must
+support underlined faces as well."
+  :type 'boolean
+  :group 'hyperbole-buttons)
+
+(unless hui:menu-hywiki
+  (makunbound 'hui:menu-hywiki))
+(defcustom hui:menu-hywiki
+  (delq nil
+	(list
+	 '("HyWiki>")
+	 '("Act"            hywiki-word-activate
+	   "Activate HyWikiWord link at point or emulate a press of a Smart Key.")
+	 '("Create"         hywiki-add-page-and-display
+	    "Create and display a new HyWiki page.  Shows existing page names to aid in new naming.")
+	 '("EditPages"      hywiki-directory-edit
+	   "Display and edit HyWiki directory.")
+	 '("FindPage"       hywiki-find-page
+	   "Prompt with completion for and display a HyWiki page ready for editing.")
+	 (when (fboundp 'consult-grep) ;; allow for autoloading
+	   '("GrepConsult"    hywiki-consult-grep
+	     "Grep over HyWiki pages with interactive consult-grep."))
+	 '("Help"           hkey-help
+	   "Report on a HyWikiWord's attributes.")
+	 '("Info"           (id-info "(hyperbole)HyWiki")
+	   "Display Hyperbole manual section on HyWiki.")
+	 '("Link"           hywiki-add-link
+	   "Prompt for and add a link at point to a HyWiki page.")
+         '("ModeToggle"     hywiki-mode
+	   "Toggle whether HyWikiWords are highlighted and active in buffers outside of the HyWiki page directory.")
+	 '("Org-M-RET/"     (menu . cust-org)
+	   "Set how much of Hyperbole Smart Key behavior is enabled in Org mode.")
+         '("Publish"        hywiki-publish-to-html
+	   "Publish modified pages in the HyWiki to HTML; prefix arg to publish all pages.")
+	 '("TagFind"        hywiki-tags-view
+	   "Find HyWiki Org tags.")
+	 (when (fboundp 'consult-grep) ;; allow for autoloading
+	   '("WikiWordConsult" hywiki-word-consult-grep
+	     "Use `hywiki-consult-grep' to show occurrences of a prompted for HyWikiWord."))))
+  "*Hyperbole minibuffer HyWiki menu items of the form:
+\(LABEL-STRING ACTION-SEXP DOC-STR)."
+  :set  (lambda (var value)
+	  (if (fboundp #'hyperbole-minibuffer-menu)
+	      (progn (set-default var value)
+		     (hyperbole-minibuffer-menu))
+	    (set-default var value)))
+  :type '(cons (list string) (repeat (list string sexp string)))
+  :group 'hyperbole-buttons)
+
+(unless hui:menu-rolo
+  (makunbound 'hui:menu-rolo))
 (defcustom hui:menu-rolo
   (delq nil
 	(list
@@ -954,7 +1075,7 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
            '("ConsultFind"      hyrolo-consult-grep           "Interactively narrow HyRolo matches using Consult/Vertico."))
 	 '("Display"          hyrolo-display-matches        "Display last found rolo matches again.")
 	 '("Edit"             hyrolo-edit                   "Edit an existing rolo entry.")
-	 '("File"             hyrolo-find-file              "Edit an existing rolo file.")
+	 '("FileFind"         hyrolo-find-file              "Find an existing rolo file.")
 	 (when (fboundp 'helm-org-rifle-files) ;; allow for autoloading
            '("HelmFind"         hyrolo-helm-org-rifle         "Interactively narrow HyRolo matches using Helm."))
 	 '("Info"             (id-info "(hyperbole)HyRolo") "Display manual section on HyRolo.")
@@ -963,6 +1084,7 @@ command instead.  Typically prevents clashes over {\\`C-c' /}."
 	 '("Order"            hyrolo-sort                   "Order rolo entries in a file.")
 	 '("RegexFind"        hyrolo-grep                   "Find entries containing a regexp.")
 	 '("StringFind"       hyrolo-fgrep                  "Find entries containing a string.")
+	 '("TagFind"          hyrolo-tags-view              "Find HyRolo Org tags.")
 	 '("WordFind"         hyrolo-word                   "Find entries containing words.")
 	 '("Yank"             hyrolo-yank                   "Find an entry containing a string and insert it at point.")))
   "*Hyperbole minibuffer Rolo menu items of the form:

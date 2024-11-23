@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 21:42:03
-;; Last-Mod:     29-May-24 at 00:57:49 by Bob Weiner
+;; Last-Mod:     18-Nov-24 at 20:05:31 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -127,7 +127,8 @@ point; see `hui:delimited-selectable-thing'."
 	       (indicate-copied-region)))))))
 
 ;; Override the {M-w} command from "simple.el" when hyperbole-mode is active
-;; to allow copying kcell references or regions.
+;; to allow copying kcell references, active regions and delimited
+;; areas (like sexpressions).
 ;;;###autoload
 (defun hui-kill-ring-save (beg end &optional region)
   "Save the active region as if killed, but don't kill it.
@@ -843,9 +844,9 @@ Signal an error if point is not within a button."
 BUT defaults to the button whose label point is within."
   (interactive)
   (setq but (or but (hbut:at-p)
-		(ebut:get (ebut:label-to-key
+		(hbut:get (hbut:label-to-key
 			   (hargs:read-match "Help for button: "
-					     (ebut:alist) nil t nil 'ebut)))))
+					     (hbut:alist) nil t nil 'hbut)))))
   (unless but
     (hypb:error "(hbut-help):  Move point to a valid Hyperbole button"))
   (unless (hbut:is-p but)
@@ -1889,13 +1890,13 @@ Buffer without File      link-to-buffer-tmp"
 						      (list 'link-to-Info-index-item (hargs:at-p)))
 						  (let ((hargs:reading-type 'Info-node))
 						    (list 'link-to-Info-node (hargs:at-p)))))
-					       ((and (derived-mode-p #'texinfo-mode)
+					       ((and (derived-mode-p 'texinfo-mode)
 						     (save-excursion
 						       (beginning-of-line)
-						       (or (looking-at "@node ")
-							   (re-search-backward "^@node " nil t))))
-						(require 'texnfo-upd)
-						(setq node (texinfo-copy-node-name))
+						       (when (or (looking-at "@node ")
+								 (re-search-backward "^@node " nil t))
+							 (require 'texnfo-upd)
+							 (setq node (texinfo-copy-node-name)))))
 						(list 'link-to-texinfo-node buffer-file-name node))
 					       ((hmail:reader-p)
 						(list 'link-to-mail
@@ -1928,7 +1929,8 @@ Buffer without File      link-to-buffer-tmp"
 					  ;;
 					  ;; If current line starts with an outline-regexp prefix and
 					  ;; has a non-empty heading, use a link-to-string-match.
-					  ((and (derived-mode-p 'outline-mode 'org-mode 'kotl-mode)
+					  ((and buffer-file-name
+						(derived-mode-p 'outline-mode 'org-mode 'kotl-mode)
 						(stringp outline-regexp)
 						(save-excursion
 						  (beginning-of-line)

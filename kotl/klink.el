@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    15-Nov-93 at 12:15:16
-;; Last-Mod:     30-Jun-24 at 11:36:47 by Bob Weiner
+;; Last-Mod:     18-Aug-24 at 09:42:48 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -72,13 +72,14 @@
 ;;; ************************************************************************
 
 (defcustom klink:ignore-modes
-  '(occur-mode moccur-mode amoccur-mode shell-mode telnet-mode ssh-mode term-mode)
+  '(amoccur-mode bash-ts-mode moccur-mode occur-mode shell-mode ssh-mode
+                 telnet-mode term-mode)
   "Major modes in which to ignore potential klinks to avoid false positives."
   :type '(list function)
   :group 'hyperbole-koutliner)
 
 (defcustom klink:c-style-modes
-  '(c-mode c++-mode objc-mode java-mode)
+  '(c++-mode c++-ts-mode c-mode c-ts-mode java-mode java-ts-mode objc-mode)
   "C-related major modes with where klinks appear only within comments."
   :type '(list function)
   :group 'hyperbole-koutliner)
@@ -181,7 +182,7 @@ link-end-position, (including delimiters)."
 	       (not (br-browser-buffer-p))
 	     t)
 	   ;; If in a programming mode, Klinks can occur only within comments.
-	   (if (and (derived-mode-p #'prog-mode)
+	   (if (and (derived-mode-p 'prog-mode)
 		    (not (derived-mode-p 'lisp-interaction-mode))
 		    (not (memq major-mode hui-select-markup-modes)))
 	       ;; Next line means point is within a comment
@@ -306,7 +307,7 @@ See `actypes::link-to-kotl' for valid KLINK formats."
   (let ((obuf (current-buffer)))
     ;; Perform klink's action which is to jump to klink referent.
     (prog1 (hact 'link-to-kotl klink)
-      (when (derived-mode-p #'kotl-mode)
+      (when (derived-mode-p 'kotl-mode)
 	(save-excursion
 	  ;; Update klink label if need be, which might be in a different buffer
 	  ;; than the current one.

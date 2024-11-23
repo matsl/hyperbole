@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    20-Feb-21 at 23:45:00
-;; Last-Mod:     16-Jun-24 at 18:45:13 by Mats Lidell
+;; Last-Mod:      8-Sep-24 at 00:48:52 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -19,15 +19,13 @@
 ;;; Code:
 
 (require 'ert)
-(require 'hib-kbd)
+(require 'hibtypes)
 (require 'info)
 (require 'el-mock)
 (require 'hy-test-helpers "test/hy-test-helpers")
 
 (declare-function hy-test-helpers:consume-input-events "hy-test-helpers")
 (declare-function hy-test-helpers:should-last-message "hy-test-helpers")
-
-;; (ert-deftest org-link-outside-org-mode-test ()
 
 ;; Mail address
 (ert-deftest mail-address-at-p-test ()
@@ -192,6 +190,20 @@
 		 (buffer-live-p visited-buf))
  	(kill-buffer visited-buf)))))
 
+;; hyp-manual
+(ert-deftest ibtypes::hyp-manual-test ()
+  "Verify ibut for Hyperbole manual file path."
+  (with-temp-buffer
+    (insert "\"hyperbole.html#Smart Keys\"")
+    (goto-char 2)
+    (mocklet (((actypes::www-url (concat "file://" (expand-file-name "hyperbole.html" (hpath:expand "${hyperb:dir}/man/")) "#Smart-Keys")) => t))
+      (ibtypes::hyp-manual)))
+  (with-temp-buffer
+    (insert "\"hyperbole.texi#Smart Keys\"")
+    (goto-char 2)
+    (mocklet (((actypes::link-to-file (concat (expand-file-name "hyperbole.texi" (hpath:expand "${hyperb:dir}/man/")) "#Smart Keys")) => t))
+      (ibtypes::hyp-manual))))
+
 ;; markdown
 ; Can't find out how to use the markdown-internal-link ibtypes!?
 
@@ -299,7 +311,33 @@
 ;; ipython-stack-frame
 
 ;; ripgrep-msg
+(ert-deftest ibtypes::ripgrep-msg-test ()
+  "Verify `ripgrep-msg'."
+  ;; Date is picked up as a line number but file existence test before
+  ;; concluding it is a button save it from being identified as
+  ;; a ripgrep-msg.
+  (with-temp-buffer
+    (insert "one two three\n2024-07-30 line\n")
+    (goto-line 2)
+    (should-not (eq (hattr:get (hbut:at-p) 'actype) 'hib-link-to-file-line))
+    (should-not (ibtypes::ripgrep-msg)))
 
+  ;; Regular ripgrep-msg case.
+  (with-temp-buffer
+    (insert "hibtypes.el\n20: line\n")
+    (goto-line 2)
+    (mocklet (((hib-link-to-file-line "hibtypes.el" "20") => t)
+              ((file-exists-p "hibtypes.el") => t))
+      (should (eq (hattr:get (hbut:at-p) 'actype) 'hib-link-to-file-line))
+      (should (ibtypes::ripgrep-msg))))
+
+  ;; Regular match but file does not exist case.
+  (with-temp-buffer
+    (insert "unknown-file\n20: line\n")
+    (goto-line 2)
+    (should-not (eq (hattr:get (hbut:at-p) 'actype) 'hib-link-to-file-line))
+    (should-not (ibtypes::ripgrep-msg))))
+  
 ;; grep-msg
 
 ;; debugger-source
@@ -307,6 +345,35 @@
 ;; pathname-line-and-column
 
 ;; elisp-compiler-msg
+(ert-deftest elisp-compiler-msg-test ()
+  "Verify elisp-compiler-msg."
+  (let ((orig-buffer-name (symbol-function 'buffer-name)))
+    (cl-letf (((symbol-function 'buffer-name)
+               (lambda (&optional buffer)
+                 (if (string-prefix-p " *temp*" (funcall orig-buffer-name))
+                     "*Compile-Log*"
+                   (funcall orig-buffer-name)))))
+      (with-temp-buffer
+        (insert "    passed  1/1  abcde (0.000100 sec)\n")
+        (goto-line 1)
+        (mocklet (((smart-tags-display "abcde" nil) => t))
+          (should (ibtypes::elisp-compiler-msg))))
+
+      (with-temp-buffer
+        (insert "Test abcde backtrace:\n")
+        (goto-line 1)
+        (mocklet (((smart-tags-display "abcde" nil) => t))
+          (should (ibtypes::elisp-compiler-msg))))
+
+      (with-temp-buffer
+        (insert "Compiling /home/user/file.el...
+
+In hyperbole-test:
+file.el:10:20: Warning: Message
+")
+        (goto-line 3)
+        (mocklet (((actypes::link-to-regexp-match "^(def[a-z \11]+hyperbole-test[ \11\n\15(]" 1 "/home/user/file.el" nil) => t))
+          (should (ibtypes::elisp-compiler-msg)))))))
 
 ;; patch-msg
 
@@ -330,6 +397,34 @@
 ;; action
 
 ;; completion
+
+(ert-deftest ibtypes:org-id-test ()
+  "Verify `org-id' ibut."
+  (with-temp-buffer
+    (org-mode)
+    (insert (format ":ID: %s" (hypb:uuid)))
+    (goto-char 10)
+    (should (string=
+             "On ID definition; use {C-u M-RET} to copy a link to an ID."
+             (ibtypes::org-id))))
+
+  (let ((file (make-temp-file "hypb" nil ".org")))
+    (unwind-protect
+        (let ((id (hypb:uuid)))
+          (find-file file)
+          (org-mode)
+          (insert (format "* header
+:PROPERTIES:
+:ID: %s
+:END:
+
+<ID:%s>
+" id id))
+          (goto-char (point-min))
+          (should (and (search-forward "<ID:") (looking-at-p id)))
+          (mocklet (((actypes::link-to-org-id-marker *) => t))
+            (should (ibtypes::org-id))))
+      (hy-delete-file-and-buffer file))))
 
 ;; This file can't be byte-compiled without the `el-mock' package (because of
 ;; the use of the `with-mock' macro), which is not a dependency of Hyperbole.

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    24-Aug-91
-;; Last-Mod:     22-Jun-24 at 22:58:03 by Mats Lidell
+;; Last-Mod:     16-Aug-24 at 22:30:09 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -859,9 +859,9 @@ on the first line of a non-alias Lisp definition."
 
 ;;;###autoload
 (defun smart-lisp-mode-p ()
-  "Return t if in a mode which use Lisp symbols."
+  "Return t if in a mode which uses Lisp symbols."
   (or (smart-emacs-lisp-mode-p)
-      (apply #'derived-mode-p '(lisp-mode scheme-mode))))
+      (apply #'derived-mode-p '(lisp-mode scheme-mode help-mode))))
 
 ;;;###autoload
 (defun smart-objc (&optional identifier next)
@@ -1319,7 +1319,7 @@ package for class and feature lookups."
   ;; fairly bad form anyway.
   ;;
   (let ((opoint (point)))
-    (if (and (eq major-mode 'java-mode) buffer-file-name
+    (if (and (memq major-mode '(java-mode java-ts-mode)) buffer-file-name
 	     (fboundp 'br-env-load)
 	     (or (looking-at "@see[ \t]+")
 		 (and (re-search-backward "[@\n\r\f]" nil t)

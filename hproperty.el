@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    21-Aug-92
-;; Last-Mod:     29-Jun-24 at 18:57:42 by Bob Weiner
+;; Last-Mod:     17-Nov-24 at 10:31:59 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -150,14 +150,18 @@ This is shown when hovering over the button with the mouse."
 
 (defun hproperty:but-add (start end face)
   "Add between START and END a button using FACE in current buffer.
+Button is added only if it does not already exist.
 
 If `hproperty:but-emphasize-flag' is non-nil when this is called,
 emphasize that button is selectable whenever the mouse cursor
 moves over it."
-  (let ((but (make-overlay start end nil t)))
-    (overlay-put but 'face face)
-    (when hproperty:but-emphasize-flag
-      (overlay-put but 'mouse-face 'highlight))))
+  (let ((but (hproperty:but-get start 'face face)))
+    (unless (and but (eq start (hproperty:but-start but))
+		 (eq end (hproperty:but-end but)))
+      (setq but (make-overlay start end nil t))
+      (overlay-put but 'face face)
+      (when hproperty:but-emphasize-flag
+	(overlay-put but 'mouse-face 'highlight)))))
 
 (defun hproperty:but-clear (&optional pos property value)
   "Remove highlighting from any named Hyperbole button at point or POS.
@@ -235,18 +239,23 @@ See `hproperty:but-get'."
 
 (defun hproperty:but-get-all-in-region (start end &optional property value)
   "Return all buttons in the current buffer between START and END.
-If optional PROPERTY and VALUE are given, return only the first button
-with that PROPERTY and VALUE."
-  (delq nil
-	(mapcar (lambda (overlay)
-		  (when (memq (overlay-get overlay (or property 'face))
-			      (if property
-				  (list value)
-				(list hproperty:but-face
-				      hproperty:ibut-face
-				      hproperty:flash-face)))
-		    overlay))
-		(overlays-in start end))))
+If optional PROPERTY and non-nil VALUE are given, return a list of the
+first button with that PROPERTY and VALUE only."
+  (catch 'first
+    (let ((val-list (if property
+			(list value)
+		      (list hproperty:but-face
+			    hproperty:ibut-face
+			    hproperty:flash-face))))
+      (delq nil
+	    (mapcar (lambda (overlay)
+		      (when (and (bufferp (overlay-buffer overlay))
+				 (memq (overlay-get overlay (or property 'face))
+				       val-list))
+			(if property
+			    (throw 'first (list overlay))
+			  overlay)))
+		    (overlays-in start end))))))
 
 (defun hproperty:but-get (&optional pos property value)
   "Return button at optional POS or point.

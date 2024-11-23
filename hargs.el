@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    31-Oct-91 at 23:17:35
-;; Last-Mod:     22-Jun-24 at 22:53:41 by Mats Lidell
+;; Last-Mod:      6-Oct-24 at 22:47:25 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -102,7 +102,7 @@ Return nil if ACTION is not a list or `byte-code' object, has no
 interactive form or takes no arguments."
   (save-excursion
     (and (or (subrp action) (byte-code-function-p action) (listp action)
-             (and (fboundp #'closurep) (closurep action)))
+             (and (fboundp 'closurep) (closurep action)))
 	 (let ((interactive-form (action:commandp action)))
 	   (when interactive-form
 	     (hpath:relative-arguments
@@ -130,9 +130,10 @@ START-DELIM is treated as a regular expression.  END-REGEXP-FLAG
 is similar.  With optional LIST-POSITIONS-FLAG, return list
 of (string-matched start-pos end-pos).  Optional
 EXCLUDE-REGEXP is compared against the match string with its delimiters
-included; any string that matches this regexp is ignored.  Optional
-AS-KEY non-nil means return the string normalized as a Hyperbole
-button key (no spaces)."
+included; any string that matches this regexp is ignored.  With optional
+AS-KEY = \\='none, return t rather than the string result.  Any other
+non-nil value, means return the string normalized as a Hyperbole
+button key (no spaces)." 
   (let* ((opoint (point))
 	 ;; This initial limit is the forward search limit for start delimiters
 	 (limit (if start-regexp-flag

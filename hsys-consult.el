@@ -2,7 +2,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     4-Jul-24 at 09:57:18
-;; Last-Mod:      6-Jul-24 at 00:24:36 by Bob Weiner
+;; Last-Mod:     12-Jul-24 at 22:05:30 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -16,7 +16,8 @@
 ;;  This library automatically installs the `consult' package for its
 ;;  `consult-grep' command only when one of the functions in here is
 ;;  called.  At that time, if `consult' has not been installed, it will
-;;  be automatically downloaded and installed via the Emacs package system.
+;;  be automatically downloaded and installed via the Emacs package
+;;  system, so don't `require' it herein.
 
 ;;; Code:
 
@@ -27,9 +28,20 @@
 ;; Don't (require 'consult) here since want to create that dependency only
 ;; when a function within this library is called.
 
+(require 'hbut)
+(require 'hargs)
+(require 'hproperty)
+(require 'hsys-org-roam)
+(require 'find-func)
+
 ;;; ************************************************************************
 ;;; Public declarations
 ;;; ************************************************************************
+
+(declare-function hyrolo-at-tags-p "hyrolo")
+(declare-function hywiki-at-tags-p "hywiki")
+(declare-function hsys-org-directory-at-tags-p "hsys-org")
+(declare-function hsys-org-at-tags-p "hsys-org")
 
 (declare-function consult-grep "ext:consult")
 (declare-function consult-ripgrep "ext:consult")
@@ -68,6 +80,7 @@
 	(unless buffer-modified
 	  (kill-buffer buf))))))
 
+;;;###autoload
 (defun hsys-consult-grep (grep-includes ripgrep-globs &optional regexp max-matches path-list)
   "Interactively search PATH-LIST with a consult package grep command.
 
@@ -117,7 +130,9 @@ call."
 	  ((hsys-org-roam-directory-at-tags-p t)
 	   #'hsys-consult-org-roam-grep-tags)
 	  ((hywiki-at-tags-p t)
-	   #'hsys-consult-hywiki-grep-tags))))
+	   #'hsys-consult-hywiki-grep-tags)
+	  ((hyrolo-at-tags-p t)
+	   #'hsys-consult-hyrolo-grep-tags))))
 
 (defun hsys-consult-grep-tags (org-consult-grep-function)
   "When on an Org tag, call ORG-CONSULT-GREP-FUNCTION to find matches.
@@ -130,6 +145,13 @@ max-count which finds all matches within headlines only."
   (interactive)
   (when (hsys-org-at-tags-p)
     (funcall org-consult-grep-function (hsys-consult--org-grep-tags-string) 0)))
+
+(defun hsys-consult-hyrolo-grep-tags ()
+  "When on a HyRolo tag, use `consult-grep' to list all HyRolo tag matches.
+If on a colon, match to sections with all tags around point;
+otherwise, just match to the single tag around point."
+  (interactive)
+  (hsys-consult-grep-tags #'hyrolo-consult-grep))
 
 (defun hsys-consult-hywiki-grep-tags ()
   "When on a HyWiki tag, use `consult-grep' to list all HyWiki tag matches.
@@ -190,7 +212,7 @@ that start with the '^[*#]+[ \t]*' regexp)."
   "Interactively search PATHS with a consult package grep command.
 Use ripgrep (rg) if found, otherwise, plain grep.  Interactively
 show all matches from PATHS; see the documentation for the `dir'
-argument in `consult-grep' for valid values of PATHS. 
+argument in `consult-grep' for valid values of PATHS.
 
 Initialize search with optional REGEXP and interactively prompt
 for changes.  Limit matches per file to the absolute value of

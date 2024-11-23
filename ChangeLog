@@ -1,7 +1,955 @@
+2024-11-19  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-highlight-page-name): Fix that adding
+    numbers to the middle of a HyWikiWord did not dehighlight it;
+    see updates at the end of this function.
+
+2024-11-18  Bob Weiner  <rsw@gnu.org>
+
+* hactypes.el (require): Remove require of 'man' and do it only in
+    man-show where needed.  This may allow CI/CD build of docker Emacs
+    master branch that lacks 'man' package.
+
+2024-11-18  bw  <bw@norlinux>
+
+* hui-tests.el (hui--ibut-link-directly-to-org-header-first-column):
+    Remove dir from fileb when comparing to in-buffer filename and
+    do the same for other tests in this file.
+
+2024-11-17  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:call): Allow for # sections with # chars embedded.
+
+* hpath.el (hpath:shorten): First make path relative to any optional RELATIVE-TO
+    path (default = 'default-directory') and expand both paths.  This makes
+    inserting a link from the other window display the minimal path to produce
+    the link relative to the source path.
+
+* hui.el (hui:link-possible-types): Ensure outline modes trigger only when
+    'buffer-file-name' is non-nil since is used in the return value.  Simplify
+    'link-to-string-match' and other link types.
+
+* hpath.el (hpath:variables): Add 'hywiki-directory' for use in path substitutions.
+
+* hywiki.el (hywiki-word-at, hywiki-maybe-dehighlight-page-name): Fix to exclude
+    any char after the HyWikiWord, if any.
+
+* hproperty.el (hproperty:but-get-all-in-region): Return only overlays that still
+    point to some buffer (may have overlay references that have been deleted and point
+    to no buffer).
+
+* test/hywiki-tests.el (hywiki-tests--verify-face-property-when-editing-wikiword-first-char):
+    Fix middle test after delete-char from HyWikiWord.
+
+* hui-mouse.el (smart-eobp): Trigger only if eobp = eolp or if only
+    whitespace on line preceding eobp.
+
+2024-11-16  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-debuttonize-non-character-commands):
+    Remove  (let ((hywiki-word-highlight-flag))) which was preventing
+    dehighlighting at the start of a WikiWord when the first character
+    was deleted.
+
+2024-11-17  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (run-emacs): Run Emacs as a make target for use with docker.
+
+2024-11-16  Mats Lidell  <matsl@gnu.org>
+
+* test/hsys-org-tests.el (hsys-org--meta-return-on-end-of-line): Add test
+    case for eol action in org-mode.
+
+* hui-mouse.el (hkey-alist): Guard action-key-eol-function from acting
+    when we should delegate to org-mode.
+
+2024-11-13  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-dehighlight-page-name,
+             hywiki-maybe-highlight-page-name): Fix that newline was not
+   being skipped back over to see HyWikiWord since in Org mode it has
+   end-comment syntax (>) rather than whitespace syntax (-).
+  test/hywiki-tests.el (hywiki-tests--face-property-for-wikiword-with-wikipage):
+    The above fixes the 2nd test case here.
+  test/hywiki-tests.el (hywiki-tests--convert-words-to-org-link):
+    The above fixes this test.
+
+* hywiki.el (hywiki-highlight-on-yank): Fix off-by-one error when string
+    extends to (point-max).
+
+2024-11-10  Bob Weiner  <rsw@gnu.org>
+
+* hui-window.el (action-key-modeline-left-edge-function,
+                 action-key-modeline-left-edge-function,
+                 assist-key-modeline-left-edge-function,
+                 action-key-modeline-right-edge-function): Add these
+    customizations.
+                (action-key-modeline-click-left-edge,
+                 assist-key-modeline-click-left-edge,
+                 action-key-modeline-click-right-edge,
+                 assist-key-modeline-click-right-edge): Add these functions
+    as defaults for the above customizations.
+                (hmouse-modeline-default-help-echo): Replacement for default
+    'mode-line-default-help-echo' function that produces mode line hover doc
+    for the Smart Mouse Keys.
+  hyperbole.el (hyperbole--enable-mode): Update mode-line hover doc in blank
+    areas for button-2 and button-3 if using unshifted Smart Keys.
+
+* hui-jmenu.el (hui-menu-modeline): Add HyWiki-Edit-Pages to display a list
+    of HyWiki page files either in dired or Treemacs.
+
+* hui-treemacs.el (require): Prompt to install package if not yet installed.
+
+* hui-window.el (hmouse-horizontal-assist-drag): Fix doc when one window only.
+
+* man/hyperbole.texi (HyWiki Menu): Add index entries per menu item.
+
+* hywiki.el (hywiki-directory-edit): Rename to 'hywiki-directory-dired-edit'.
+            (hywiki-directory-edit): Make a new version that supports
+    'treemacs' when 'action-key-modeline-buffer-id-function' is set to
+    'smart-treemacs-modeline.
+
+* hui-treemacs.el (smart-treemacs): Simplify and no longer call
+    'treemacs-node-buffer-and-position' which can trigger a marker error.
+                  (smart-treemacs-edit): Add to edit/display a dir in Treemacs.
+                  (smart-treemacs-modeline): Call above function.
+  hywiki.el (hywiki-directory-treemacs-edit): Add and call above function.
+
+* hycontrol.el (hycontrol-window-display-buffer): Fix to ignore any dedicated
+    windows and prevent an error typically generated when calling this from
+    'walk-windows' called within 'hycontrol-windows-grid'.  Makes window grids
+    work with Treemacs display, for example.
+
+* hui-treemacs.el (smart-treemacs): Fix invocation of TAB command on first line
+    entry (treat it like any other line except at eol).  Also, actually invoke
+    latest treemacs TAB command when defined rather that calling the default
+    command normally configured to the TAB key.  Ensure all func calls are
+    wrapped with 'hact'.
+                  (smart-treemacs-modeline): Ensure always displays just the
+    dir associated with the current buffer.  Wrap all func calls with 'hact'.
+  man/hyperbole.texi (Smart Key - Treemacs): Update doc to match above change.
+                  (smart-treemacs-quit): Add to ensure treemacs-quit is run
+    within the Treemacs window.
+
+* hywiki.el (hywiki-directory-edit): Support non-bash shells that cannot handle
+    character classes.
+
+2024-11-10  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--add-hywiki-hooks)
+    (hywiki-tests--remove-hywiki-hooks, with-hywiki-buttonize-hooks)
+    (with-hywiki-buttonize-and-insert-hooks): Add functions and macros for
+    mimicking redisplay hook behavior and use these in the highlighting tests.
+    (hywiki-tests--face-property-for-wikiword-with-wikipage)
+    (hywiki-tests--no-face-property-for-no-wikipage)
+    (hywiki-tests--verify-face-property-when-editing-wikiword)
+    (hywiki-tests--verify-face-property-when-editing-wikiword-first-char):
+    Tests using the hook mimicking functions.
+
+2024-11-03  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-highlight-page-name, hywiki-maybe-dehighlight-page-name):
+    Change to use function (hywiki-get-buttonize-characters) rather than the
+    variable, hywiki--buttonize-characters, so do not move back over whitespace
+    when at the beginning of a HyWikiWord.
+
+* hyrolo.el (hyrolo-grep-file): Don't set grepped file to read-only since
+    this can later make org-capture fail.  (gh#rswgnu/hyperbole/599)
+
+2024-11-02  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi: Change all @url to @uref so display properly in
+    Info-format output.
+
+2024-11-02  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--word-is-p)
+    (hywiki-tests--directory-edit)
+    (hywiki-tests--verify-face-property-when-editing-wikiword)
+    (hywiki-tests--verify-face-property-when-editing-wikiword-first-char): Add hywiki
+    tests.
+
+* test/hywiki-tests.el (hywiki-tests--word-is-p): Add hywiki test.
+
+2024-10-28  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (hywiki-existing-word): Call action with the singular version
+    of the page name but leave the in-buffer page name version as the button
+    label.
+
+* hywiki.el (hywiki-get-plural-page-name, hywiki-get-singular-page-name): Add
+    to convert HyWiki page names between singular and plural.
+            (hywiki-get-page-hasht): Add plurals to the page name hash table
+    so are included when highlighting wikiwords in buffers.
+            (hywikig-get-file): Add check for null or empty string values and
+    make page name singular.
+            (hywiki-get-page): Remove call to 'hywiki-add-page' as it can cause
+    an infinite loop.
+            (hywiki-add-page, hywiki-make-pages-hasht): Reset
+    'hywiki--any-page-regexp-list' whenever hasht is rebuilt.  Otherwise,
+    highlighting might not include new wikiwords in hasht.
+
+2024-10-27  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-directory-edit): Add this command.
+            (hywiki-get-page-files): Fix so returns file names sans directory.
+    No subdirectories are allowed.
+            (hywiki-make-pages-hasht): Speed this up by removing now unneeded
+    'file-name-nondirectory' call.
+            (hywiki-directory): Ensure customization ends with a dir separator.
+  hui-mini.el (hui:menu-hywiki): Add 'EditPages'.
+  hui-menu.el (hui-menu-hywiki): Normalize menu names and add 'Edit-HyWiki-Pages'.
+  man/hyperbole.texi (HyWiki Menu): Add EditPages doc.
+            (hywiki-add-page): Change 'hash-get' call to 'hywiki-get-page' call
+  to improve abstraction and plural handling.
+            (hywiki-get-page): Update to expand page-file-name since stored as
+  a relative name now.
+            (hywiki-highlight-between-page-names-after-word): Remove conditional
+    (when (and (char-before) (/= (char-syntax (char-before)) ?w))) so that
+    WikiWords are highlighted immediately when typed, including first or middle
+    characters after deleted and then replaced.  Remove this function and call
+    'hywiki-maybe-highlight-between-page-names' directly instead.
+            (hywiki-get-page-hasht): Add HyWikiWord optional plural support.
+
+2024-10-27  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (TEXI2HTML, HYPERBOLE_FILES, $(html_dir)/hyperbole.html),
+    $(man_dir)/hyperbole.html): Use texinfo-7.css, replaces texinfo-klare.css.
+    (doc-clean, doc-regenerate): Convenience targets for working with docs.
+
+* man/hyperbole.texi (Top): Add top node so contents section is generated.
+
+2024-10-25  Bob Weiner  <rsw@gnu.org>
+
+* Makefile (info): Replace any use of 'texi2any' in first line to 'makeinfo'
+    so Hyperbole Info index links work properly since Info checks for 'makeinfo'.
+
+2024-10-22  Bob Weiner  <rsw@gnu.org>
+
+* Makefile: Use texi2any instead of makeinfo as is more likely to grab
+    the latest version.  Also add ASCII_PUNCTUATION option everywhere.
+
+2024-10-21  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-highlight-on-yank): Add extra char at end to support
+    highlighting any last HyWikiWord.
+
+2024-10-20  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-highlight-between-page-names,
+             hywiki-maybe-highlight-off-page-name,
+             hywiki-maybe-highlight-on-page-name): Add for use in
+   'post-self-insert-hook' idle HyWikiWord highlighter (setup from
+   'hywiki-buttonize-character-commands'.
+            (hywiki-maybe-dehighlight-between-page-names,
+             hywiki-maybe-dehighlight-off-page-name,
+             hywiki-maybe-dehighlight-on-page-name): Add for use in
+   'pre-command-hook' called via 'hywiki-debuttonize-non-character-commands'.
+            (hywiki-debuttonize-non-character-commands,
+             hywiki-maybe-dehighlight-sexp,
+             hywiki-maybe-highlight-page-names): Enable dehighlighting in
+   HyWiki pages by letting 'hywiki-word-highlight-flag' be nil.
+            (hywiki-maybe-highlight-page-names): Fix that were skipping forward
+   for section words even if # symbol was not found.
+            (hywiki-maybe-highlight-balanced-pairs): Make result a boolean value,
+   t if any balanced pair was found.
+
+2024-10-19  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki--maybe-de/highlight-org-element-backward): Add to handle
+    both highlighting and dehighlighting with public callers named:
+            (hywiki-maybe-dehighlight-org-element-backward,
+             hywiki-maybe-highlight-org-element-backward).
+            (hywiki--maybe-de/highlight-org-element-forward): Add to handle
+    both highlighting and dehighlighting with public callers named:
+            (hywiki-maybe-dehighlight-org-element-forward,
+             hywiki-maybe-highlight-org-element-forward).
+            (hywiki--maybe-de/highlight-sexp): Add to handle
+    both highlighting and dehighlighting sexps with public callers named:
+            (hywiki-maybe-dehighlight-sexp,
+             hywiki-maybe-highlight-sexp).
+            (hywiki-maybe-dehighlight-balanced-pairs): Add to dehighlight.
+	    (hywiki-maybe-dehighlight-page-name): Add as inverse to
+    highlight any page name at point function.
+            (hywiki-maybe-highlight-page-name): Change to work when point is
+    within a wiki word as a any point of a word may be edited, turning it
+    to or from a valid page name.
+
+* hywiki.el (hywiki-highlight-between-page-names-after-word): Add to highlight
+    any HyWikiWords between point after inserting a non-word character.
+            (hywiki-buttonize-character-commands): Remove conditionals and
+.   change to using an idle timer with a 0.3 second default delay.
+            (hywiki-maybe-highlight-page-names): Remove dehighlighting of
+    HyWikiWords between [] and <> brackets.
+            (hywiki-debuttonize-non-character-commands): Fix to dehighlight
+    non-WikiWord at point after a delete char command.
+
+* kotl/kfile.el (kfile:create): Remove unneeded insertion of extra 2
+    newlines after end of first cell as 'kview:add-cell' handleds this.
+
+2024-10-13  Bob Weiner  <rsw@gnu.org>
+
+* hproperty.el (hproperty:but-get-all-in-region): Optimize so val-list
+    is created only once per call.
+
+* hbut.el (ibut:insert-text):
+    Convert (link-to-texinfo-node
+             "/home/bw/Dropbox/emacs/hyperbole/man/hyperbole.texi"
+             "Implicit Button Types")
+    and insert something like "man/hyperbole.texi#Implicit Button Types"
+    so works properly.
+* FAST-DEMO (Introduction): Improve this section and add how to globally
+    bind a Hyperbole minibuffer command to another key sequence.
+
+* hui-mini.el (hui:menu-hywiki): Rename 'Edit' to 'FileFind'.
+              (hui:menu-rolo):   Rename 'Edit' to 'FindPage'.
+  hui-menu.el (hui-menu-hywiki): Rename 'Edit' to 'Find-HyWiki-Page'.
+  man/hyperbole.texi (HyWiki Menu): Rename 'Edit' to 'FindPage'.
+
+* hyrolo.el (hyrolo-find-file): Fix that interactive conditions for when to
+    choose among all files (no prefix arg) versus selecting the first, were
+    inverted.  Fixes Rolo/File menu item.
+
+2024-10-08  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi: Remove duplicate manual title display in HTML output.
+  Makefile (TEXI2HTML): Modernize HTML css style via the "texinfo-klare.css"
+  style sheet; change body font size to be responsive to screen size with:
+    font-size: clamp(1rem, 2vw + 0.5rem, 2rem);
+  Add this file to the Makefile.
+  Also make "man/hyperbole.css" font-size responsive for use with Koutline
+  and HyWiki exports.
+
+2024-10-07  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (Binding Minibuffer Menu Items): Document how to
+    programmatically bind a global key to a Hyperbole minibuffer menu item.
+                     (Highlight Menu Key Toggle): Add doc for this customization.
+
+* test/hywiki-tests.el (hywiki-tests--get-page-list-after-add-and-delete): Add
+    and update this test from Mats.
+
+* hywiki.el (hywiki-strip-org-link): Remove any Org link around HyWikiWord#section.
+	    (hywiki-page-exists-p): Call above function.
+	    (hywiki-word-is-p): Clarify in doc that hy:WikiWord returns nil since
+    Org mode handles such links.
+            (hywiki-word-at): Remove optional arg 'range-flag' since never used
+    and too complicated to always return a list with the range when given.
+
+2024-10-06  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-at): Update to handle HyWiki Org-type links with
+    descriptions, e.g. [[WikiWord][Description Text]].
+
+* hargs.el (hargs:delimited): Update doc of 'as-key' argument on use of 'none.
+
+* hasht.el (hash-map): Speed up by not consing key and value when don't need to.
+
+* hywiki.el (hywiki-add-page): Replace 'make-empty-file' with lower-level
+    'write-region' for efficiency.
+    (hywiki--directory-mod-time): Use nil as default value instead of 0.
+    (hywiki-directory-get-mod-time): Return nil if no mod-time or a list
+    that includes microseconds (previously integer return was only precision
+    of seconds).
+  test/hywiki-tests.el (hywiki-tests--directory-get-mod-time,
+                        hywiki-tests--directory-modified-p): Update to handle
+    new list format for mod-time.
+
+2024-10-05  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-kill-buffer-hook): Change to return t iff 'hywiki-directory'
+    change
+
+2024-09-30  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-highlight-page-names): Don't widen the buffer by
+    default as modes like the Koutliner and mail readers narrow to keep
+    certain data hidden from display or editing.
+
+2024-09-29  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-dehighlight-page-names): Add support for passing
+    markers as 'region-start' and 'region-end' args.
+
+* hproperty.el (hproperty:but-get-all-in-region): Fix to exit with first match
+    if 'property' arg is given.
+
+* hypb.el (hypb:in-string-p): Add.
+
+* hywiki.el (hywiki-word-activate): If on a HyWikiWord without a wiki page,
+    then prompt before creating the page.
+            (hywiki-maybe-highlight-balanced-pairs): Fix to handle HyWikiWords
+    within double quotes and re-highlight balanced expressions before and after
+    point since don't know if command is moving point forward or backward.  Also
+    limit buffer region to 'hywiki--buttonize-start' and 'hywiki--buttonize-end'
+    markers when set by 'pre-command-hook'.
+            (hywiki-maybe-highlight-page-names): Allow for whitespace in section
+    names when 'region-start' and 'region-end' are given.  And allow these two args
+    to be markers.
+            (hywiki-word-highlight-flag-changed): Add dehighlighting of HyWikiWords
+    after special commands like deletion to 'pre-command-hook'.  Leave
+    highlighting to 'post-command-hook'.  This allows dehighlighting of an an
+    entire balanced delimited HyWikiWord with a section that contains whitespace
+    before the delimiter is removed.
+           (hywiki-debuttonize-non-character-commands): Add to dehighlight
+    HyWikiWords for 'pre-command-hook'.
+           (hywiki--get-delimited-range-backward, hywiki--get-delimited-range-forward,
+            hywiki-get-delimited-range): Add to compute delimited range before
+    or after point that surrounds a HyWikiWord#section button, if any.
+           (hywiki-get-delimited-range, hywiki-maybe-highlight-balanced-pairs):
+
+    Fix to handle all cases of point being before or after delimiters since
+    for example can delete a delimiter forward or backward.
+
+2024-09-22  Bob Weiner  <rsw@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--get-page-list-when-new-wiki-directory):
+    Remove 'hash-empty-p' test that fails exclusively on Emacs master.
+
+* hywiki.el (hywiki-find-page): Move prompt tests to 'hywiki-add-page'.
+            (hywiki-add-page): Add and run 'hywiki-add-page-hook'.  Add
+    optional second arg 'prompt-flag' that 'hywiki-find-page' passes.
+            (hywiki-directory-get-checksum): Update to use 'hywiki-get-page-files'.
+	    (hywiki-get-files): Remove, essentially duplicate of
+    'hywiki-get-page-files'.
+
+* test/hywiki-tests.el (hywiki-tests--directory-modified-p):
+    Update to set checksum which is needed now and expand
+    test scenarios.
+                       (hywiki-tests--wikiword-with-prefix-creates-a-new-page):
+    Update to add optional 2nd arg of nil to 'hywiki-add-page' call.
+                       (hywiki-tests--hywiki-add-page--adds-file-in-wiki-folder):
+   Actually create empty file and then delete it, fixing
+   hywiki-add-page call failure.
+  hywiki.el (hywiki-add-page): Fix issue where hash table
+    value was set before empty page file is created so
+    did not have correct value.
+
+* hywiki.el (hywiki-maybe-highlight-page-names-in-frame,
+             hywiki-maybe-highlight-page-names): Move set of
+    mod-time and checksum here from 'hywiki-get-page-hasht' to
+    make work with 'hywiki-kill-buffer-hook'.
+
+2024-09-21  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-kill-buffer-hook): Add for use as a global
+    'kill-buffer-hook'.
+  hypb.el (hypb:empty-file-p): Add and use in 'hywiki-kill-buffer-hook'.
+
+* hywiki.el (hywiki-maybe-highlight-page-names): Dehighlight HyWikiWords
+    before re-highlighting new set.
+
+* hywiki.el (hywiki-find-page): Prompt when creating the first HyWiki page
+    so user is not surprised by this Action Key behavior.
+            (hywiki-maybe-highlight-page-names): Add 3rd optional arg,
+    'skip-lookups-update-flag'.
+            (hywiki-maybe-highlight-page-names-in-frame): Add optional 2nd arg,
+    'skip-lookups-update-flag'
+            (hywiki-get-page-hasht): Call above function when update
+    lookup tables so use new data to highlight HyWikiWords.
+
+* man/hyperbole.texi (Manual Overview): Add links for HyWiki and HyNote.
+
+* hywiki.el (hywiki-maybe-highlight-balanced-pairs): Separate balanced
+    pair delimited expression highlighting into this function to allow
+    for more general handling.  Expand range from one line to two.
+            (hywiki-maybe-highlight-page-name): Call above function.
+	    (hywiki-get-page): Auto-link standard pluralizations of HyWikiWords
+    that end 's' when not preceded by an 's' or in 'es'.
+            (hywiki-directory-set-mod-time): Add.
+	    (hywiki--directory-checksum): Add for checking if any HyWiki page file
+    names have changed.
+	    (hywiki-directory-get-checksum, hywiki-directory-set-checksum): Add.
+	    (hywiki-directory-modified-p): Additionally test if dir checksum changed.
+            (hywiki-get-page-hasht): Fix to update pages hash table and page name
+    and page name regexp lookups if any page file name changes.
+            (hywiki-maybe-highlight-page-names): Force rebuild of pages hash table
+    if any page file names have changed in 'hywiki-directory' and move mod-time
+    update to 'hywiki-get-page-hasht'.
+
+2024-09-16  Bob Weiner  <rsw@gnu.org>
+
+* hsys-org.el {C-c C-@} Bind this key in Org mode to
+   'hycontrol-windows-grid' unless already bound.
+  hycontrol.el (hycontrol-windows-grid): Fix infinite recursive call
+    when 'mode-binding' is the same as the current command, e.g. org-mode.
+
+2024-09-11  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--get-file-list): Verify
+    `hyrolo--expanded-file-list' is updated when a file is added.
+
+2024-09-10  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-org-make-publish-project-alist): Add
+    new option 'hywiki-org-publishing-broken-links' with a default value
+    of 'mark.  This is used to set 'org-export-with-broken-links' so
+    HyWiki will simply mark and include broken links when exporting rather
+    than failing.  Otherwise, exporting will often fail due to a few
+    invalid links.  With this setup, just search for 'BROKEN LINK' in the
+    output to repair each issue.
+
+2024-09-09  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el: Add additional autoloads.
+             (hywiki-add-page): Update doc and interactive prompt to
+    indicate this adds or edits an existing page.
+            (hywiki-find-page): Fix interactive expression without a
+    prefix arg to accept a non-existing page name to be created.  With a
+    prefix arg or programmatically with PROMPT-FLAG equal to :existing,
+    find existing pages only.
+
+* hui-select.el (hui-select-syntax-table): Fix that # was registering as
+    an opening quote to an sexp rather than punctuation.
+
+2024-09-08  Bob Weiner  <rsw@gnu.org>
+
+* hui-mini.el (hui:menu-highlight-flag): Add this new customization.
+              (hui:menu-item-highlight-key): Add to highlight with
+    'read-multiple-choice-face' the key to press for each menu item
+    if `hui:menu-highlight-flag' is non-nil.
+              (hui:menu-read-from-minibuffer): Call above function.
+              (hui:menu-item-toggle-highlight): Add and use in Cust/
+    menu.
+
+2024-09-08  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el (ibtypes::hyp-manual-test): Add test.
+
+2024-09-07  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (docker, docker-run): Use "--rm" option so the short lived
+    container and its volumes are removed on exit.
+
+2024-09-02  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (Action Button Link Types): Change PYTHONLIBPATH to
+    PYTHONPATH to match the example definition of 'pylib' in the 'defal'
+    macro documentation.
+
+* hui-select.el (hui-select-delimited-thing-call): FIX: Add setting of
+    missing 'hui-select-syntax-table' that was preventing the Action
+    Key from selecting markup pairs in HTML/Web modes.
+
+2024-09-01  Bob Weiner  <rsw@gnu.org>
+
+* man/dir (File): Narrow width to better fit with out Info entries.
+
+* hyrolo.el (hyrolo-org-mode): Prioritize Org 9.7 folding-spec config
+    over earlier versions to fix a bug that used the wrong version.
+
+* hui-menu.el (infodock-hyperbole-menu):
+  hui-mini.el (hui:menu-hywiki): Allow customizing the HyWiki menus and
+    define its Consult items only when consult-grep is fboundp.
+
+* hynote.el (hynote-get-file): Add secondary markdown file suffixes.
+            (hynote-file-suffix-list): Add this variable and use in above
+    function.
+            (hynote-file-suffix-regexp): Add this variable and use in
+    `hynote-get-files'.
+            (require 'hyrolo): Remove.
+
+* man/hyperbole.texi (Glossary): Add HyNote entry and HyWiki entry reference
+    to its two ibtypes.
+                     (HyNote): Add a short chapter on this.
+
+2024-08-30  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (hyp-manual): Fix to strip spaces around section for both .html
+    and .texi files.
+* hywiki.el (hywiki-word-at): Add optional arg 'range-flag' and when non-nil
+    return (wikiword word-start word-end).
+            (hywiki-word-activate): Fix call to 'hywiki-word-at'.
+
+2024-08-29  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-page-exists-p): Use 'range only if 'word' is non-nil.
+    Add 'start' and 'end' optional args to record 'word' position range.
+
+* hibtypes.el (hywiki-existing-word): Fix to set label when a word is given
+    but no position is known for the word.
+
+* hactypes.el (link-to-texinfo-node): If 'node' is not a string, set it to
+    "Top", the first node.  If 'file' equals "hyperbole.texi", make the file
+    name absolute.
+  hibtypes.el (hyp-manual): Add new ibtype to display Hyperbole HTML and .texi
+    manual sections using syntax: "hyperbole.suffix#section".  The same syntax
+    for "hyperbole.info" is handled elsewhere.
+  man/hyperbole.texi (Implicit Button Types): Add 'hyp-manual' doc.
+
+2024-08-28  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (hywiki-existing-word): Fix label set to use start and end
+    rather than (match-beginning 0) (match-end 0) which yielded wrong positions.
+* hui.el (hui:link-possible-types): Fix bug in link-to-texinfo-node where
+    node name was grabbed outside of save-excursion when not at a node
+    name, so wrong value was used.
+
+2024-08-25  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (Implicit Button Types): Add doc for 'hywiki-existing-word',
+   'hywiki-word' and 'hynote-file'.
+
+2024-08-24  Mats Lidell  <matsl@gnu.org>
+
+* man/hyperbole.texi: Remove not useful @indent.
+
+* Makefile (HYPB_ERT_BATCH_BT): Control abbreviation of backtrace.
+
+2024-08-24  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:to-Info-ref): Add.
+           (hpath:is-p, hpath:at-p):
+  hactypes.el (link-to-Info-node):
+  hibtypes.el (Info-node): Add support for Info refs in a regular
+    pathname format, e.g. "hyperbole.info#Smart Keys".
+  hibtypes.el (pathname): Exclude Info paths without parens handled
+    by Info-node, e.g. "emacs.info#Windows".
+
+2024-08-23  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ibut:label-p): Handle when lbl is nil.
+
+* hyperbole.el: Require Emacs 27.2 minimum.
+
+2024-08-23  Mats Lidell  <matsl@gnu.org>
+
+* hibtypes.el (ripgrep-msg): Add check of file exist.
+
+* test/hibtypes-tests.el (ibtypes::ripgrep-msg-test): Test ripgrep-msg.
+
+2024-08-19  Bob Weiner  <rsw@gnu.org>
+
+* README.md: Add HyWiki description.
+
+* man/hyperbole.texi (HyRolo Searching, HyRolo Menu): Add TagFind menu item.
+
+* hyrolo-menu.el: Add "Tag-Find".
+  hui-menu.el (infodock-hyperbole-menu):
+  hui-mini.el (hui:menus): In HyWiki> menu, change Toggle to ModeToggle so
+    can add TagFind item.
+              (hui:menu-read-from-minibuffer): Add to allow customization
+    of minibuffer read arguments such as 'initial-content' that minibuffer
+    menus generate.
+              (hui:menu-rolo): Add TagFind.
+  man/hyperbole.texi (HyWiki Menu): Add TagFind menu item doc.
+
+* hsys-org.el (hsys-org-enable-smart-keys): Change 'buttons option to :buttons
+    so don't have to quote and works in assq/rassq lookups.
+
+2024-08-18  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-at-wikiword-beginning): Fix to handle word
+    preceded by a single square bracket.
+
+* hibtypes.el (hywiki-existing-word): Add this new ibtype to match to
+    HyWikiWords with an existing page at a higher priority than those
+    without an existing page, so can be handled separately.  Must be
+    defined in this file to set its priority at a high level.
+
+* hywiki.el (hywiki-is-wikiword): Rename to 'hywiki-word-is-p'.
+            (hywiki-word-activate , hywiki-page-strip-section,
+             hywiki-page-exists-p): Add.
+            (hywiki-word-consult-grep): Rename from `hywiki-word-search'.
+  hui-mini.el (hui:menus): Change "Act" item from 'hui:ibut-act' to
+    new 'hywiki-word-activate'.
+
+* hui-menu.el (infodock-hyperbole-menu):
+  hui-mini.el (HyWiki, IButton): Change help function from 'hui:hbut-help'
+    to 'hkey-help' so handles more contexts without erroring.
+
+* hui-menu.el (hui-menu-org-meta-return-options): Remove wrong extra parens.
+
+2024-08-18  Mats Lidell  <matsl@gnu.org>
+
+* kotl/klink.el (klink:ignore-modes, klink:c-style-modes):
+* hui-select.el (hui-select-brace-modes)
+    (hui-select-brace-def-or-declaration):
+* hui-mouse.el (hkey-alist):
+* hmouse-tag.el (smart-java-cross-reference):
+* hibtypes.el (annot-bib): Add corresponding tree-sitter modes for the
+    modes supported by Hyperbole.
+
+2024-08-17  Bob Weiner  <rsw@gnu.org>
+
+* hui-mini.el (hui:menus): Org-M-RET/ Customization menu, add doc to items
+    and add this menu to the HyWiki menu.  Also add Toggle 'hywiki-mode' item.
+    (hui:menus): Change Org-M-RET/All-Programmed-Contexts to
+    All-Smart-Org-Contexts.  Add HyWiki Toggle-HyWiki-Mode.
+  man/hyperbole.texi (HyWiki Menu): Doc above changes in the manual.
+                     (HyWikiWords): Explain new HyWikiWord page creation.
+
+* hact.el (hact): Document that this returns t instead of nil when action type
+    return value is nil; this ensures that implicit button types register
+    the performance of the action.
+
+* man/hyperbole.texi (HyWiki Menu):
+  hui-menu.el (infodock-hyperbole-menu):
+  hui-mini.el (hui:menus): Change 'Grep' to 'GrepConsult' and 'Search' to
+   'WikiWordConsult' so know they use the Consult package.
+
+* hsys-consult.el (hsys-consult-grep): Add missing autoload for this function.
+
+2024-08-16  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (hbut:map): Remove args 'start-delim' and 'end-delim' and fix to
+    work for both ebuts and named ibuts.
+          (hbut:map-type): Create and use old logic from 'hbut:map' and
+    use in 'ebut:map', 'ibut:map' and 'ibut:label-map'.
+
+2024-08-15  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--org-set-publish-project)
+    (hywiki-tests--org-get-publish-project)
+    (hywiki-tests--org-link-resolve)
+    (hywiki-tests--org-link-export): Add publish and export tests.
+
+2024-08-15  Bob Weiner  <rsw@gnu.org>
+
+* hui.el (hbut:alist, hbut:list): Add to match but type-specific functions.
+         (hui:hbut-help): Change 'hargs:read-match' completion table to use
+    'hbut:alist' instead of 'ebut:alist'.
+
+* Makefile (HYPERBOLE_FILES): Add all Org files under the hywiki dir.
+
+2024-08-14  Bob Weiner  <rsw@gnu.org>
+
+* FAST-DEMO: Add HyWiki section and associated hywiki pages sub-directory.
+
+2024-08-13  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (Menus): Add description of Doc/ and HyWiki/ menus.
+                     (Glossary): Add History and HyWiki entries.
+		     (HyWiki): Add a chapter documenting HyWiki.
+
+* hui-mini.el (hui:menus): Add HyWiki menu to 'h' and move Hist to historY,
+    selectable with 'y' instead of 'h'.
+  man/hyperbole.texi (Default Hyperbole Bindings): Update hist to 'y' binding.
+  DEMO (History): Update binding to {C-h h y}.
+
+* hywiki.el (hywiki-word-search): Add to search for HyWikiWord occurrences.
+            (hywiki-read-new-page-name): Add and use in 'hywiki-add-page'.
+            (hywiki-add-page): Update so returns nil if page-name is invalid,
+    unless called interactively, then trigger an error.
+
+2024-08-12  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-read-page-name): Add mainly for use in interactive calls
+    that require an existing HyWikiWord (same as its page name).
+            (hywiki-add-link): Add to prompt and link to HyWiki pages.
+
+2024-08-11  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-highlight-page-names-in-frame): Reduce sit-for
+    to 0 since just want to trigger redisplay.
+            (hywiki-publish-to-html): Retrieve HyWiki project by name.
+	    (hywiki-directory): Change to a defcustom so can set this before
+    loading Hyperoble.
+            (hywiki-org-get-publish-property): (require 'ox-publish).
+	    (hywiki-org-maybe-add-title): Add title to HyWiki pages without one
+    using the file or buffer name.
+            (hywiki-org-export-function): Fix to trigger only in the copy of
+    the HyWiki Org buffer that we want to modify with a Title and [[hy:link]]
+    markup.
+            (hywiki-org-get-publish-project): Initialize alists if not set.
+	    (hywiki-org-set-publish-project): Add and use in above function.
+	    (hywiki-directory, hywiki-org-publishing-directory,
+	     hywiki-org-publishing-function): Add :initialize and :set
+    properties so that changes trigger updates in 'org-publish-project-alist'.
+            (hywiki-org-maybe-add-title): Add to add the HyWikiWord as the
+    title for each HyWiki page.
+            (hywiki-org-make-publish-project-alist): Add :sitemap-title property..
+	    (hywiki-org-publishing-sitemap-title): Add to set above property.
+	    (hywiki-is-wikiword): Add not 'string-empty-p' test.
+	    (hywiki-add-page): Add interactive spec.
+
+2024-08-10  Bob Weiner  <rsw@gnu.org>
+
+* hynote.el: Update commentary to current functionality.
+             (hynote-get-file): Add ".otl" and ".outl" suffixes for Emacs
+    outline and HyRolo files.
+
+* hywiki.el (hywiki-org-export-function): Add and use as advice on
+    'org-element--generate-copy-script'.
+            (hywiki-get-page): Fix so just returns nil if page name is invalid
+     or not found.
+            (hywiki-org-link-resolve , hywiki-org-link-export): Handle nil as a
+     'link' arg value.  In resolve function, remove any hy: prefix and return
+     nil if wiki page is not found.  In export function, return 'link' arg
+     with no markup if wiki page is not found.
+            (hywiki-org-publishing-directory): Add as location to exported HyWiki
+     pages to.
+            (hywiki-org-publishing-function): Add as Org function used to export
+     each HyWiki page.
+            (hywiki-org-publish-project-alist): Add with properties for
+     exporting a HyWiki.
+            (hywiki-org-get-publish-project, hywiki-org-get-publish-property):
+     Add to simplify HyWiki Org publish property handling.
+            (hywiki-publish-to-html): Add to export HyWiki pages to html.  With
+     a prefix argument, regenerate all html pages.
+
+2024-08-08  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el (elisp-compiler-msg-test): Add test.
+
+2024-08-06  Mats Lidell  <matsl@gnu.org>
+
+* test/hproperty-tests.el: Test file for hproperty.
+    (hproperty-tests--but-add): Add test.
+
+* test/hywiki-tests.el (hywiki-tests--convert-words-to-org-link): Add test.
+
+2024-08-05  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-test--expand-path-list)
+    (hyrolo-test--at-tags-p): Add tests.
+
+2024-07-31  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (org-uuid-regexp): Add variable def for when missing in certain
+    earlier Org versions.
+
+* test/hsys-org-tests.el (hsys-org---agenda-tags-string): Fix to current tag
+    handling code.
+
+2024-07-28  Bob Weiner  <rsw@gnu.org>
+
+* hproperty.el (hproperty:but-add): Add a button only when a button with the
+    same property value, start, and end does not already exist, to prevent
+    duplicates.
+
+* hywiki.el (hywiki-maybe-highlight-page-name): Fix to dehighlight wiki words
+    only if within double square or angle brackets (leaving these to Org to
+    handle).
+            (hywiki-buttonize-non-character-commands): Add 'delete-' commands.
+            (hywiki--highlighting-done-flag): Add and use in
+    'hywiki-maybe-highlight-page-name'.
+            (hywiki-maybe-highlight-org-element-backward,
+            (hywiki-maybe-highlight-org-element-forward): Add these two functions.
+            (hywiki-maybe-highlight-page-names): Fix to not use whole buffer
+    highlight flag when given a region.
+
+* hsys-org-roam.el (hsys-org-roam-tags-view):
+  hsys-org.el (hsys-org-tags-view):
+  hywiki.el (hywiki-tags-view):
+  hyrolo.el (hyrolo-tags-view): Add doc for 'match' arg.
+
+* hsys-org.el (hsys-org-get-agenda-tags): Rename arg from
+    'org-consult-agenda-function' to 'agenda-tags-view-function' since does
+    not require the consult package and don't want to override any org
+    package name.  Improve doc string.
+              (hsys-org--agenda-tags-string): Improve doc string and fix to
+    return non-nil only when point is within a tag string.  Simplify return
+    value creation.
+
+2024-07-28  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el (ibtypes:org-id-test): Test org-id ibut.
+
+2024-07-27  Mats Lidell  <matsl@gnu.org>
+
+* test/hsys-org-tests.el (hsys-org--get-agenda-tags): Test
+    hsys-org-get-agenda-tags.
+
+2024-07-26  Mats Lidell  <matsl@gnu.org>
+
+* hsys-org.el (hsys-org--agenda-tags-string): Update docstring.
+
+* test/hsys-org-tests.el (hsys-org--mode-p): Test hsys-org-mode-p.
+    (hsys-org---agenda-tags-string): Test hsys-org--agenda-tags-string.
+
+* test/hywiki-tests.el (hywiki-tests--at-tags-p): Test hywiki-at-tags-p.
+
+* test/hsys-org-tests.el (hsys-org--directory-at-tags-p): Test
+    hsys-org-directory-at-tags-p.
+
+2024-07-15  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-in-page-p): Change to use 'default-directory' instead
+    of 'buffer-file-name' so works with temp buffers created during Org
+    export to other formats, e.g. html.
+
+2024-07-15  Mats Lidell  <matsl@gnu.org>
+
+* test/hsys-org-tests.el (hsys-org--at-tags-p): Test hsys-org-at-tags-p.
+
+* test/hpath-tests.el (hpath--to-markup-anchor): Test hpath:to-markup-anchor.
+
+* test/hui-tests.el (hui--link-possible-types): Add test for single-line
+    region.
+
+2024-07-14  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (DOCKER_VERSIONS): Use 29.4 for local docker builds.
+
+2024-07-14  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-convert-words-to-org-links, hywiki-map-words): Add.
+
+* hibtypes.el (Info-node): Handle decoding of Info node names in
+    Hyperbole Help buffer lbl-key: lines, eliminating excess underscores.
+
+* hmouse-tag.el (smart-lisp-mode-p): Add 'help-mode', e.g. for output of {C-h A}
+    to make Hyperbole cross-references work.
+
+2024-07-13  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki--range): Add to hold (start . end) range values.
+            (hywiki-word-at): If word is already highlighted with
+    'hywiki-word-face', use that as a shortcut to get the word.
+            (hywiki-buttonize-word): Add.
+	    (hywiki-maybe-highlight-page-name): Rewrite to use above function.
+
+2024-07-12  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--maybe-at-wikiword-beginning): Fix
+    set of acceptable chars and use escaped notation.
+
+2024-07-10  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-org-link-export): Add as [[hy:WikiWord]] link-export property.
+            (hywiki-org-link-resolve): Add to resolve HyWikiWord link to its page.
+            (hywiki-org-link-store): Change :description property to be just
+    the 'page-name' itself.
+
+2024-07-07  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (elisp-compiler-msg): Fix to handle both of these cases:
+  skipped  13/15  hywiki-tests--no-face-property-for-no-wikipage (0.000121 sec)
+  SKIPPED  hywiki-tests--face-property-for-wikiword-with-wikipage
+
+* hywiki.el (hywiki-word-highlight-flag-changed): Ensure highlighting via
+    'window-buffer-change-functions' is properly reset when toggling this flag.
+    Also ensure highlighting/dehighlighting of HyWikiWords.  Remove separate
+    setting of this functions variable since this function is called on load.
+
+* hpath.el  (hpath:expand-list): Change 3rd arg from 'exists-flag' to 'filter',
+    a predicate function that allows filtering the list of returned paths,
+    e.g. 'file-readable-p'.  It t is sent, then file 'file-exists-p' is used.
+  hyrolo.el (hyrolo-expand-path-list): Update to return only readable files.
+            (hyrolo-at-tags-p): Add to test if point is within HyRolo Org tags.
+	    (hyrolo-tags-view): Add to display HyRolo Org tags using Agenda search.
+  hsys-org.el (hsys-org-hyrolo-agenda-tags): Add.
+              (hsys-org-agenda-tags-p): Add calls to above new functions.
+  hsys-consult.el (hsys-consult-hyrolo-grep-tags): Add.
+                  (hsys-consult-org-grep-tags-p): Add calls to above new functions.
+
+* hsys-org-roam.el (hsys-org-roam-tags-view, hsys-org-roam-consult-grep): Prompt
+    whether to install needed package when not yet installed.
+
+* hbut.el (ibut:create): Improve messages and traceback generation on ibtype error.
+
+2024-07-07  Mats Lidell  <matsl@gnu.org>
+
+* .github/workflows/main.yml (jobs): Use update 29 to 29.4 in CI workflow.
+
+* Makefile (HYPB_ERT_INTERACTIVE): New macro for supplying the test
+    specifier as given by the command line test to the all-tests target.
+
 2024-07-06  Bob Weiner  <rsw@gnu.org>
 
-* hibtypes.el (org-id): Fix bug in older versions of Org where where
-    'org-uuid-regexp' was not bound.
+* hibtypes.el (org-id): Fix bug in older versions of Org where 'org-uuid-regexp'
+    was not bound.
 
 * hbut.el (ibut:create): Improved when err occurs in type to print the err before
     triggering a backtrace when in batch mode.
@@ -157,7 +1105,7 @@
             (hynote-file): Add ibtype to display non-HyWikiWord files in
     hywiki-directory'.
 
-* Makefile: (docker-run): Add to intweractively run docker versions
+* Makefile: (docker-run): Add to interactively run docker versions
     of Emacs with Hyperbole.  Update Commentary to summarize docker
     targets that build, byte-compile and run Hyperbole.
 

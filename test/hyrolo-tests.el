@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    19-Jun-21 at 22:42:00
-;; Last-Mod:     16-Jun-24 at 15:46:18 by Mats Lidell
+;; Last-Mod:     11-Sep-24 at 23:56:02 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -469,6 +469,24 @@ Match a string in the second cell."
 		(hyrolo-file-list (list tmp-file)))
            ()))
       (hy-delete-file-and-buffer tmp-file))))
+
+(ert-deftest hyrolo-tests--get-file-list ()
+  "Verify `hyrolo-get-file-list` includes added files."
+  :expected-result :failed
+  (let* ((folder (make-temp-file "hypb" t))
+         (prefix (expand-file-name "hypb" folder))
+         (org-file (make-temp-file prefix nil ".org"))
+         (hyrolo-file-list (list folder)))
+    (unwind-protect
+        (progn
+          (should (= 1 (length (hyrolo-get-file-list))))
+          (let ((org2-file (make-temp-file prefix nil ".org")))
+            (unwind-protect
+                (should (= 2 (length (hyrolo-get-file-list))))
+              (hy-delete-file-and-buffer org2-file))))
+      (dolist (f (list org-file))
+        (hy-delete-file-and-buffer f))
+      (delete-directory folder))))
 
 ;; Outline movement tests
 (defun hyrolo-tests--level-number (section depth)
@@ -1657,6 +1675,45 @@ match
     (and (get-buffer hyrolo-display-buffer)
          (kill-buffer hyrolo-display-buffer)
          (ert-fail "Buffer %s should not have been created" hyrolo-display-buffer))))
+
+(ert-deftest hyrolo-test--expand-path-list ()
+  "Verify `hyrolo-expand-path-list'."
+  (should (equal (hyrolo-expand-path-list nil) '("~/.rolo.otl")))
+  (let ((bbdb-file nil))
+    (mocklet (((hpath:expand-list
+                '("/file1")
+                "\\.\\(kotl?\\|org\\|ou?tl\\|md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\)$"
+                #'file-readable-p)
+               => (list "/file1")))
+      (should (equal (hyrolo-expand-path-list '("/file1")) '("/file1")))))
+  (let ((bbdb-file nil))
+    (mocklet (((hpath:expand-list
+                '("/file1")
+                "\\.\\(kotl?\\|org\\|ou?tl\\|md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\)$"
+                #'file-readable-p)
+               => (list "/file1")))
+      (should (equal (hyrolo-expand-path-list '("/file1")) '("/file1"))))))
+
+(ert-deftest hyrolo-test--at-tags-p ()
+  "Verify `hyrolo-at-tags-p´."
+  (let ((orig-buffer-name (symbol-function 'buffer-name)))
+    (cl-letf (((symbol-function 'buffer-name)
+               (lambda (&optional buffer)
+                 (if (string-prefix-p " *temp*" (funcall orig-buffer-name))
+                     "*HyRolo*"
+                   (funcall orig-buffer-name)))))
+      (with-temp-buffer
+        (should (hyrolo-at-tags-p t)))
+      (with-temp-buffer
+        (insert "* header  :tag1:tag2:\n")
+        (goto-char (point-min))
+        (search-forward ":tag1")
+        (should (hyrolo-at-tags-p)))))
+  (with-temp-buffer
+    (org-mode)
+    (mocklet (((hyrolo-get-file-list) => '("file")))
+      (let ((buffer-file-name "file"))
+        (should (hyrolo-at-tags-p t))))))
 
 (provide 'hyrolo-tests)
 

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    26-Feb-23 at 11:20:15 by Bob Weiner
-;; Last-Mod:      6-Jul-24 at 00:11:29 by Bob Weiner
+;; Last-Mod:     11-Aug-24 at 00:46:33 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -33,7 +33,12 @@
 ;;; ************************************************************************
 
 (defvar consult-org-roam-grep-func)
+(defvar hsys-org-at-tags-p)
+(defvar org-agenda-buffer-tmp-name)
+(defvar org-agenda-files)
 (defvar org-roam-directory)
+(declare-function hsys-org-at-tags-p "hsys-org")
+(declare-function hypb:require-package "hypb")
 (declare-function org-roam-db-autosync-mode "ext:org-roam")
 
 ;;; ************************************************************************
@@ -46,9 +51,7 @@
 Actual grep function used is given by the variable,
 `consult-org-roam-grep-func'."
   (interactive)
-  (unless (package-installed-p 'consult-org-roam)
-    (package-install 'consult-org-roam))
-  (require 'consult-org-roam)
+  (hypb:require-package 'consult-org-roam)
   (let ((grep-func (when (and (boundp 'consult-org-roam-grep-func)
 			      (fboundp consult-org-roam-grep-func))
 		     consult-org-roam-grep-func)))
@@ -69,13 +72,14 @@ Actual grep function used is given by the variable,
 (defun hsys-org-roam-tags-view (&optional todo-only match view-buffer-name)
   "Prompt for colon-separated Org Roam tags and display matching headlines.
 With optional prefix arg TODO-ONLY, limit matches to Org Roam
-todo items only.  With optional VIEW-BUFFER-NAME, use that rather
-than the default, \"*Org Roam Tags*\"."
+todo items only.  With optional MATCH, an Org tags match selector
+string, e.g. \":tag1:tag2:tag3:\", match to sections that contain
+or inherit all of these tags, regardless of tag order.  With
+optional VIEW-BUFFER-NAME, use that rather than the default,
+\"*Org Roam Tags*\"."
   (interactive "P")
   (require 'org-agenda)
-  (unless (package-installed-p 'org-roam)
-    (package-install 'org-roam))
-  (require 'org-roam)
+  (hypb:require-package 'org-roam)
   (let* ((org-agenda-files (list org-roam-directory))
 	 (org-agenda-buffer-name (or view-buffer-name "*Org Roam Tags*"))
 	 ;; `org-tags-view' is mis-written to require setting this next

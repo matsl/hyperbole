@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:      6-Jul-24 at 00:38:17 by Bob Weiner
+;; Last-Mod:     17-Nov-24 at 12:01:54 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -253,7 +253,6 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 	  (setq hkey-value (ert-results-filter-status-p)))
      . ((smart-ert-results hkey-value) . (smart-ert-results-assist hkey-value)))
     ;;
-    ;;
     ;; Handle Emacs push buttons in buffers
     ((and (fboundp 'button-at) (button-at (point)))
      . ((smart-push-button nil (mouse-event-p last-command-event))
@@ -299,7 +298,9 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
      . ((funcall (key-binding (kbd "RET"))) . (funcall (key-binding (kbd "RET")))))
     ;;
     ;; If at the end of a line (eol), invoke the associated Smart Key handler EOL handler.
-    ((smart-eolp)
+    ((and (smart-eolp)
+          (not (and (funcall hsys-org-mode-function)
+                    (not (equal hsys-org-enable-smart-keys t)))))
      . ((funcall action-key-eol-function) . (funcall assist-key-eol-function)))
     ;;
     ;; Handle any Org mode-specific contexts but give priority to Hyperbole
@@ -444,7 +445,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;;
     ;; Python files - ensure this comes before Imenu for more advanced
     ;; definition lookups
-    ((and (or (and (derived-mode-p 'python-mode) buffer-file-name)
+    ((and (or (and (derived-mode-p '(python-mode python-ts-mode)) buffer-file-name)
 	      (and (featurep 'hsys-org) (hsys-org-mode-p)
 		   (equal (hsys-org-get-value :language) "python"))
 	      (let ((case-fold-search))
@@ -452,11 +453,11 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 	  (setq hkey-value (smart-python-at-tag-p)))
      . ((smart-python hkey-value) . (smart-python hkey-value 'next-tag)))
     ;;
-    ((and (eq major-mode 'c-mode)
+    ((and (memq major-mode '(c-mode c-ts-mode))
 	  buffer-file-name (smart-c-at-tag-p))
      . ((smart-c) . (smart-c nil 'next-tag)))
     ;;
-    ((and (eq major-mode 'c++-mode) buffer-file-name
+    ((and (memq major-mode '(c++-mode c++-ts-mode)) buffer-file-name
 	  ;; Don't use smart-c++-at-tag-p here since it will prevent #include
 	  ;; lines from matching.
 	  (smart-c-at-tag-p))
@@ -479,7 +480,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
      . ((smart-lisp) . (smart-lisp 'show-doc)))
     ;;
     ;;
-    ((and (eq major-mode 'java-mode) buffer-file-name
+    ((and (memq major-mode '(java-mode java-ts-mode)) buffer-file-name
 	  (or (smart-java-at-tag-p)
 	      ;; Also handle Java @see cross-references.
 	      (looking-at "@see[ \t]+")
@@ -488,7 +489,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 		     (looking-at "@see[ \t]+")))))
      . ((smart-java) . (smart-java nil 'next-tag)))
     ;;
-    ((and (memq major-mode '(js2-mode js-mode js3-mode javascript-mode html-mode web-mode))
+    ((and (memq major-mode '(html-mode javascript-mode js-mode js-ts-mode js2-mode js3-mode web-mode))
 	  buffer-file-name
 	  (smart-javascript-at-tag-p))
      . ((smart-javascript) . (smart-javascript nil 'next-tag)))
@@ -1814,7 +1815,7 @@ When the Action Key is pressed and `hsys-org-enable-smart-keys' is t:
   3. On an Org agenda view item, jump to the item for editing.
 
 When the Action Key is pressed and `hsys-org-enable-smart-keys' is
-either t or 'buttons:
+either `t' or `:buttons':
 
   4. Within a radio or internal target or a link to it, jump between
      the target and the first link to it, allowing two-way navigation.
@@ -1830,13 +1831,13 @@ either t or 'buttons:
 
   9. With point on any #+BEGIN_SRC, #+END_SRC, #+RESULTS, #+begin_example
      or #+end_example header, execute the code block via the Org mode
-     standard binding of {\\`C-c' \\`C-c'}, (org-ctrl-c-ctrl-c).
+     standard binding of {\\`C-c' \\`C-c'}, (`org-ctrl-c-ctrl-c').
   
  10. With point on an Org mode heading, cycle the view of the subtree at
      point.
 
  11. In any other context besides the end of a line, invoke the Org mode
-     standard binding of {M-RET}, (org-meta-return).
+     standard binding of {M-RET}, (`org-meta-return').
 
 When the Assist Key is pressed, it behaves just like the Action Key except
 in these contexts:
@@ -1935,7 +1936,7 @@ handled by the separate implicit button type, `org-link-outside-org-mode'."
 		   (t
 		    ;; Continue with any further Smart Key non-Org contexts
 		    nil)))
-	    ((eq hsys-org-enable-smart-keys 'buttons)
+	    ((memq hsys-org-enable-smart-keys '(:buttons buttons))
 	     (cond ((hsys-org-radio-target-def-at-p)
 		    (hact 'org-radio-target-link)
 		    t)
@@ -2217,8 +2218,8 @@ If key is pressed:
 
 ;;;###autoload
 (defun smart-eobp ()
-  "Return t if point is past the last visible buffer line with text."
-  (and (or (eobp)
+  "Return t if point is past the last visible buffer line with non-whitespace characters."
+  (and (or (and (eobp) (bolp))
 	   ;; On a blank line and nothing but whitespace until eob
 	   (save-excursion
 	     (beginning-of-line)
@@ -2227,7 +2228,9 @@ If key is pressed:
 	   (not (smart-outline-char-invisible-p (1- (point)))))))
 
 (defun smart-eolp ()
-  "Return t if point is at the end of a visible line but not the end of the buffer."
+  "Return t if point is at the end of a visible line.
+This includes the last buffer line if it contains any non-whitespace
+characters.  It excludes a blank line at the end of the buffer."
   ;; smart-helm handles eol for helm buffers
   (unless (or (and (smart-helm-alive-p) (equal (helm-buffer-get) (buffer-name)))
 	      ;; Allow for org global cycling at start of buffer on a

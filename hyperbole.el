@@ -6,15 +6,15 @@
 
 ;; Author:       Robert Weiner <rsw@gnu.org>
 ;; Authors:      Robert Weiner <rsw@gnu.org>, Mats Lidell <matsl@gnu.org>
-;; Maintainer:   Mats Lidell <matsl@gnu.org>
+;; Maintainer:   Robert Weiner <rsw@gnu.org>
 ;; Maintainers:  Robert Weiner <rsw@gnu.org>, Mats Lidell <matsl@gnu.org>
 ;; Created:      06-Oct-92 at 11:52:51
-;; Last-Mod:      2-Jun-24 at 13:22:35 by Bob Weiner
+;; Last-Mod:     11-Nov-24 at 00:03:01 by Bob Weiner
 ;; Released:     10-Mar-24
 ;; Version:      9.0.2pre
 ;; Keywords:     comm, convenience, files, frames, hypermedia, languages, mail, matching, mouse, multimedia, outlines, tools, wp
 ;; Package:      hyperbole
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "27.2"))
 ;; URL:          http://www.gnu.org/software/hyperbole
 
 ;; See the "HY-COPY" file for license information.
@@ -490,7 +490,7 @@ frame, those functions by default still return the prior frame."
 			    (cond ((car-safe (get 'hsys-org-enable-smart-keys 'customized-value)))
 				  ((car-safe (get 'hsys-org-enable-smart-keys 'saved-value)))
 				  ((hsys-org-meta-return-shared-p)
-				   'buttons)
+				   :buttons)
 				  (t))))
   ;;
   ;; This next function call must be run before any tests involving Org
@@ -521,6 +521,11 @@ frame, those functions by default still return the prior frame."
   (unless (and hkey-init (where-is-internal #'hkey-help))
     (hyperb:init)
     (remove-hook 'after-init-hook #'hyperb:init))
+  ;;
+  ;; Update mode-line hover doc in blank areas for button-2 and
+  ;; button-3 if using unshifted Smart Keys.
+  (set-variable mode-line-default-help-echo #'hmouse-modeline-default-help-echo)
+  (force-mode-line-update t)
   ;;
   ;; Abbreviate MSWindows /cygdrive mount point paths.
   (when (file-exists-p "/cygdrive")

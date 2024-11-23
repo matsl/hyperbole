@@ -8,7 +8,7 @@
 ;; AUTHOR:       Bob Weiner
 ;;
 ;; ORIG-DATE:    16-Mar-90 at 03:38:48
-;; LAST-MOD:     30-Jun-24 at 17:39:31 by Bob Weiner
+;; LAST-MOD:      6-Oct-24 at 13:26:58 by Bob Weiner
 ;;
 ;; Copyright (C) 1990-1995, 1997, 2016  Free Software Foundation, Inc.
 ;; See the file BR-COPY for license information.
@@ -54,6 +54,12 @@
 It is sent the two values as arguments.")
 
 ;;; ************************************************************************
+;;; Public declarations
+;;; ************************************************************************
+
+(defvar hash-empty-htable)
+
+;;; ************************************************************************
 ;;; Public functions
 ;;; ************************************************************************
 
@@ -66,7 +72,8 @@ Replaces any VALUE previously referenced by KEY."
 	(if sym (set sym value)))))
 
 (defun hash-copy (hash-table)
-  "Return a copy of HASH-TABLE, list and vector elements are shared across both tables."
+  "Return a copy of HASH-TABLE.
+List and vector elements are shared across both tables."
   (if (not (hashp hash-table))
       (error "(hash-copy): Invalid hash-table: `%s'" hash-table))
   (let ((htable-copy (hash-make (length (hash-obarray hash-table)))))
@@ -194,18 +201,25 @@ in reverse order of occurrence (they are prepended to the list)."
     (cons 'hasht obarray)))
 
 (defun hash-map (func hash-table)
-  "Return result of applying FUNC over each (<value> . <key>) in HASH-TABLE."
+  "Return result of applying FUNC over each (<value> . <key>) in HASH-TABLE.
+<key> is a symbol.
+
+If FUNC is in '(cdr key second symbol-name), then return all <key>s as strings.
+If FUNC is in '(car value first symbol-value), then return all <value>s."
   (if (not (hashp hash-table))
       (error "(hash-map): Invalid hash-table: `%s'" hash-table))
+  (setq func (cond ((memq func '(cdr key second symbol-name))
+		    #'symbol-name)
+		   ((memq func '(car value first symbol-value))
+		    #'symbol-value)
+		   (t `(lambda (sym) (funcall ,func
+					      (cons (symbol-value sym)
+						    (symbol-name sym)))))))
   (let ((result))
     (mapatoms (lambda (sym)
 		(and (boundp sym)
 		     sym
-		     (setq result (cons (funcall
-					 func
-					 (cons (symbol-value sym)
-					       (symbol-name sym)))
-					result))))
+		     (push (funcall func sym) result)))
 	      (hash-obarray hash-table))
     result))
 

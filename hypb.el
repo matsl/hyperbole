@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     6-Oct-91 at 03:42:38
-;; Last-Mod:     15-Dec-24 at 22:49:02 by Bob Weiner
+;; Last-Mod:     19-Jan-25 at 15:01:21 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -245,6 +245,13 @@ name differs at the start and end of BODY."
        (unless (buffer-live-p start-buffer)
 	 (error "End buffer, '%s', is not live" (current-buffer))))))
 
+;;;###autoload
+(defun hypb:buffer-file-name (&optional buffer)
+  "Return name of file BUFFER or current buffer is visiting; nil if none.
+No argument or nil as argument means use the current buffer.
+Produces the correct file name for indirect buffers as well."
+   (buffer-file-name (or (buffer-base-buffer buffer) buffer)))
+
 (defun hypb:call-process-p (program &optional infile predicate &rest args)
   "Call an external PROGRAM with INFILE for input.
 If PREDICATE is given, it is evaluated in a buffer with the PROGRAM's
@@ -468,7 +475,7 @@ This will install the Emacs devdocs package if not yet installed."
 
 (defun hypb:empty-file-p ()
   "Return non-nil if the current buffer has an attached file of zero size."
-  (when (and buffer-file-name (file-readable-p buffer-file-name))
+  (when (and (hypb:buffer-file-name) (file-readable-p (hypb:buffer-file-name)))
     (= (file-attribute-size (file-attributes buffer-file-name)) 0)))
 
 (defun hypb:error (&rest args)
@@ -1075,6 +1082,21 @@ Optional first arg MINIBUFFER-FLAG t means include the minibuffer window
 in the list, even if it is not active.  If MINIBUFFER-FLAG is neither t
 nor nil it means to not count the minibuffer window even if it is active."
   (window-list nil minibuffer-flag))
+
+;;;###autoload
+(defmacro hypb:with-marker (marker &rest body)
+  "Set MARKER while executing BODY, then set MARKER to nil.
+Return result of last BODY expression."
+  (declare (indent 1) (debug t))
+  `(prog1 (progn
+	    (unless (symbolp ',marker)
+	      (error "(with-marker): `marker' must be a symbol, not: '%s'" marker))
+	    (unless (boundp ',marker)
+	      (setq ,marker nil))
+	    (unless (markerp ,marker)
+	      (setq ,marker (make-marker)))
+	    ,@body)
+     (set-marker ,marker nil)))
 
 ;;; ************************************************************************
 ;;; About Hyperbole Setup

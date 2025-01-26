@@ -3,11 +3,11 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    19-Jun-21 at 22:42:00
-;; Last-Mod:     11-Sep-24 at 23:56:02 by Mats Lidell
+;; Last-Mod:     21-Jan-25 at 17:04:35 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2024  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -472,7 +472,6 @@ Match a string in the second cell."
 
 (ert-deftest hyrolo-tests--get-file-list ()
   "Verify `hyrolo-get-file-list` includes added files."
-  :expected-result :failed
   (let* ((folder (make-temp-file "hypb" t))
          (prefix (expand-file-name "hypb" folder))
          (org-file (make-temp-file prefix nil ".org"))
@@ -482,7 +481,8 @@ Match a string in the second cell."
           (should (= 1 (length (hyrolo-get-file-list))))
           (let ((org2-file (make-temp-file prefix nil ".org")))
             (unwind-protect
-                (should (= 2 (length (hyrolo-get-file-list))))
+		(progn (hyrolo-refresh-file-list)
+                       (should (= 2 (length (hyrolo-get-file-list)))))
               (hy-delete-file-and-buffer org2-file))))
       (dolist (f (list org-file))
         (hy-delete-file-and-buffer f))
@@ -1540,7 +1540,7 @@ body
           (hyrolo-grep "body")
           (hyrolo-next-match)
           (action-key)
-          (should (string= (buffer-file-name) org-file1))
+          (should (string= (hypb:buffer-file-name) org-file1))
           (should (looking-at-p "body")))
       (kill-buffer hyrolo-display-buffer)
       (hy-delete-files-and-buffers hyrolo-file-list))))
@@ -1554,7 +1554,7 @@ body
           (hyrolo-grep "h-org")
           (hyrolo-next-match)
           (action-key)
-          (should (string= (buffer-file-name) org-file1))
+          (should (string= (hypb:buffer-file-name) org-file1))
           (should (looking-at-p "h-org 1$")))
       (kill-buffer hyrolo-display-buffer)
       (hy-delete-files-and-buffers hyrolo-file-list))))
@@ -1568,7 +1568,7 @@ body
           (hyrolo-grep "body")
           (hyrolo-next-match)
           (action-key)
-          (should (string= (buffer-file-name) kotl-file1))
+          (should (string= (hypb:buffer-file-name) kotl-file1))
           (should (looking-at-p "body$"))
           (should (string= (buffer-substring-no-properties (point-min) (point-max))
                            "\
@@ -1591,7 +1591,7 @@ body
           (hyrolo-grep "h-kotl")
           (hyrolo-next-match)
           (action-key)
-          (should (string= (buffer-file-name) kotl-file1))
+          (should (string= (hypb:buffer-file-name) kotl-file1))
           (should (looking-at-p "h-kotl$"))
           (should (string= (buffer-substring-no-properties (point-min) (point-max))
                            "\
@@ -1614,7 +1614,7 @@ body
           (hyrolo-grep "body2")
           (hyrolo-next-match)
           (action-key)
-          (should (string= (buffer-file-name) kotl-file1))
+          (should (string= (hypb:buffer-file-name) kotl-file1))
           (should (looking-at-p "body2$"))
           (should (string= (buffer-substring-no-properties (point-min) (point-max))
                            "\
@@ -1637,7 +1637,7 @@ body
 	  (kotl-mode:beginning-of-buffer)
           (hyrolo-grep "h2")
           (action-key)
-          (should (string= (buffer-file-name) kotl-file1))
+          (should (string= (hypb:buffer-file-name) kotl-file1))
           (should (looking-at-p "h1 / h2$"))
           (should (string= (buffer-substring-no-properties (point-min) (point-max))
                            "\

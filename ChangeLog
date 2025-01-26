@@ -1,3 +1,426 @@
+2025-01-26  Bob Weiner  <rsw@gnu.org>
+
+* README.md: Update to show HTML, Info and PDF links to the Hyperbole Manual
+    as the first section in this file for easy reference.
+
+2025-01-20  Mats Lidell  <matsl@gnu.org>
+
+* test/test-helpers-tests.el (test-helpers-test--make-random-wikiword):
+    Add test.
+
+* test/MANIFEST: Test file for the test helpers.
+
+* test/hy-test-helpers.el (hy-make-random-wikiword): Helper for making
+    random WikiWords.
+
+2025-01-20  Bob Weiner  <rsw@gnu.org>
+
+* hsys-ert.el (require 'hbut): For 'defib'.
+
+* test/hui-tests.el (hui--kill-highlighted-region,
+                     hui--kill-non-highlighted-region): Separate and rename
+    these tests.  Rearrange letters in each subtest so can find which should
+    is being called.
+
+* hui.el (hui:validate-region): Add to check for valid region args.
+         (hui-kill-ring-save): Call above function.
+
+* test/hui-tests.el (hui--kill-region,
+                     hui--kill-region-multiple-kill): Add let of
+    'mark-even-if-inactive'.  Also, interactively, set beg and end only
+    if 'mark-active' is non-nil.
+
+2025-01-19  Bob Weiner  <rsw@gnu.org>
+
+* hui.el (hui:kill-region): Complete doc string.  Set 'region' arg to nil when
+    killing a delimited region at point.  Also use 'hui-select-at-delimited-thing-p'
+    instead of 'hui-select-delimited-thing'.
+         (hui:delimited-selectable-thing)
+          hui:delimited-selectable-thing-and-bounds): Fix so doesn't create an
+    in-memory Hyperbole button at point if already doing so in a prior stack frame.
+    The latter is used in 'hui-kill-ring-save' bound to {M-w} in 'hyperbole-mode'.
+         (require 'hversion): Since 'hyperb:stack-frame' is defined there and
+    used herein.
+
+* hsys-ert.el (ert-should): Add this new file and implicit button type.
+    See the Commentary therein for details.
+  hibtypes.el (load "hsys-ert"): Load above ibtype at near lowest priority.
+  hui-mouse.el (hkey-alist): Move priority of ert-results-mode to after
+    (hbut:at-p) so can define implicit buttons in this mode that override
+    the standard behavior.
+  man/hyperbole.texi (Smart Key - ERT Results Mode): Update order in the
+    Hyperbole manual.  Also add `ert-should' ibtype.
+  MANIFEST, Makefile (EL_COMPILE): Add "hsys-ert.el".
+
+* hypb.el (hypb:with-marker): Add context macro for setting a buffer marker
+    and automatically setting it to nil at the end of the context.
+
+* hui.el (hui:kill-region): Update to only apply completion behavior when
+    'dynamic-completion-mode' is enabled and call subfunctions interactively
+    in interactive flag is set.
+         (hui-kill-region): Simplify 'hui-select-delimited-thing'.
+
+2025-01-19  Mats Lidell  <matsl@gnu.org>
+
+* test/hui-tests.el (hui--kill-region-multiple-kill, hui--kill-region):
+    Test hui-kill-region.
+
+2025-01-18  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-get-referent-hasht): Fix when building
+    'hywiki--any-wikiword-regexp-list', allow for either or both #section
+    and :Lnum:Cnum.  This fixes not highlighting "WikiWord:L2".
+
+* hyrolo.el (hyrolo-refresh-file-list): Add to refresh internal expanded list
+    of HyRolo search files.
+  test/hyrolo-tests.el (hyrolo-tests--get-file-list): Fix this test by using
+    the above function.
+
+* hproperty.el (hproperty:but-get-first-in-region): Add so is clear when
+    want only the first button matching 'property' and 'value'.  Call
+    in 'hproperty:but-get'.
+               (hproperty:but-get-all-in-region): Change to return all
+    matches for 'property' and 'value' to fix major HyWiki problem with
+    not dehighlighting WikiWords when a page is deleted.
+
+* test/hywiki-tests.el (hywiki-tests--add-org-roam-node): Fix mocks.
+
+* hui-mini.el (hui:menu-hywiki): Change HyWiki/Create to call
+    'hywiki-word-create-and-display'.
+
+* hywiki.el (hywiki-display-referent-type): Help user with an error if
+    'referent-type' is invalid.
+            (hywiki-allow-suffix-referent-types): Add to specify referent
+    types that support suffixes.
+            (hywiki--add-suffix-to-referent): Uncomment and use in
+    'hywiki-display-referent'.
+            (hywiki-add-prompted-referent): Rename to 'hywiki-create-referent'.
+	    (hywiki-create-referent-and-display): Add.
+	    (hywiki-word-create-and-display): Add and use for HyWiki/Create.
+            (hywiki-add-page): Display message about HyWikiWord page being
+     added or existing when called interactively.
+            (hywiki-create-referent): Display message showing referent when
+     called interactively or with new optional prefix arg 'message-flag'.
+            (hywiki-create-page): Alias to 'hywiki-add-page' for consistency
+     with 'hywiki-create-referent'.
+            (hywiki-word-at): Fix to utilize 'range-flag' when
+    on a highlighted wikiword.
+            (hywiki-display-referent-type): If point is on a HyWikiWord that
+    matches the one given as an argument, then set the current implicit button
+    attributes of referent-type and referent-value.  Specific types of referent
+    display functions can override the value setting if need be.
+            (hywiki-page-strip-section): Rename to 'hywiki-word-strip-suffix'.
+            (hywiki-word-at-point): Add to return wikiword stripped of any suffix.
+            (hywiki-get-singular-wikiword): Strip any suffix from wikiword.
+            (hywiki-referent-exists-p): Let 'hywiki-get-referent' make word singular
+    and remove suffix.
+            (hywiki-word-read, hywiki-word-read-new): Update doc to use referent
+    instead of page and call 'hywiki-word-at-point' instead of 'hywiki-word-at'.
+            (hywiki-word-create): Add and autoload to create but not display
+    a referent for a HyWikiWord.  Useful as a key binding.
+            (hywiki-add-org-roam-node): Fix to set referent-value to node title
+    rather than the node itself.
+            (hywiki-add-org-roam-node, hywiki-display-org-roam-node): Fix to use
+    Org Roam node title/headline rather than the node itself.
+            (hywiki-mode): Improve doc.
+            (hywiki-display-info-node): Use 'link-to-Info-node' action type.
+
+2025-01-12  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el
+    (hywiki-tests--action-key-on-hywikiword-displays-page): Rename so
+    hy:WikiWord is mentioned. Fix removal of temp files.
+    (hywiki-tests--assist-key-on-hywikiword-displays-help): Rename so
+    hy:WikiWord is mentioned and refactor to verify help buffer is shown.
+    (hywiki-tests--action-key-on-wikiword-displays-page)
+    (hywiki-tests--action-key-on-wikiword-and-section-displays-page): New
+    tests for verifying display of pages with and without sections.
+    (hywiki-tests--wikiword-identified-with-delimiters): Add test for
+    WikiWord with a single hash mark.
+    (hywiki-tests--action-key-on-wikiword-and-line-column-displays-page):
+    Test line and column specifiers with WikiWords.
+
+2025-01-09  Mats Lidell  <matsl@gnu.org>
+
+* test/MANIFEST: Add hycontrol-tests.el
+
+* hycontrol.el (hycontrol-framemove-direction): Quit hycontrol before
+    displaying error message.
+
+* test/hycontrol-tests.el
+    (hycontrol-tests--framemove-direction-error-message): Test.
+
+2025-01-05  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-org-link-resolve, hywiki-org-link-export): Handle
+    :Lnum:Cnum at the end of a link.
+    (hywiki--add-section-to-referent): Rename to 'hywiki--add-suffix-to-referent'.
+    (hywiki-get-referent, hywiki-display-referent): Handle :Lnum:Cnum at the end
+      of a HyWikiWord reference.
+    (hywiki-word-suffix-regexp): Add.
+    (hywiki-word-with-optional-spaces-section-exact-regexp): Add.
+    (hywiki-word-*-section-*-regexp): Rename to 'hywiki-word-*-suffix-*-regexp'.
+
+* hui-mini.el (hui:menu-hyperbole-prefix): Remove outer 'kbd' call so returned
+    value stays as a string.
+              (hui:menu-this-command-keys): Add to produce a string sequence
+    of keys that invoke a Hyperbole menu command.
+              (hui:menu-act, hui:menu-choose, hui:menu-item): Fix bug#75380
+    by handling when 'hyperbole' command is bound to a non-string key.  Allow
+    'hui:menu-items' to be a vector rather than only a string.
+
+* hypb.el: Add 'hypb:buffer-file-name' to handle indirect buffers whose
+    file name is only in its base buffer and replace all uses of the
+    variable 'buffer-file-name' with this call.  This allows creation
+    of explicit buttons in indirect buffers.
+  hbmap.el, hmail.el, hmoccur.el, hmouse-info.el, hsys-org.el, hsys-org-roam.el:
+    Add (require 'hypb) for 'hypb:buffer-file-name’ definition.
+
+* hyperbole.el (hkey-initialize): Override {C-w} in 'hyperbole-mode-map'
+    as has long been done with {M-w}.
+  hui.el (hui:kill-region, hui-kill-region): Add to kill delimited things
+    at point without the need to visually select them.
+
+2025-01-04  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ibut:create):
+  hywiki.el (hywiki-display-page):
+  hbdata.el (hbdata:ebut-build): Change referent to referent-type and
+    referent-value.
+
+* hbut.el (ibut:label-set): Set 'loc attribute and 'save-match-data'.
+
+* hib-debbugs.el (debbugs-query:at-p): Simplify to use word separators
+    and thus support double quoted "bug#123".
+
+* hycontrol.el (hycontrol-framemove-direction): If "framemove.el" is not
+    manually installed (no package available), trigger an error that shows
+    where to get it from.
+
+* hbut.el (ibut:set-name-and-label-key-p): Revert some changes to avoid
+    failures in recognition of ibuttons.
+
+* hywiki.el (hywiki-word-line-and-column-numbers-regexp): Add and use
+    in 'hywiki-word-with-optional-section-regexp' and
+    'hywiki-word-with-optional-section-exact-regexp'.
+            (hywiki-get-referent, hywiki-page-strip-section): Update to
+    handle optional line and col numbers.
+            (hywiki--word-and-buttonize-character-regexp): Update to make
+    Group 1 be all but any last delimiter character.
+            (hywiki-get-buttonize-characters, hywiki-maybe-dehighlight-page-name,
+             hywiki-maybe-highlight-page-name, hywiki-word-at)): Add : to list
+    of excluded chars that do not end a HyWikiWord reference.
+  hpath.el (hpath:line-and-column-numbers): Add to match line and column numbers
+    without including any anchoring to the end of a larger regexp.  Use in
+    'hpath:line-and-column-regexp' and "hywiki.el".
+
+* hbut.el (ibut:set-name-and-label-key-p): Rewrite to not set any hbut:current
+    attributes unless find a valid 'lbl-start', so do not end up with a partial
+    set of insufficient attributes.
+
+2025-01-02  Mats Lidell  <matsl@gnu.org>
+
+* test/hactypes-tests.el (hactypes-tests--link-to-Info-index-item): Verify
+    actypes::link-to-Info-index-item.
+
+* test/hywiki-tests.el (hywiki-tests--add-info-index): Update test to
+    verify Info index display.
+
+* hywiki.el (hywiki-display-info-index): Use link-to-Info-index-item.
+
+2024-12-30  Mats Lidell  <matsl@gnu.org>
+
+* test/hypb-tests.el (hypb--verify-info-index-is-correct): Ensure info
+    index is correct.
+
+2024-12-28  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-convert-words-to-org-links): Error if called within a
+    read-only buffer.
+            (hywiki-map-words): Widen buffer before gathering all wikiwords.
+	    (hywiki-org-make-publish-project-alist): Add :html-link-home,
+    :html-preamble, :sitemap-filename, and :with-date properties.
+            (hywiki-get-file): Fix to handle #section suffix which fixes
+    navigating to sections from HyWikiWord#section links.
+
+2024-12-27  Mats Lidell  <matsl@gnu.org>
+
+* hywiki.el (hywiki-add-to-referent): Use when-let*.
+
+* hproperty.el (hproperty:char-property-start)
+    (hproperty:char-property-end): Use when-let*.
+
+2024-12-27  Bob Weiner  <rsw@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--add-activity,
+                        hywiki-tests--add-org-roam-node): Change 'require'
+    to 'hypb:require-package' so prompt user to install package when needed.
+
+* hywiki.el (hywiki-word-read, hywiki-word-read-new): Fix by replacing call
+    to 'hywiki-get-wikiwords-obarray' with 'hywiki-get-referent-hasht'.
+            (hywiki-get-wikiwords-obarray): Remove, no longer used.
+	    (hywiki-display-*): Fix to take referent-value rather than referent
+    since already know the type when such functions are called.
+
+* hywiki.el (hywiki-display-referent): Stop removing any #section from
+    wikiword sent to referent functions.
+            (hywiki-add-prompted-referent): Remove #section from wikiword
+    before creating hywiki-referent-menu prefix string.
+            (hywiki--add-section-to-referent): Add to insert #section into
+    referent value.  Use in 'hywiki-get-referent'.
+            (hywiki-display-page , hywiki-display-referent, hywiki-get-referent):
+    Exclude # from 'section' for consistency.
+            (hywiki-add-activity, hywiki-add-org-roam-node): Use
+    'hypb:require-package' to install activity or org-roam package as required
+    when invoking these functions.
+
+2024-12-26  Bob Weiner  <rsw@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--add-activity,
+                        hywiki-tests--add-org-id): Fix Mats prior updates
+    to work with new typed referents.
+
+* hywiki.el (hywiki-add-path-link): Add optional FILE and POS arguments
+    to better evaluate intermittent test bug in 'hywiki-tests--add-path-link'.
+    It fails on a call to this function only when all tests are run; never
+    fails interactively.
+
+* test/hy-test-dependencies.el (load "pcomplete"): Only on rsw's linux
+    system, load this library to eliminate cyclic dependency errors in
+    11 tests.
+
+* hasht.el: Rewrite to use Emacs built-in hash tables while keeping the
+    same calling interace as before.
+            (hash-map): Fix bug where 'func' was not quoted when embedded
+    within lambda function.
+            (hash-resize, hash-resize-p, hash-next-prime, hash-obarray,
+             hash-prime-p): Remove, no longer needed nor used
+    in Hyperbole.
+            (hash-deep-copy): Add deep copy of cons cells.
+
+* hbut.el (ibut:create): When debug on error, display *Messages* buffer
+    with error message.
+
+* hywiki.el (hywiki-make-referent-hasht): Optimize when no non-page
+    entries.
+
+* hywiki.el (hywiki-add-page): Return '(page . "<page-file-path>")
+    rather than just "<page-file-path>".  Update doc string.
+            (hywiki-add-to-referent): Update doc string.
+	    (hywiki-display-referent): Remove unneeded clauses
+    due to new typed referents.  Update doc string.
+            (hywiki-find-referent): Update doc string.
+            (hywiki-display-referent-type): Update doc string with
+    computed display function name.
+	    (hywiki-get-referent): Rewrite to handled typed referents.
+            (hywiki-display-page): Fix to allow both typed referents
+    and file-name alone as referent input.
+            (hywiki-add-referent): Trigger error if 'hash-add' call fails
+    and fix doc string to cover all return values.
+            (hywiki-validate-referent): Add to validate referents before
+    adding to the HyWiki hash table.  Use in 'hywiki-add-referent'.
+
+2024-12-25  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-org-link-resolve): Fix doc to include all possible
+    return value types and rewrite to new typed referents.
+
+2024-12-24  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el: Rename all 'page(s)-hasht' to 'referent-hasht'.
+             (hywiki-non-page-elts): Rewrite to new typed
+    referents and inline the function.
+             Rename 'hywiki--any-page-regexp-list' to
+    'hywiki--any-wikiword-regexp-list'.
+             Rename 'hywiki-maybe-highlight-page-names-in-frame'
+    to 'hywiki-maybe-highlight-wikiwords-in-frame'.
+             Rename 'hywiki-get-page-list' to 'hywiki-get-wikiword-list'.
+
+2024-12-24  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--a-wikiword-in-hywiki-directory)
+    (hywiki-tests--wikiword-identified-with-delimiters): Add tests for
+    hywiki words with delimiters.
+
+2024-12-23  Bob Weiner  <rsw@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--add-*): Rewrite to handle typed
+    referents.
+
+* hywiki.el (hywiki-add-link): Rename to 'hywiki-add-path-link'.
+            (hywiki-add-page): Document optional 'force-flag' arg.
+	    (hywiki-add-page-and-display): Improve doc on prompting
+    for a referent type.
+            (hywiki-add-page-and-display): Rename to
+    'hywiki-create-page-and-display'.
+            (hywiki-referent-prompt-flag): Add this new customization.
+            (hywiki-create-page-and-display): Set prompt-flag t if
+    call-interactively and 'hywiki-referent-prompt-flag' is non-nil.
+            (hywiki-display-referent-type): Add to display referents
+    other than pages.
+            (hywiki-display-referent): Call above function.
+	    (hywiki-add-*): Rewrite all referent add functions to just
+    store the referent value and add hywiki-display-* functions to perform
+    the referent display instead.  This allows for easy addition of new
+    referent types.
+            (hywiki-display-page-function): Fix doc to say function takes
+    a pathname, not a HyWiki page name.
+            (hywiki-create-page): Add type to hash value so is a cons of
+    (page . <page-file-path>).
+
+2024-12-23  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--add-activity)
+    (hywiki-tests--add-org-roam-node): Add tests.
+
+2024-12-22  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-find-referent): Fix doc string to describe how
+    a prefix arg prompts for the type of referent to link to.
+            (hywiki-add-prompted-referent, hywiki-referent-menu):
+    Set 'hkey-value' to wikiword to pass to expressions in this menu,
+    invoked via the Smart Keys.
+* test/hywiki-tests.el (hywiki-tests--add-org-id): Fix so :type
+    argument is a list as required, not a symbol.
+
+* hact.el (action:param-count): Add and use in 'hywiki-add-org-id'.
+  hywiki.el (hywiki-add-org-id): Pre-9.7 versions of org-id-get
+    did not accept the 4th optional INHERIT arg, so fix by
+    conditionally sending this argument.
+
+* hui-mouse.el (smart-magit-tab): Change 'if-let' (now obsolete)
+    to 'if-let*'.
+
+* test/hywiki-tests.el (hywiki-tests--add-org-id): Fix final test
+    to just look for prefix of "ID: ".
+
+* hywiki.el (hywiki-clear-pages-hasht): Also clear
+    'hywiki--any-page-regexp-list'.
+            (hywiki-add-org-id): Fix first two lines of doc string.
+
+* test/hywiki-tests.el (hywiki-tests--add-org-id): Fix to not compare
+    error string values since when compiled may not be a string but
+    just a pair of indexes into one.
+
+* hywiki.el (hywiki-let-directory, hywiki-set-directory,
+    hywiki-directory-changed): Add to support 'let' changes of
+    'hywiki-directory'.
+            (hywiki-clear-pages-hasht): Simplify to nullify hywiki
+    hash table and not try to reuse a previously build table.
+
+2024-12-16  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--sections-with-dash-space)
+   (hywiki-tests--get-singular-wikiword)
+   (hywiki-tests--get-plural-wikiword, hywiki-tests--add-referent)
+   (hywiki-tests--add-bookmark, hywiki-tests--add-command)
+   (hywiki-tests--add-find, hywiki-tests--add-global-button)
+   (hywiki-tests--add-hyrolo, hywiki-tests--add-info-index)
+   (hywiki-tests--add-info-node, hywiki-tests--add-key-series)
+   (hywiki-tests--add-link, hywiki-tests--add-org-id)
+   (hywiki-tests--get-page-list-for-new-wiki-directory-after-added-referent):
+   Tests.
+
 2024-12-16  Mats Lidell  <matsl@gnu.org>
 
 * Makefile (docker-all-tests, docker-batch-tests): No byte compiling to
@@ -100,7 +523,7 @@
 
 2024-11-25  Mats Lidell  <matsl@gnu.org>
 
-* kotl/kmenu.el (kotl-menu-common-body): Use kotl-kview. 
+* kotl/kmenu.el (kotl-menu-common-body): Use kotl-kview.
 
 * .github/workflows/static.yaml: Static workflow for publishing the manual
     to a static site using GitHub Pages.

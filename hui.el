@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 21:42:03
-;; Last-Mod:     23-Nov-24 at 20:35:50 by Bob Weiner
+;; Last-Mod:     21-Jan-25 at 00:23:41 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -19,6 +19,7 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
+(require 'hversion)
 (require 'hargs)
 ;; Avoid any potential library name conflict by giving the load directory.
 (require 'set (expand-file-name "set" hyperb:dir))
@@ -30,16 +31,19 @@
 ;;; Public declarations
 ;;; ************************************************************************
 
+(defvar cmpl-last-insert-location)      ; "completion.el"
+(defvar cmpl-original-string)           ; "completion.el"
+(defvar completion-to-accept)           ; "completion.el"
 (defvar hyperbole-mode-map)             ; "hyperbole.el"
 
-(declare-function texinfo-copy-node-name "texnfo-upd")
-(declare-function kotl-mode:copy-region-as-kill "kotl-mode")
-
-(declare-function kcell-view:idstamp "kotl/kview")
 (declare-function bookmark-bmenu-bookmark "bookmark")
 (declare-function hui:menu-choose "hui-mini")
 (declare-function kcell-view:absolute-reference "kotl/kview")
+(declare-function kcell-view:idstamp "kotl/kview")
 (declare-function klink:absolute "kotl/klink")
+(declare-function kotl-mode:copy-region-as-kill "kotl-mode")
+(declare-function kotl-mode:kill-region "kotl-mode")
+(declare-function texinfo-copy-node-name "texnfo-upd")
 
 ;;; ************************************************************************
 ;;; Public variables
@@ -126,9 +130,55 @@ point; see `hui:delimited-selectable-thing'."
 		 (message "Saved selectable thing: %s" thing)
 	       (indicate-copied-region)))))))
 
-;; Override the {M-w} command from "simple.el" when hyperbole-mode is active
-;; to allow copying kcell references, active regions and delimited
+;; In "hyperbole.el", use this to override the {C-w} command from
+;; either "completion.el" or "simple.el" when hyperbole-mode is active
+;; to allow killing kcell references, active regions and delimited
 ;; areas (like sexpressions).
+;;;###autoload
+(defun hui-kill-region (beg end &optional region interactive)
+  "Kill (\"cut\") between point and mark.
+The text is deleted but saved in the kill ring.
+The command \\[yank] can retrieve it from there.
+\(If you want to kill and then yank immediately, use \\[copy-region-as-kill].)
+
+This is the primitive for programs to kill text (as opposed to deleting it).
+Supply two arguments, character positions indicating the stretch of text
+to be killed.
+Any command that calls this function is a \"kill command\".
+If the previous command was also a kill command,
+the text killed this time appends to the text killed last time
+to make one entry in the kill ring.
+Patched to remove the most recent completion."
+  ;; Pass mark first, then point, because the order matters when
+  ;; calling `kill-append'.
+  (interactive (list (when mark-active (mark))
+		     (when mark-active (point))
+		     'region (prefix-numeric-value current-prefix-arg)))
+  (cond ((and transient-mark-mode
+              (or (use-region-p)
+	          (not interactive)))
+	 (unless (and beg end)
+	   (setq beg (region-beginning)
+		 end (region-end))))
+	((and transient-mark-mode (not mark-even-if-inactive)
+	      (let* ((major-mode 'fundamental-mode)
+		     ;; Setting the major mode prevents hui-select from
+		     ;; suppressing use of `hui-select-syntax-table'
+		     ;; if in one of `hui-select-ignore-quoted-sexp-modes'.
+		     (sel-func (hui-select-at-delimited-thing-p))
+		     beg-end)
+		(when sel-func
+		  (setq beg-end (funcall sel-func (point))
+			beg (car beg-end)
+			end (cdr beg-end)
+			region nil)
+		  t)))))
+  ;; If there is no mark, this call should trigger an error
+  (hui:kill-region beg end region))
+
+;; In "hyperbole.el", use this to override the {M-w} command from
+;; "simple.el" when hyperbole-mode is active to allow copying kcell
+;; references, active regions and delimited areas (like sexpressions).
 ;;;###autoload
 (defun hui-kill-ring-save (beg end &optional region)
   "Save the active region as if killed, but don't kill it.
@@ -163,13 +213,15 @@ visual feedback indicating the extent of the region being copied."
     (if (or (use-region-p)
 	    (null transient-mark-mode)
 	    (not (called-interactively-p 'interactive)))
-        (if (derived-mode-p 'kotl-mode)
-            (kotl-mode:copy-region-as-kill beg end)
+	(if (derived-mode-p 'kotl-mode)
+	    (kotl-mode:copy-region-as-kill beg end)
+	  (hui:validate-region beg end region)
 	  (copy-region-as-kill beg end region))
       (setq thing (hui:delimited-selectable-thing))
       (if (stringp thing)
 	  (progn (kill-new thing)
 		 (setq deactivate-mark t))
+	(hui:validate-region beg end region)
 	(copy-region-as-kill beg end region)))
     ;; This use of called-interactively-p is correct because the code it
     ;; controls just gives the user visual feedback.
@@ -254,19 +306,20 @@ With point:
   (cond ((klink:absolute (klink:at-p)))
 	((derived-mode-p 'kotl-mode)
 	 (kcell-view:absolute-reference))
-	((let* ((hbut (hbut:at-p))
-		(start (when hbut (hattr:get hbut 'lbl-start)))
-		(end (when hbut (hattr:get hbut 'lbl-end))))
-	   (and start end
-		(buffer-substring-no-properties start end))))
+	((and (not (hyperb:stack-frame '(hui-kill-ring-save hbut:at-p ibut:at-p ebut:at-p)))
+	      (let* ((hbut (hbut:at-p))
+		     (start (when hbut (hattr:get hbut 'lbl-start)))
+		     (end (when hbut (hattr:get hbut 'lbl-end))))
+		(and start end
+		     (buffer-substring-no-properties start end)))))
 	((hui-select-at-delimited-thing-p)
 	 (hui-select-get-thing))))
 
 (defun hui:delimited-selectable-thing-and-bounds ()
   "Return a list of any delimited selectable thing at point.
-The list is (<string> <start position of thing> <end position of thing>)
-or nil if none.  Start and end may be nil if thing was
-generated rather than extracted from a region."
+The list is (<thing-string> <thing-start> <thing-end>)
+or nil if none.  Start and end may be nil if the thing
+was generated rather than extracted from a region."
   (let (thing-and-bounds thing start end)
     (cond ((setq thing-and-bounds (klink:at-p))
 	   (when thing-and-bounds
@@ -274,9 +327,10 @@ generated rather than extracted from a region."
 	     thing-and-bounds))
 	  ((derived-mode-p 'kotl-mode)
 	   (list (kcell-view:absolute-reference)))
-	  ((setq thing (hbut:at-p)
-		 start (when thing (hattr:get thing 'lbl-start))
-		 end (when thing (hattr:get thing 'lbl-end)))
+	  ((and (not (hyperb:stack-frame '(hui-kill-ring-save hbut:at-p ibut:at-p ebut:at-p)))
+		(setq thing (hbut:at-p)
+		      start (when thing (hattr:get thing 'lbl-start))
+		      end (when thing (hattr:get thing 'lbl-end))))
 	   (and start end
 		(list (buffer-substring-no-properties start end) start end)))
 	  ((hui-select-at-delimited-thing-p)
@@ -810,7 +864,7 @@ Signal an error if point is not within a button."
   (when (and (null but-key) (hbut:at-p))
     (setq but-key (hattr:get 'hbut:current 'lbl-key)))
   (unless key-src
-    (setq key-src (or buffer-file-name (current-buffer))))
+    (setq key-src (or (hypb:buffer-file-name) (current-buffer))))
   (cond ((null but-key)
 	 (hypb:error
 	  "(hbut-delete): Point is not over the label of an existing button"))
@@ -1421,14 +1475,14 @@ Trigger an error if DEFAULT-ACTYPE is invalid."
 (defun hui:buf-writable-err (but-buf func-name)
   "If BUT-BUF is read-only, signal an error from FUNC-NAME."
   (let (err)
-    ;; (unwritable (and buffer-file-name
-    ;;		 (not (file-writable-p buffer-file-name))))
+    ;; (unwritable (and (hypb:buffer-file-name)
+    ;;		 (not (file-writable-p (hypb:buffer-file-name)))))
     ;; (if unwritable
     ;;     Commented error out since some people want to be able to create
     ;;     buttons within files which they have purposely marked read-only.
     ;;     (setq err
     ;;	     (format "(ebut-edit): Hyperbole lacks permission to write to '%s'."
-    ;;		     (file-name-nondirectory buffer-file-name))))
+    ;;		     (file-name-nondirectory (hypb:buffer-file-name)))))
     (with-current-buffer but-buf
       (when buffer-read-only
 	(setq err
@@ -1526,7 +1580,7 @@ With a prefix argument, also delete the button text between the delimiters."
 	  (when (search-forward ebut:label-end nil t) (funcall form)))
       ;; Non-interactive invocation.
       (let (cur-flag)
-	(cond ((and (or (null key-src) (eq key-src buffer-file-name))
+	(cond ((and (or (null key-src) (eq key-src (hypb:buffer-file-name)))
 		    (or (null directory) (eq directory default-directory)))
 	       (setq cur-flag t))
 	      ((bufferp key-src)
@@ -1735,7 +1789,7 @@ With BUT-EDIT-FLAG non-nil message about ibut being edited."
 (defun hui:key-dir (but-buf)
   "Return button key src directory based on BUT-BUF, a buffer."
   (if (bufferp but-buf)
-      (let ((file (buffer-file-name but-buf)))
+      (let ((file (hypb:buffer-file-name but-buf)))
 	(if file
 	    (file-name-directory (hpath:symlink-referent file))
 	  (buffer-local-value 'default-directory but-buf)))
@@ -1747,7 +1801,7 @@ This is BUT-BUF when button data is stored in the buffer and the
 button's source file name when the button data is stored externally."
   (with-current-buffer but-buf
     (cond ((hmail:mode-is-p) but-buf)
-	  ((hpath:symlink-referent (buffer-file-name but-buf)))
+	  ((hpath:symlink-referent (hypb:buffer-file-name but-buf)))
 	  (t but-buf))))
 
 (defun hui:ebut-link-create (edit-flag but-window lbl-key but-loc but-dir type-and-args)
@@ -1809,6 +1863,21 @@ string arguments."
 	  (hattr:set 'hbut:current 'name (ibut:key-to-label name-key))
 	  (ibut:operate))
       (ibut:operate))))
+
+(defun hui:kill-region (beg end &optional region)
+  "Invoke context-sensitive kill-region command over BEG and END.
+Third optional arg, REGION, when non-nil is sent to any call of
+`kill-region' and used to invoke the `region-extract-function'
+which determines the region, ignoring BEG and END."
+  (cond ((derived-mode-p 'kotl-mode)
+         (kotl-mode:kill-region beg end))
+	((and (fboundp 'dynamic-completion-mode)
+	      dynamic-completion-mode
+	      (eq last-command 'complete))
+	 (delete-region (point) cmpl-last-insert-location)
+	 (insert cmpl-original-string)
+	 (setq completion-to-accept nil))
+	(t (kill-region beg end region))))
 
 (defun hui:link-possible-types ()
   "Return list of possible link action types during editing of a Hyperbole button.
@@ -1876,7 +1945,7 @@ Buffer without File      link-to-buffer-tmp"
 				      ((and hbut-sym lbl-key)
 				       ;; On an implicit button, so link to it
 				       ;; (message "%S" (hattr:list hbut-sym))
-				       (list 'link-to-ibut lbl-key (or buffer-file-name (buffer-name))))
+				       (list 'link-to-ibut lbl-key (or (hypb:buffer-file-name) (buffer-name))))
 				      ((and (require 'bookmark)
 					    (derived-mode-p 'bookmark-bmenu-mode)
 					    (list 'link-to-bookmark (bookmark-bmenu-bookmark))))
@@ -1897,10 +1966,10 @@ Buffer without File      link-to-buffer-tmp"
 								 (re-search-backward "^@node " nil t))
 							 (require 'texnfo-upd)
 							 (setq node (texinfo-copy-node-name)))))
-						(list 'link-to-texinfo-node buffer-file-name node))
+						(list 'link-to-texinfo-node (hypb:buffer-file-name) node))
 					       ((hmail:reader-p)
 						(list 'link-to-mail
-						      (list (rmail:msg-id-get) buffer-file-name))))))
+						      (list (rmail:msg-id-get) (hypb:buffer-file-name)))))))
 				      (t (cond
 					  ((let ((hargs:reading-type 'directory))
 					     (setq val (hargs:at-p t)))
@@ -1909,7 +1978,7 @@ Buffer without File      link-to-buffer-tmp"
 					     (setq val (hargs:at-p t)))
 					   (list 'link-to-file val))
 					  ((derived-mode-p #'kotl-mode)
-					   (list 'link-to-kcell buffer-file-name (kcell-view:idstamp)))
+					   (list 'link-to-kcell (hypb:buffer-file-name) (kcell-view:idstamp)))
 					  ;;
 					  ;; If region is active in the target buffer and it is one
 					  ;; line or less, then do a link-to-string-match to the region string.
@@ -1925,11 +1994,11 @@ Buffer without File      link-to-buffer-tmp"
 						 (end-of-line)
 						 (while (search-backward region nil t)
 						   (setq instance-num (1+ instance-num))))
-					       (list 'link-to-string-match region instance-num buffer-file-name))))
+					       (list 'link-to-string-match region instance-num (hypb:buffer-file-name)))))
 					  ;;
 					  ;; If current line starts with an outline-regexp prefix and
 					  ;; has a non-empty heading, use a link-to-string-match.
-					  ((and buffer-file-name
+					  ((and (hypb:buffer-file-name)
 						(derived-mode-p 'outline-mode 'org-mode 'kotl-mode)
 						(stringp outline-regexp)
 						(save-excursion
@@ -1949,9 +2018,9 @@ Buffer without File      link-to-buffer-tmp"
 							  (if (zerop (current-column))
 							      heading
 							    (format "%s:L1:C%d" heading (current-column)))
-							  instance-num buffer-file-name)))))
-					  (buffer-file-name
-					   (list 'link-to-file buffer-file-name (point)))
+							  instance-num (hypb:buffer-file-name))))))
+					  ((hypb:buffer-file-name)
+					   (list 'link-to-file (hypb:buffer-file-name) (point)))
 					  ((derived-mode-p 'dired-mode)
 					   (list 'link-to-directory
 						 (expand-file-name default-directory)))
@@ -1976,6 +2045,11 @@ Buffer without File      link-to-buffer-tmp"
   "Return LST, a list, with text properties removed from any string elements."
   (mapcar (lambda (elt) (if (stringp elt) (substring-no-properties elt) elt))
 	  lst))
+
+(defun hui:validate-region (beg end region)
+  "Trigger a user error unless BEG and END are whole numbers or REGION is non-nil."
+  (unless (or (and (number-or-marker-p beg) (number-or-marker-p end)) region)
+    (user-error "The mark is not set now, so there is no region")))
 
 (provide 'hui)
 

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    15-Oct-91 at 20:13:17
-;; Last-Mod:     15-Dec-24 at 22:43:50 by Bob Weiner
+;; Last-Mod:     18-Jan-25 at 13:57:49 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -165,7 +165,7 @@ binding made with this function."
 
 (defun hui:menu-hyperbole-prefix ()
   "Return prefix keys that invoke the Hyperbole minibuffer menu."
-  (kbd (key-description (where-is-internal #'hyperbole (current-global-map) t))))
+  (key-description (where-is-internal #'hyperbole (current-global-map) t)))
 
 (defun hui:menu-act (menu &optional menu-list doc-flag help-string-flag)
   "Prompt user with Hyperbole MENU (a symbol) and perform selected item.
@@ -472,18 +472,19 @@ documentation, not the full text."
     ;;   1 for in the menu prefix area (moves to top menu);
     ;;   0 for at the end of the menu (does nothing).
     (cond ((eq key exit-char)
-	   (set--this-command-keys (concat hui:menu-keys hui:menu-exit-hyperbole))
+	   (set--this-command-keys (hui:menu-this-command-keys
+				    hui:menu-exit-hyperbole))
 	   (setq this-command #'hui:menu-exit-hyperbole)
 	   nil)
 	  ((eq key quit-char)
-	   (set--this-command-keys (concat hui:menu-keys hui:menu-quit))
+	   (set--this-command-keys (hui:menu-this-command-keys hui:menu-quit))
 	   (setq this-command #'hui:menu-quit)
 	   nil)
 	  ((eq key 0)
 	   nil)
 	  ((eq key abort-char)
 	   (beep)
-	   (set--this-command-keys (concat hui:menu-keys hui:menu-abort))
+	   (set--this-command-keys (hui:menu-this-command-keys hui:menu-abort))
 	   (setq this-command #'hui:menu-abort)
 	   nil)
 	  ((and (eq key 1) (listp (car menu-alist))
@@ -492,11 +493,11 @@ documentation, not the full text."
 	   ;; RET pressed on Hyperbole top-level menu prefix, reload
 	   ;; Smart Key handlers and minibuffer menus to reflect any updates.
 	   (hmouse-update-smart-keys)
-	   (set--this-command-keys (concat hui:menu-keys hui:menu-quit))
+	   (set--this-command-keys (hui:menu-this-command-keys hui:menu-quit))
 	   (setq this-command #'hmouse-update-smart-keys)
 	   nil)
 	  ((memq key (list 1 top-char))
-	   (setq hui:menu-keys (concat hui:menu-keys (char-to-string top-char)))
+	   (setq hui:menu-keys (hui:menu-this-command-keys (char-to-string top-char)))
 	   '(menu . hyperbole))
 	  ((and (eq key select-char)
 		(save-excursion
@@ -554,7 +555,7 @@ constructs.  If not given, the top level Hyperbole menu is used."
   (let ((item-keys (hui:menu-item-keys menu-alist))
 	 sublist)
     (when (setq sublist (memq key item-keys))
-      (setq hui:menu-keys (concat hui:menu-keys (downcase (char-to-string key))))
+      (setq hui:menu-keys (hui:menu-this-command-keys (downcase (char-to-string key))))
       (let* ((label-act-help-list
 	      (nth (- (1+ (length item-keys)) (length sublist))
 		   menu-alist))
@@ -652,6 +653,13 @@ The menu is a menu of commands from MENU-ALIST."
   "Return non-nil if point is within a Hyperbole minibuffer menu name."
   (when (and hui:menu-p (eq (minibuffer-window) (selected-window)))
     (save-excursion (not (re-search-backward "\\(^\\|[ \t]\\)[^< \t\n\r]+>" nil t)))))
+
+(defun hui:menu-this-command-keys (key)
+  "Return a string representation of the Hyperbole menu key sequence to KEY.
+KEY must be a string, symbol or vector."
+  ;; `hui:menu-keys' is a vector of key sequences, each of which
+  ;; may be a symbol, a vector of keys, or a string key
+  (concat hui:menu-keys " " (key-description (vector key))))
 
 (defun hui:menu-web-search ()
   "Hyperbole minibuffer menu of web search engines."
@@ -1030,8 +1038,8 @@ support underlined faces as well."
 	 '("HyWiki>")
 	 '("Act"            hywiki-word-activate
 	   "Activate HyWikiWord link at point or emulate a press of a Smart Key.")
-	 '("Create"         hywiki-add-page-and-display
-	    "Create and display a new HyWiki page.  Shows existing page names to aid in new naming.")
+	 '("Create"         hywiki-word-create-and-display
+	    "Create and display a new HyWiki referent, prompting with any existing referent names.")
 	 '("EditPages"      hywiki-directory-edit
 	   "Display and edit HyWiki directory.")
 	 '("FindReferent"   hywiki-find-referent
@@ -1043,7 +1051,7 @@ support underlined faces as well."
 	   "Report on a HyWikiWord's attributes.")
 	 '("Info"           (id-info "(hyperbole)HyWiki")
 	   "Display Hyperbole manual section on HyWiki.")
-	 '("Link"           hywiki-add-link
+	 '("Link"           hywiki-add-path-link
 	   "Prompt for and add a HyWikiWord that links to a path and possible position.")
          '("ModeToggle"     hywiki-mode
 	   "Toggle whether HyWikiWords are highlighted and active in buffers outside of the HyWiki page directory.")

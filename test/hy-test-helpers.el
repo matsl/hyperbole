@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     21-Jan-25 at 17:02:36 by Mats Lidell
+;; Last-Mod:      6-Apr-25 at 19:45:02 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -95,9 +95,16 @@ Checks ACTYPE, ARGS, LOC, LBL-KEY and NAME."
 
 (defun hy-delete-dir-and-buffer (dir)
   "Delete DIR and buffer visiting directory."
-  (let ((buf (find-buffer-visiting dir)))
+  (let ((buf (find-buffer-visiting dir))
+	(hywiki-cache (when (featurep 'hywiki)
+			(expand-file-name hywiki-cache-default-file
+					  dir))))
     (when buf
       (kill-buffer buf))
+    (when (and hywiki-cache
+	       (file-readable-p hywiki-cache)
+	       (file-writable-p hywiki-cache))
+      (delete-file hywiki-cache))
     (delete-directory dir)))
 
 (defun hy-make-random-wikiword (&optional length word-length)
@@ -116,6 +123,9 @@ and the default WORD-LENGTH is 4."
         (setq result (concat result " ")))
       (setq result (concat result (char-to-string (elt chars (random (length chars)))))))
     (replace-regexp-in-string "[[:space:]]" "" (capitalize result))))
+
+(defvar hy-test-run-failing-flag nil
+  "Non-nil means test cases that are known to fail will be tried.")
 
 (provide 'hy-test-helpers)
 ;;; hy-test-helpers.el ends here

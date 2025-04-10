@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Oct-96 at 02:25:27
-;; Last-Mod:     19-Jan-25 at 10:04:03 by Bob Weiner
+;; Last-Mod:      7-Mar-25 at 00:39:21 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -108,6 +108,7 @@
 ;;; ************************************************************************
 
 (require 'hvar)
+(require 'hypb)         ;; for hypb:in-string-p
 (eval-when-compile
   (require 'mhtml-mode) ;; for MHTML and HTML modes
   (require 'sgml-mode)  ;; for SGML mode
@@ -326,6 +327,7 @@ Used to include a final line when marking indented code.")
 ;;; Public declarations
 ;;; ************************************************************************
 
+(defvar hbut:syntax-table)              ; "hbut.el"
 (defvar help-mode-syntax-table)         ; "help-mode.el"
 (defvar hkey-init)                      ; "hyperbole.el"
 (defvar hkey-value)                     ; "hui-mouse.el"
@@ -563,6 +565,7 @@ Also, add language-specific syntax setups to aid in thing selection."
 If invoked repeatedly, this selects bigger and bigger things.
 If `hui-select-display-type' is non-nil and this is called
 interactively, the type of selection is displayed in the minibuffer.
+The region selected is returned in (start . end) form.
 
 If the key that invokes this command in `hyperbole-minor-mode' is
 also bound in the current major mode map, then interactively
@@ -602,7 +605,7 @@ invoke that command instead.  Typically prevents clashes over
 		 (and (called-interactively-p 'interactive) hui-select-display-type
 		      (message "%s" hui-select-previous))
 		 (run-hooks 'hui-select-thing-hook)
-		 t))))))
+		 region))))))
 
 ;;;###autoload
 (defun hui-select-thing-with-mouse (event)
@@ -782,8 +785,8 @@ The character at POS is selected if no other thing is matched."
 	  (mapc
 	   (lambda (sym-func)
 	     (setq region
-		   (when (car (cdr sym-func))
-		     (funcall (car (cdr sym-func)) pos)))
+		   (when (cadr sym-func)
+		     (funcall (cadr sym-func) pos)))
 	     (when (and region (car region)
 			(hui-select-region-bigger-p
 			 hui-select-old-region region)
@@ -894,7 +897,8 @@ Return t if selected, else nil."
 	  (goto-char (match-end 0)))))))
 
 (defun hui-select-at-delimited-sexp-p ()
-  "Select a delimited sexp."
+  "Return non-nil if at the start or on the end char of an sexpression.
+Use `hui-select-mark-delimited-sexp' to select it."
   (unless (eolp)
     (let ((syn-before (if (char-before) (char-syntax (char-before)) 0))
 	  (syn-after  (if (char-after)  (char-syntax (char-after)) 0)))
@@ -1036,48 +1040,63 @@ Return the updated cons cell."
     hui-select-region))
 
 (defun hui-select-string-p (&optional start-delim end-delim)
-  "Return (start . end) of string whose first line point is in or directly before.
-Positions include delimiters.  String is delimited by double quotes unless
-optional START-DELIM and END-DELIM (strings) are given.
-Returns nil if not within a string."
-  (let ((opoint (point))
-	(count 0)
-	bol start delim-regexp start-regexp end-regexp)
-    (or start-delim (setq start-delim "\""))
-    (or end-delim (setq end-delim "\""))
-    ;; Special case for the empty string.
-    (if (looking-at (concat (regexp-quote start-delim)
-			    (regexp-quote end-delim)))
-	(hui-select-set-region (point) (match-end 0))
-      (setq start-regexp (concat "\\(^\\|[^\\]\\)\\("
-				 (regexp-quote start-delim) "\\)")
-	    end-regexp   (concat "[^\\]\\(" (regexp-quote end-delim) "\\)")
-	    delim-regexp (concat start-regexp "\\|" end-regexp))
-      (save-excursion
-	(beginning-of-line)
-	(setq bol (point))
-	(while (re-search-forward delim-regexp opoint t)
-	  (setq count (1+ count))
-	  ;; This is so we don't miss the closing delimiter of an empty
-	  ;; string.
-	  (if (and (= (point) (1+ bol))
-		   (looking-at (regexp-quote end-delim)))
-	      (setq count (1+ count))
-	    (unless (bobp)
-              (backward-char 1))))
-	(goto-char opoint)
-	;; If found an even # of starting and ending delimiters before
-	;; opoint, then opoint is at the start of a string, where we want it.
-	(if (zerop (mod count 2))
-	    (unless (bobp)
-              (backward-char 1))
-	  (re-search-backward start-regexp nil t))
-	;; Point is now before the start of the string.
-	(when (re-search-forward start-regexp nil t)
-	  (setq start (match-beginning 2))
-	  (when (re-search-forward end-regexp nil t)
-	    (hui-select-set-region start (point))))))))
-
+  "Return (start . end) of a string.
+Works when on a delim or on the first line with point in the
+string or directly before it.  Positions include delimiters.
+String is delimited by double quotes unless optional START-DELIM
+and END-DELIM (strings) are given.  Returns nil if not within a
+string."
+  (unless start-delim (setq start-delim "\""))
+  (unless end-delim (setq end-delim "\""))
+  (with-syntax-table hbut:syntax-table
+    (or (and (equal start-delim "\"") (equal end-delim "\"")
+	     (ignore-errors
+	       (cond ((and (= (char-after) ?\")
+			   (/= (char-before) ?\\))
+		      (if (hypb:in-string-p)
+			  (hui-select-set-region (1+ (point))
+						 (scan-sexps (1+ (point)) -1))
+			(hui-select-set-region (point) (scan-sexps (point) 1))))
+		     ((and (= (char-before) ?\")
+			   (/= (char-before (1- (point))) ?\\))
+		      (if (hypb:in-string-p)
+			  (hui-select-set-region (1- (point)) (scan-sexps (1- (point)) 1))
+			(hui-select-set-region (point) (scan-sexps (point) -1)))))))
+	(let ((opoint (point))
+	      (count 0)
+	      bol start delim-regexp start-regexp end-regexp)
+	  ;; Special case for the empty string.
+	  (if (looking-at (concat (regexp-quote start-delim)
+				  (regexp-quote end-delim)))
+	      (hui-select-set-region (point) (match-end 0))
+	    (setq start-regexp (concat "\\(^\\|[^\\]\\)\\("
+				       (regexp-quote start-delim) "\\)")
+		  end-regexp   (concat "[^\\]\\(" (regexp-quote end-delim) "\\)")
+		  delim-regexp (concat start-regexp "\\|" end-regexp))
+	    (save-excursion
+	      (beginning-of-line)
+	      (setq bol (point))
+	      (while (re-search-forward delim-regexp opoint t)
+		(setq count (1+ count))
+		;; This is so we don't miss the closing delimiter of an empty
+		;; string.
+		(if (and (= (point) (1+ bol))
+			 (looking-at (regexp-quote end-delim)))
+		    (setq count (1+ count))
+		  (unless (bobp)
+		    (backward-char 1))))
+	      (goto-char opoint)
+	      ;; If found an even # of starting and ending delimiters before
+	      ;; opoint, then opoint is at the start of a string, where we want it.
+	      (if (zerop (mod count 2))
+		  (unless (bobp)
+		    (backward-char 1))
+		(re-search-backward start-regexp nil t))
+	      ;; Point is now before the start of the string.
+	      (when (re-search-forward start-regexp nil t)
+		(setq start (match-beginning 2))
+		(when (re-search-forward end-regexp nil t)
+		  (hui-select-set-region start (point))))))))))
 ;;;
 ;;; Code selections
 ;;;
@@ -1318,7 +1337,12 @@ included in the list, hui-select-brace-modes."
 (defun hui-select-punctuation (pos)
   "Return (start . end) region when at a punctuation character.
 The region includes sexpressions before and after POS"
-  (or (hui-select-comment pos)
+  (or (hui-select-markup-pair pos)
+      (hui-select-delimited-thing-call #'hui-select-thing)
+      (and (or (and (= (char-after) ?\") (/= (char-before) ?\\))
+	       (and (= (char-before) ?\") (/= (char-before (1- (point))) ?\\)))
+	   (hui-select-string pos))
+      (hui-select-comment pos)
       (hui-select-preprocessor-def pos)
       (hui-select-brace-def-or-declaration pos) ;; Might be on a C++ destructor ~.
       (save-excursion

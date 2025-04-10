@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    15-Oct-91 at 20:13:17
-;; Last-Mod:     18-Jan-25 at 13:57:49 by Bob Weiner
+;; Last-Mod:     22-Feb-25 at 22:15:38 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -22,8 +22,6 @@
 (require 'browse-url)
 (require 'hsettings)                    ; For hyperbole-web-search-alist
 (require 'hypb)
-(unless (fboundp 'string-replace)
-  (load "subr")) ;; for `string-replace'
 
 ;;; ************************************************************************
 ;;; Public declarations
@@ -424,9 +422,9 @@ Allows custom handling of menu lines before selecting an item."
 				   org-m-ret-options))
 	   (current-name (cdr (assq hsys-org-enable-smart-keys option-lookups))))
       (when (and (stringp current-name) (stringp initial-contents))
-	(setq initial-contents (string-replace current-name
-					       (concat "==" current-name "==")
-					       initial-contents)))))
+	(setq initial-contents (replace-regexp-in-string (regexp-quote current-name)
+					                 (concat "==" current-name "==")
+					                 initial-contents)))))
   (setq initial-contents (hui:menu-maybe-highlight-item-keys initial-contents))
   (read-from-minibuffer prompt initial-contents keymap read
 			hist default-value inherit-input-method))
@@ -1037,13 +1035,13 @@ support underlined faces as well."
 	(list
 	 '("HyWiki>")
 	 '("Act"            hywiki-word-activate
-	   "Activate HyWikiWord link at point or emulate a press of a Smart Key.")
+	   "Create and display page for HyWikiWord at point or when none, emulate a press of a Smart Key.")
 	 '("Create"         hywiki-word-create-and-display
-	    "Create and display a new HyWiki referent, prompting with any existing referent names.")
+	    "Create and display a new or existing HyWikiWord referent, prompting with any existing referent names.")
 	 '("EditPages"      hywiki-directory-edit
 	   "Display and edit HyWiki directory.")
 	 '("FindReferent"   hywiki-find-referent
-	   "Prompt with completion for and display a HyWiki page ready for editing.")
+	   "Prompt with completion for and display a HyWikiWord referent.")
 	 (when (fboundp 'consult-grep) ;; allow for autoloading
 	   '("GrepConsult"    hywiki-consult-grep
 	     "Grep over HyWiki pages with interactive consult-grep."))

@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     21-Jan-25 at 17:05:46 by Mats Lidell
+;; Last-Mod:      2-Feb-25 at 22:19:25 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -1173,6 +1173,78 @@ With point on label suggest that ibut for rename."
           (gbut:act "global"))
       (hy-delete-file-and-buffer global-but-file))))
 
+(ert-deftest hui--kill-highlighted-region-default-settings ()
+  "Verify `hui-kill-region'.
+The Emacs default settings are used, i.e. both `transient-mark-mode' and
+`mark-even-if-inactive' are enabled."
+  (with-temp-buffer
+    (let ((transient-mark-mode t)
+	  (mark-even-if-inactive t))
+      (insert "abc{def}ghi")
+      (goto-char 1)
+      (set-mark nil)
+
+      ;; No mark set
+      (condition-case err
+          (call-interactively #'hui-kill-region)
+        (error
+         (progn
+           (should (memq (car err) (list 'error 'user-error)))
+           (should (string-match "The mark is not set now, so there is no region" (cadr err))))))
+
+      (set-mark (point))
+      (goto-char 4)
+      (call-interactively #'hui-kill-region)
+      (should (string= "{def}ghi" (buffer-string)))
+
+      (erase-buffer)
+      (insert "abc{def}hig")
+      (goto-char 1)
+      (set-mark (point))
+      (goto-char 4)
+      (deactivate-mark)
+      (call-interactively #'hui-kill-region)
+      (should (string= "abchig" (buffer-string)))
+
+      (erase-buffer)
+      (insert "abc{def}igh")
+      (goto-char 1)
+      (set-mark (point))
+      (goto-char 4)
+      (activate-mark)
+      (call-interactively #'hui-kill-region)
+      (should (string= "{def}igh" (buffer-string)))
+
+      (erase-buffer)
+      (insert "bca{def}ghi")
+      (goto-char 1)
+      (set-mark (point))
+      (goto-char 5)
+      (deactivate-mark)
+      (call-interactively #'hui-kill-region)
+      (should (string= "def}ghi" (buffer-string)))
+
+      ;; Not interactive
+      (erase-buffer)
+      (insert "cab{efd}ghi")
+      (goto-char 1)
+      (set-mark (point))
+      (goto-char 4)
+      (activate-mark)
+      (hui-kill-region (mark t) (point))
+      (should (string= "{efd}ghi" (buffer-string)))
+
+      ;; Pick up region if beg or end is not set.
+      (erase-buffer)
+      (insert "bac{def}ghi")
+      (goto-char 1)
+      (set-mark (point))
+      (goto-char 4)
+      (deactivate-mark)
+      (hui-kill-region nil nil)
+      (should (string= "{def}ghi" (buffer-string))))))
+
+
 (ert-deftest hui--kill-highlighted-region ()
   "Verify `hui-kill-region'.
 `transient-mark-mode' is enabled and `mark-even-if-inactive' is
@@ -1299,6 +1371,23 @@ enabled."
 
       (hui-kill-region (mark t) (point))
       (should (string= "def}hig" (buffer-string))))))
+
+(ert-deftest hui--kill-empty-region-twice ()
+  "Verify that an empty region can be killed twice.
+Mimics the test case of setting a mark and hitting `C-w' twice."
+  (with-temp-buffer
+    (let ((transient-mark-mode t)
+	  (mark-even-if-inactive t)
+          last-command)
+      (insert "foo bar")
+      (goto-char 4)
+      (set-mark (point))
+      (call-interactively #'hui-kill-region)
+      ;; Prepare second call to be setup as kill-region would leave
+      ;; the state when calling it using C-w.
+      (setq mark-active nil)
+      (setq last-command #'kill-region)
+      (call-interactively #'hui-kill-region))))
 
 (ert-deftest hui--kill-region-multiple-kill ()
   "Verify `hui-kill-region' saves to the yank ring on multiple kills.

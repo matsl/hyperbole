@@ -3,7 +3,7 @@
 # Author:       Bob Weiner
 #
 # Orig-Date:    15-Jun-94 at 03:42:38
-# Last-Mod:     19-Jan-25 at 17:53:51 by Bob Weiner
+# Last-Mod:      6-Apr-25 at 19:45:20 by Mats Lidell
 #
 # Copyright (C) 1994-2023  Free Software Foundation, Inc.
 # See the file HY-COPY for license information.
@@ -181,19 +181,27 @@ HYPB_WEB_REPO_LOCATION = ../hyweb/hyperbole/
 HYPB_WEB_REPO_LOCATION_DEVEL = $(HYPB_WEB_REPO_LOCATION)devel/
 
 # CI/CD Emacs versions for local docker based tests
-DOCKER_VERSIONS=27.2 28.2 29.4 master
+DOCKER_VERSIONS=28.2 29.4 30.1 master
 
 ##########################################################################
 #                     NO CHANGES REQUIRED BELOW HERE.                    #
 ##########################################################################
+
+# Verbosity macros - Prefer short messages for each command. Uncomment
+# for seeing the full command.
+HYPB_GEN     = @$(info $.  GEN      $@)
+HYPB_ELC     = @$(info $.  ELC      $@)
+HYPB_ELC_ELN = @$(info $.  ELC+ELN  $@)
+HYPB_at      = @
 
 # Libraries that must be pre-loaded before trying to byte-compile anything.
 PRELOADS = $(SITE_PRELOADS) -l ./hload-path.el -l ./hversion.el -l ./hyperbole.el 
 
 # Compile in batch mode.  Load site-lisp/site-start.el, which may set load-path.
 # Show complete expression; do not abbreviate any exprs in batch logs with ...
-BATCHFLAGS = --batch --quick --eval "(progn (setq backtrace-line-length 0) \
-                                 (message \"  emacs-version = %s\n  system-configuration = %s\n  emacs = %s%s\n  load-path = %s\" emacs-version system-configuration invocation-directory invocation-name load-path))"
+BATCHFLAGS = --batch --quick --eval "(setq backtrace-line-length 0)"
+
+VERSIONFLAGS = --eval "(message \"  emacs-version = %s\n  system-configuration = %s\n  emacs = %s%s\n  load-path = %s\" emacs-version system-configuration invocation-directory invocation-name load-path)"
 
 EMACS_BATCH=$(EMACS) $(BATCHFLAGS) $(PRELOADS)
 EMACS_PLAIN_BATCH=$(EMACS) $(BATCHFLAGS)
@@ -298,6 +306,9 @@ echo:
 	@echo "TERM: $(TERM)"
 	@echo "DISPLAY: $(DISPLAY)"
 
+emacs-environment:
+	@$(EMACS_PLAIN_BATCH) $(VERSIONFLAGS)
+
 install: elc install-info install-html $(data_dir)/hkey-help.txt
 
 install-info: $(info_dir)/hyperbole.info
@@ -320,16 +331,16 @@ $(data_dir)/hkey-help.txt: $(man_dir)/hkey-help.txt
 src: autoloads tags
 
 # Byte compile files but apply a filter for either including or
-# removing warnings.  See variable {C-hv byte-compile-warnings RET} for
-# list of warnings that can be controlled.  Default is set to suppress
-# warnings for long docstrings.
+# removing warnings.  See variable {C-hv byte-compile-warnings RET}
+# for list of warnings that can be controlled.  Default is set to 'all
+# from emacs versions that define `byte-compile--emacs-build-warning-types'.
 #
 # Example for getting warnings for obsolete functions and variables
 #   HYPB_WARNINGS="free-vars" make bin
 # Example for surpressing the free-vars warnings
 #   HYPB_WARNINGS="not free-vars" make bin
 ifeq ($(origin HYPB_WARNINGS), undefined)
-HYPB_BIN_WARN =
+HYPB_BIN_WARN = --eval "(setq-default byte-compile-warnings (if (boundp 'byte-compile--emacs-build-warning-types) 'all t))"
 else ifeq ($(origin HYPB_WARNINGS), environment)
 HYPB_BIN_WARN = --eval "(setq-default byte-compile-warnings '(${HYPB_WARNINGS}))"
 endif
@@ -337,24 +348,22 @@ endif
 curr_dir = $(shell pwd)
 ifeq ($(HYPB_NATIVE_COMP),yes)
 %.elc: %.el
-	@printf "Compiling $<\n"
-	@$(EMACS) --batch --quick \
+	$(HYPB_ELC_ELN)$(EMACS) --batch --quick \
 	--eval "(progn (add-to-list 'load-path \"$(curr_dir)\") (add-to-list 'load-path \"$(curr_dir)/kotl\"))" \
-	${HYPB_BIN_WARN} \
+	-l bytecomp ${HYPB_BIN_WARN} \
 	-f batch-native-compile $<
 else
 %.elc: %.el
-	@printf "Compiling $<\n"
-	@$(EMACS) --batch --quick \
+	$(HYPB_ELC)$(EMACS) --batch --quick \
 	--eval "(progn (add-to-list 'load-path \"$(curr_dir)\") (add-to-list 'load-path \"$(curr_dir)/kotl\"))" \
-	${HYPB_BIN_WARN} \
+	-l bytecomp ${HYPB_BIN_WARN} \
 	-f batch-byte-compile $<
 endif
 
 new-bin: autoloads $(ELC_KOTL) $(ELC_COMPILE)
 
 remove-elc:
-	$(RM) *.elc kotl/*.elc
+	$(HYPB_at)$(RM) *.elc kotl/*.elc
 
 # Remove and then rebuild all byte-compiled .elc files, even those .elc files
 # which do not yet exist, plus build TAGS file.
@@ -366,10 +375,10 @@ eln: echo src
 
 tags: TAGS
 TAGS: $(EL_TAGS)
-	$(ETAGS) --regex='{lisp}/(ert-deftest[ \t]+\([^ \t\n\r\f()]+\)/' $(EL_TAGS)
+	$(HYPB_GEN)$(ETAGS) --regex='{lisp}/(ert-deftest[ \t]+\([^ \t\n\r\f()]+\)/' $(EL_TAGS)
 
 clean:
-	$(RM) hyperbole-autoloads.el kotl/kotl-autoloads.el $(ELC_COMPILE) $(ELC_KOTL) TAGS test/*.elc
+	$(HYPB_at)$(RM) hyperbole-autoloads.el kotl/kotl-autoloads.el $(ELC_COMPILE) $(ELC_KOTL) TAGS test/*.elc
 
 version:
 	@echo ""
@@ -470,10 +479,10 @@ ftp: package $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz
 autoloads: kotl/kotl-autoloads.el hyperbole-autoloads.el
 
 hyperbole-autoloads.el: $(EL_COMPILE)
-	$(EMACS_BATCH) --debug --eval "(progn (setq generated-autoload-file (expand-file-name \"hyperbole-autoloads.el\") backup-inhibited t) (let (find-file-hooks) (hload-path--make-directory-autoloads \".\" generated-autoload-file)))"
+	$(HYPB_GEN)$(EMACS_BATCH) --debug --eval "(progn (setq generated-autoload-file (expand-file-name \"hyperbole-autoloads.el\") backup-inhibited t) (let (find-file-hooks) (hload-path--make-directory-autoloads \".\" generated-autoload-file)))"
 
 kotl/kotl-autoloads.el: $(EL_KOTL)
-	$(EMACS_PLAIN_BATCH) --debug --eval "(let ((autoload-file (expand-file-name \"kotl/kotl-autoloads.el\")) (backup-inhibited t) (find-file-hooks)) (if (functionp (quote make-directory-autoloads)) (make-directory-autoloads \"kotl/\" autoload-file) (progn (setq generated-autoload-file autoload-file) (update-directory-autoloads \"kotl/\"))))"
+	$(HYPB_GEN)$(EMACS_PLAIN_BATCH) --debug --eval "(let ((autoload-file (expand-file-name \"kotl/kotl-autoloads.el\")) (backup-inhibited t) (find-file-hooks)) (if (functionp (quote make-directory-autoloads)) (make-directory-autoloads \"kotl/\" autoload-file) (progn (setq generated-autoload-file autoload-file) (update-directory-autoloads \"kotl/\"))))"
 
 # Used for ftp.gnu.org tarball distributions.
 $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz:
@@ -529,6 +538,9 @@ else
 HYPB_ERT_BATCH = (ert-run-tests-batch-and-exit)
 HYPB_ERT_INTERACTIVE = (ert-run-tests-interactively t)
 endif
+ifeq ($(origin failure), command line)
+HYPB_ERT_FAILURE = (setq hy-test-run-failing-flag ${failure})
+endif
 
 # For full backtrace run make test FULL_BT=<anything or even empty>
 ifeq ($(origin FULL_BT), command line)
@@ -544,7 +556,7 @@ test-ert:
 	--eval "(let ((auto-save-default) (ert-batch-print-level 10) \
 	              (ert-batch-print-length nil) \
 	              $(HYPB_ERT_BATCH_BT) (ert-batch-backtrace-right-margin 2048)) \
-	           $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_BATCH))"
+	           $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_FAILURE) $(HYPB_ERT_BATCH))"
 
 # Run all tests by starting an Emacs that runs the tests interactively in windowed mode.
 all-tests: test-all
@@ -553,14 +565,14 @@ test-all:
 ifeq ($(TERM), dumb)
 ifneq (,$(findstring .apple.,$(DISPLAY)))
         # Found, on MacOS
-	TERM=xterm-256color $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default)) $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_INTERACTIVE))"
+	TERM=xterm-256color $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ((auto-save-default)) $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_FAILURE) $(HYPB_ERT_INTERACTIVE))"
 else
         # Not found, set TERM so tests will at least run within parent Emacs session
-	TERM=vt100 $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES)) $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_INTERACTIVE))"
+	TERM=vt100 $(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES)) $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_FAILURE) $(HYPB_ERT_INTERACTIVE))"
 endif
 else
         # Typical case, run emacs normally
-	$(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES)) $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_INTERACTIVE))"
+	$(EMACS) --quick $(PRELOADS) --eval "(load-file \"test/hy-test-dependencies.el\")" --eval "(let ($(LET_VARIABLES)) $(LOAD_TEST_ERT_FILES) $(HYPB_ERT_FAILURE) $(HYPB_ERT_INTERACTIVE))"
 endif
 
 test-all-output:
@@ -628,11 +640,16 @@ else
 DOCKER_VERSION = master-ci
 endif
 
+recompile-docker-elpa:
+	$(EMACS_BATCH) --eval "(byte-recompile-directory \"/root/.emacs.d/elpa\" 0 'force)"
+
 docker: docker-update
-	docker run -v $$(pwd):/hypb -v /tmp:/hypb-tmp -it --rm silex/emacs:${DOCKER_VERSION} bash -c "cp -a /hypb /hyperbole && make -C hyperbole ${DOCKER_TARGETS}"
+	docker run --mount type=volume,src=elpa-local,dst=/root/.emacs.d/elpa \
+	-v $$(pwd):/hypb -v /tmp:/hypb-tmp -it --rm silex/emacs:${DOCKER_VERSION} bash -c "cp -a /hypb /hyperbole && make -C hyperbole recompile-docker-elpa ${DOCKER_TARGETS}"
 
 docker-run: docker-update
-	docker run -v $$(pwd):/hypb -v /tmp:/hypb-tmp -it --rm silex/emacs:${DOCKER_VERSION}
+	docker run --mount type=volume,src=elpa-local,dst=/root/.emacs.d/elpa \
+	-v $$(pwd):/hypb -v /tmp:/hypb-tmp -it --rm silex/emacs:${DOCKER_VERSION}
 
 # Update the docker image for the specified version of Emacs
 docker-update:
@@ -642,6 +659,9 @@ docker-update:
 # Example: make docker version=29.4 targets="clean bin run-emacs"
 run-emacs:
 	emacs --eval "(progn (add-to-list 'load-path \"/hyperbole\") (require 'hyperbole) (hyperbole-mode 1))"
+
+docker-clean:
+	docker rm elpa-local
 
 # Run with coverage. Run tests given by testspec and monitor the
 # coverage for the specified file.

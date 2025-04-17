@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    18-Sep-91 at 02:57:09
-;; Last-Mod:      5-Jan-25 at 11:27:31 by Bob Weiner
+;; Last-Mod:     16-Apr-25 at 10:42:06 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -891,6 +891,13 @@ Return the symbol for the button when found, else nil."
 ;;; hattr class
 ;;; ========================================================================
 
+(defun hattr:actype-is-p (actype-symbol &optional hbut-symbol)
+  "Return t if ACTYPE-SYMBOL matches an hbut's \='actype attr value.
+The hbut used defaults to \='hbut:current or the optional HBUT-SYMBOL."
+  (hattr:is-p 'actype
+	      (or (actype:def-symbol actype-symbol) actype-symbol)
+	      hbut-symbol))
+
 (defun    hattr:attributes (obj-symbol)
   "Return a list of OBJ-SYMBOL's attributes as symbols."
   (when (symbolp obj-symbol)
@@ -946,6 +953,20 @@ Return TO-HBUT."
 (defun    hattr:get (obj-symbol attr-symbol)
   "Return value of OBJ-SYMBOL's attribute ATTR-SYMBOL."
   (get obj-symbol attr-symbol))
+
+(defun hattr:ibtype-is-p (ibtype-symbol &optional ibut-symbol)
+  "Return t if IBTYPE-SYMBOL matches an ibut's \='categ attr value.
+The ibut used defaults to \='hbut:current or the optional IBUT-SYMBOL."
+  (hattr:is-p 'categ
+	      (or (ibtype:elisp-symbol ibtype-symbol) ibtype-symbol)
+	      ibut-symbol))
+
+(defun hattr:is-p (attr value &optional hbut-symbol)
+  "Return t if ATTR has VALUE for \='hbut:current or optional HBUT-SYMBOL."
+  (and (symbolp attr) attr 
+       (eq (hattr:get (or (and (symbolp hbut-symbol) hbut-symbol) 'hbut:current)
+		      attr)
+	   value)))
 
 (defun    hattr:list (obj)
   "Return a property list of OBJ's attributes.
@@ -2000,22 +2021,23 @@ If a new button is created, store its attributes in the symbol,
 			     ;; Move to text of ibut before trying to activate it
 			     ;; (may be on name)
 			     (goto-char (+ (or text-start (point)) 2))))
-			 (setq ibtype-point (point))
+			 (setq ibtype-point (point-marker))
 			 (while (and (not is-type) types)
 			   (setq itype (car types))
+			   ;; Any implicit button type check should leave point
+			   ;; unchanged.  Trigger an error if not.
+			   (unless (equal (point-marker) ibtype-point)
+			     (hypb:error "(Hyperbole): ibtype %s improperly moved point from %s to %s"
+					 itype opoint (point)))
 			   (when (condition-case err
 				     (and itype (setq args (funcall itype)))
 				   (error (progn (message "%S: %S" itype err)
 						 (switch-to-buffer "*Messages*")
 						 ;; Show full stack trace
 						 (debug))))
-			     (setq is-type itype)
-			     ;; Any implicit button type check should leave point
-			     ;; unchanged.  Trigger an error if not.
-			     (unless (equal (point) ibtype-point)
-			       (hypb:error "(Hyperbole): `%s' at-p test improperly moved point from %s to %s"
-					   is-type opoint (point-marker))))
+			     (setq is-type itype))
 			   (setq types (cdr types))))
+		(set-marker ibtype-point nil)
 		(goto-char opoint)))
 	    (set-marker opoint nil))
 
@@ -3016,9 +3038,7 @@ type for ibtype is presently undefined."
 	   (at-func-symbols (flatten-tree at-func)))
       (progn (unless (or (member 'ibut:label-set at-func-symbols)
 			 (member 'hsys-org-set-ibut-label at-func-symbols))
-	       (error "(defib): %s `at-p' argument must include a call to `ibut:label-set'" type))
-	     ;; (unless (member 'hact at-func-symbols)
-	     ;;   (error "(defib): %s `at-p' argument must include a call to `hact'" type))
+	       (error "(defib): `at-p' argument for %s must include a call to `ibut:label-set'" type))
 	     `(progn (symtable:add ',type symtable:ibtypes)
 		     (htype:create ,type ibtypes ,doc nil ,at-func
 				   '(to-p ,to-func style ,style)))))))

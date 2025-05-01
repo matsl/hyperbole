@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 20:45:31
-;; Last-Mod:      2-Mar-25 at 12:05:51 by Bob Weiner
+;; Last-Mod:     27-Apr-25 at 17:30:02 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -45,6 +45,7 @@
 (require 'org-macs) ;; for org-uuid-regexp
 (require 'subr-x) ;; for string-trim
 (require 'thingatpt)
+(require 'smerge-mode) ;; for smerge-keep-{all, upper, lower}
 
 ;;; ************************************************************************
 ;;; Public declarations
@@ -1710,10 +1711,12 @@ If a boolean function or variable, display its value."
   (cl-destructuring-bind (wikiword start end)
       (hywiki-referent-exists-p :range)
     (when wikiword
-      (if (and start end)
-	  (ibut:label-set wikiword start end)
-	(ibut:label-set wikiword))
-      (hact 'hywiki-find-referent wikiword))))
+      (unless (or (ibtypes::pathname-line-and-column)
+		  (ibtypes::pathname))
+	(if (and start end)
+	    (ibut:label-set wikiword start end)
+	  (ibut:label-set wikiword))
+	(hact 'hywiki-find-referent wikiword)))))
 
 ;;; ========================================================================
 ;;; Inserts completion into minibuffer or other window.
@@ -1734,6 +1737,25 @@ If a boolean function or variable, display its value."
 
 ;; If you want to to disable ALL Hyperbole support within Org major
 ;; and minor modes, set the custom option `hsys-org-enable-smart-keys' to nil.
+
+;;; ========================================================================
+;;; Resolve merge conflicts in smerge-mode
+;;; ========================================================================
+
+(defib smerge ()
+  "Act on `smerge-mode' buffer conflicts.
+On a merge conflict marker, keep either the upper, both or the lower
+version of the conflict."
+  (when (bound-and-true-p smerge-mode)
+    (let ((op (save-excursion
+                (beginning-of-line)
+                (cond ((looking-at smerge-end-re) #'smerge-keep-lower)
+                      ((looking-at smerge-begin-re) #'smerge-keep-upper)
+                      ((looking-at smerge-lower-re) #'smerge-keep-all)))))
+      (when op
+        (save-excursion
+          (ibut:label-set (match-string-no-properties 0) (match-beginning 0) (match-end 0))
+          (hact op))))))
 
 (run-hooks 'hibtypes-end-load-hook)
 (provide 'hibtypes)

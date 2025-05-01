@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    18-Sep-91 at 02:57:09
-;; Last-Mod:     16-Apr-25 at 10:42:06 by Mats Lidell
+;; Last-Mod:     26-Apr-25 at 10:12:23 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -2728,12 +2728,14 @@ Summary of operations based on inputs (name arg from \\='hbut:current attrs):
 	    (format "\"%s:%d\"" (hpath:shorten arg1) arg2)
 	  (format "\"%s:%d:%d\"" (hpath:shorten arg1) arg2 arg3))))
       ('actypes::link-to-file
-       (insert (format "\"%s\""
-		       (if (/= (length args) 2)
-			   ;; filename only
-			   (hpath:shorten arg1)
-			 ;; includes buffer pos that we translate to line:col
-			 (hpath:file-position-to-line-and-column arg1 arg2)))))
+       ;; arg2 when given is a buffer position
+       (insert "\""
+	       (if arg2
+		   ;; includes buffer pos that we translate to line:col
+		   (hpath:file-position-to-line-and-column arg1 arg2)
+		 ;; filename only
+		 (hpath:shorten arg1))
+	       "\""))
       ('actypes::link-to-string-match
        (insert (format "\"%s#%s%s\"" (hpath:shorten arg3) arg1
 		       (if (<= arg2 1) "" (concat ":I" (number-to-string arg2))))))

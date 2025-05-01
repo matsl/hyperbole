@@ -1,3 +1,213 @@
+2025-04-27  Mats Lidell  <matsl@gnu.org>
+
+* man/hyperbole.texi (Implicit Button Types): Add anchor to all ibtypes.
+
+* hywiki.el (hywiki-word-face-at-p):
+* hibtypes.el (smerge): Use or instead of setq. Thanks Stefan Monnier for
+    the suggestion.
+
+* man/hyperbole.texi (Implicit Button Types): smerge ibut.
+    (Smart Key - Magit Mode): Merge conflict lines.
+
+2025-04-27  Bob Weiner  <rsw@gnu.org>
+
+* hypb.el (hypb:in-string-p): Add missing 'save-match-data' so when used with
+    another search, this does not overwrite the matches.  This fixes HyWikiWords
+    in yanked regions not highlighting.
+
+* hyrolo.el (hyrolo-grep-file): Disable 'hywiki-mode' highlighting when reading
+    in HyRolo search buffers to maintain speed and not have all the HyWikiWords
+    distracting from matches found in the *HyRolo* match buffer.
+
+* test/hywiki-tests.el (hywiki-tests--save-referent-keyseries-use-menu): Rewrite
+    and enable this test.
+
+* hywiki.el (hywiki-referent-exists-p): Fix to stop using global which could be
+    overwritten and cause failures; use let of 'save-input-word' instead.
+
+2025-04-26  Bob Weiner  <rsw@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--verify-face-property-when-editing-wikiword):
+    Rewrite and eliminate false wikiword highlighting.
+
+                       (hywiki-tests--save-referent-bookmark-use-menu): This
+    test was unstable and unneeded (could not read the Hyperbole minibuffer
+    menu prompts properly), so I removed it.  'hywiki-tests--save-referent-bookmark'
+    is enough of a test.
+
+* hywiki.el (hywiki-word-at): When called with :range flag, ensure any
+    existing HyWikiWord reference is highlighted before returning.  This
+    helps with wikiword highlighting taking precedence over 'font-lock-mode'.
+
+* hywiki.el (hywiki-add-bookmark): Fix to actually create the bookmark
+    and to not prompt for a bookmark name when called non-interactively.
+  test/hywiki-tests.el (hywiki-tests--add-bookmark): Fix
+                       (hywiki-tests--save-referent-bookmark): Fix to
+    use 'wiki-referent' from 'hywiki-tests--referent-test' call.
+                       (hywiki-tests--referent-test): Fix to return buffer
+    string with no properties to simplify comparisons.
+                       (hywiki-add-referent): This may create a new HyWikiWord
+    so highlight any occurrences of it in all windows across all frames.
+
+* hbut.el (ibut:insert-text): Remove duplicate 'actypes::link-to-file' clause.
+
+* hpath.el (hpath:file-position-to-line-and-column): Fix to shorten path
+    in the current directory, not within the buffer of path.
+
+2025-04-26  Mats Lidell  <matsl@gnu.org>
+
+* hibtypes.el (smerge): Add ibut smerge.
+
+* hui-mouse.el (smart-magit): Add smerge support in magit-status-mode.
+
+* hywiki.el (hywiki-word-face-at-p): Add optional pos to enable reuse.
+
+* test/hy-test-helpers.el (hy-test-word-face-at-region): Simplify by
+    reusing hywiki-word-face-at-p.
+
+* test/hywiki-tests.el
+    (hywiki-tests--wikiword-step-check-verification-with-faces): Add
+    missing WikiWord, Hiho, required by the test. Enable the test for CI.
+
+* test/hywiki-tests.el:
+* test/hui-tests.el:
+* test/hmouse-info-tests.el:
+* test/hmouse-drv-tests.el:
+* test/hargs-tests.el: Use ert-simulate-keys. Replaces external dependency
+    on with-simulated-input.
+
+* test/hy-test-dependencies.el: Remove dependency on with-simulated-input.
+
+2025-04-25  Mats Lidell  <matsl@gnu.org>
+
+* hsys-org.el: Require 'warnings to get definition of variables
+    `warning-minimum-level' and `warning-suppress-log-types' else causing
+    byte compilation warnings.
+
+* test/MANIFEST: Add resource folders.
+
+* test/hmouse-drv-resources/test-data.el:
+  test/hmouse-drv-resources/TAGS:
+  test/hibtypes-resources/test-data.el:
+  test/hibtypes-resources/TAGS: Test resources.
+
+* test/hmouse-drv-tests.el (hbut-ctags-vgrind-test, hbut-etags-test): Use
+    test resources.
+
+* test/hibtypes-tests.el (ibtypes::ctags-vgrind-test)
+    (ibtypes::etags-test): Use test resources.
+
+2025-04-23  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--word-n-face-at): Verify that point
+    is at a WikiWord where WikiWord has hywiki--word-face set.
+    (hywiki-tests--with-face-test): Control type of WikiWord check.
+    (hywiki-tests--word-at): Use either hywiki-word-at or
+    hywiki-tests--word-n-face-at controlled by
+    hywiki-tests--with-face-test.
+    (hywiki-tests--verify-hywiki-word): Use hywiki-tests--word-at.
+    (hywiki-tests--wikiword-step-check-verification-with-faces): Run the
+    step-check test verifying WikiWords and faces. Test is behind failure
+    flag.
+
+* test/hy-test-helpers.el (hy-test-word-face-at-point): Check if
+    hywiki--word-face is set at point.
+    (hy-test-word-face-at-region): Check that region has hywiki--word-face set.
+
+2025-04-21  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--wikiword-step-check): Update test
+    sequence.
+
+* hywiki.el (ibtypes::pathname, ibtypes::pathname-line-and-column):
+    Declare functions from hpath.
+
+* hsys-org.el (hsys-org-link-at-p): Reinsert let binding of label-start-end.
+
+* hbut.el (ibut:insert-text): Remove shadowed pcase.
+
+2025-04-20  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--filename-same-as-wiki-word): Add
+    test for filename being the same as a WikiWord.
+
+2025-04-20  Bob Weiner  <rsw@gnu.org>
+
+* test/hui-tests.el (hui--link-possible-types): Change Outline Heading
+    to use 'link-to-file' now.
+                    (hui--ibut-link-directly-to-org-header-second-column):
+    Fix to new handling of outline headings.
+
+* test/demo-tests.el (fast-demo-display-kotl-starting-from-cell): Fix
+    to use Hyperbole source EXAMPLE.kotl rather than per user file
+    which may have been edited.  Also add check of count of visible lines
+    in the current cell.
+
+* kotl/kotl-mode.el (kotl-mode:add-prior-cell): Add to insert a cell
+    prior to the current cell at the same level as the current cell.
+
+* kotl/kmenu.el (kotl-menu-common-body): Change 'Add-Parent' to
+    'Add-After-Parent'.
+
+* kotl/kotl-mode.el (kotl-mode:add-parent): Rename to
+   'kotl-mode:add-after-parent'.
+
+2025-04-19  Bob Weiner  <rsw@gnu.org>
+
+* kotl/kotl-mode.el (kotl-mode:add-cell): Fix handling of 0 and negative
+   prefix args.  0 on a level 1 cell means add as the first child of the
+   parent root cell, i.e. as the first outline cell.  0 at any lower level
+   means add as the next sibling of the parent cell.
+                    (kotl-mode:down-level, kotl-mode:up-level,
+                     kotl-mode:backward-cell, kotl-mode:forward-cell,
+                     kotl-mode:previous-cell, kotl-mode:next-cell): Trigger
+   error only if called interactively; if not interactive and cannot move
+   to any expected cell, return nil.
+
+* hui.el (hui:actype): Fix to ensure only interactive actypes are returned
+    so when an explict button is created, it can prompt for the parameters
+    associated with the actype (otherwise, it will just get nil).
+         (hui:link-possible-types): Update link to outline heading handler
+    to use 'link-to-file' instead of 'link-to-string-match'.  Ignore the
+    column number of point and for instance number of the #section, count
+    only matches to heading lines, i.e. with 'outline-regexp'.
+  hbut.el (ibut:insert-text): Add support for 'link-to-file'.
+
+* hibtypes.el (hywiki-existing-word):
+  hywiki.el (hywiki-word): Fix so if point is on an existing pathname that
+    is also a WikiWord, it jumps to the pathname rather than displaying the
+    WikiWord referent.  Also add (require 'hibtypes) to support this.
+
+* hywiki.el (hywiki-referent-exists-p): Remove (hywiki-word-at :range)
+    call since this did not also check for whether a referent exists.  This
+    fixes a bug in 'hywiki-existing-word'.
+
+2025-04-18  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-at): Remove unneeded clause that checks for opening
+    delimiters a second time within a delimited set of WikiWords.  This fixes
+    an error of returning the prior WikiWord within a delimited group due to
+    moving back past leading whitespace.
+
+* hypb.el (hypb:in-string-p): Fix by removing `syntax-ppss' calls and using
+    regexp searches for double quoted delimiters instead.
+
+2025-04-17  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el
+    (hywiki-tests--wikiword-identified-in-strings-in-emacs-lisp-mode): Add
+    test for WikiWords in strings in emacs-lisp-mode. Test is behind
+    failure flag.
+
+* man/im/*.eps: Remove embedded postscript files.
+* HY-TALK/improve-performance.png: Not used.
+* man/im/wgrid4x3.png: Not used.
+
+2025-04-15  Bob Weiner  <rsw@gnu.org>
+
+* hypb.el (hypb:in-string-p): Add optional 'max-lines' arg to limit the
+   search to that many full buffer lines starting with the line beginning
+
 2025-04-15  Mats Lidell  <matsl@gnu.org>
 
 * test/hywiki-tests.el (hywiki-tests--command)

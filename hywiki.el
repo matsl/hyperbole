@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    21-Acpr-24 at 22:41:13
-;; Last-Mod:     14-Apr-25 at 15:54:03 by Mats Lidell
+;; Last-Mod:     27-Apr-25 at 12:19:38 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -140,6 +140,8 @@
 (require 'hargs)
 (require 'hasht)
 (require 'hbut)       ;; For `hbut:syntax-table'
+;; (unless (featurep 'hibtypes)
+;;   (require 'hibtypes))   ;; For `pathname' and `pathname-line-and-column'
 (require 'hpath)
 (require 'hproperty)
 (require 'hsys-consult)
@@ -173,6 +175,8 @@
 (declare-function bookmark-completing-read "bookmark" (prompt &optional default))
 (declare-function bookmark-location "bookmark" (bookmark-name-or-record))
 (declare-function hsys-org-at-tags-p "hsys-org")
+(declare-function ibtypes::pathname "hpath")
+(declare-function ibtypes::pathname-line-and-column "hpath")
 (declare-function org-link-store-props "ol" (&rest plist))
 (declare-function org-publish-property "ox-publish" (property project &optional default))
 (declare-function org-roam-node-from-title-or-alias "org-roam-node" (s &optional nocase))
@@ -777,8 +781,10 @@ Existing HyWikiWords are handled by the implicit button type
 	 (start    (nth 1 wikiword-start-end))
 	 (end      (nth 2 wikiword-start-end)))
     (when wikiword
-      (ibut:label-set wikiword start end)
-      (hact 'hywiki-word-create-and-display wikiword))))
+      (unless (or (ibtypes::pathname-line-and-column)
+		  (ibtypes::pathname))
+	(ibut:label-set wikiword start end)
+	(hact 'hywiki-word-create-and-display wikiword)))))
 
 (defun hywiki-display-referent-type (wikiword referent)
   "Display WIKIWORD REFERENT, a cons of (<referent-type> . <referent-value>).
@@ -910,7 +916,8 @@ an error is triggered."
 		      (hywiki-get-referent-hasht)))
     (setq hywiki--any-wikiword-regexp-list nil)
     (unless (hyperb:stack-frame '(hywiki-maybe-highlight-wikiwords-in-frame))
-      (hywiki-cache-save))
+      (hywiki-cache-save)
+      (hywiki-maybe-highlight-wikiwords-in-frame t))
     (run-hooks 'hywiki-add-referent-hook)
     referent))
 
@@ -971,7 +978,7 @@ calling this function."
   (activities-resume activity :resetp nil))
 
 (defun hywiki-add-bookmark (wikiword)
-  "Make WIKIWORD display a bookmark and return the action.
+  "Make WIKIWORD display a bookmark at point and return the action.
 
 If WIKIWORD is invalid, trigger a `user-error' if called interactively
 or return nil if not.
@@ -981,13 +988,12 @@ After successfully adding the bookmark, run `hywiki-add-referent-hook'.
 Use `hywiki-get-referent' to determine whether WIKIWORD exists prior to
 calling this function."
   (interactive (list (or (hywiki-word-at)
-			 (hywiki-word-read-new "Add/Edit HyWikiWord: "))))
+			 (hywiki-word-read-new "Add/Edit Bookmark HyWikiWord: "))))
   (require 'bookmark)
-  (let ((bookmark (bookmark-completing-read "Bookmark: "
-					    bookmark-current-bookmark)))
-    (if (string-empty-p bookmark)
-	(error "(hywiki-add-bookmark): No bookmark specified")
-      (hywiki-add-referent wikiword (cons 'bookmark bookmark)))))
+  (if (string-empty-p wikiword)
+      (error "(hywiki-add-bookmark): No bookmark specified")
+    (bookmark-set wikiword)
+    (hywiki-add-referent wikiword (cons 'bookmark wikiword))))
 
 (defun hywiki-display-bookmark (_wikiword bookmark)
   (let ((loc (bookmark-location bookmark)))
@@ -2223,8 +2229,8 @@ disabled.  Highlight/dehighlight HyWiki page buffers whenever the
 value of `hywiki-word-highlight-flag' is changed."
   (interactive (when (use-region-p) (list (region-beginning) (region-end))))
   ;; Avoid doing many lets for efficiency.
-  ;; Highlight HyWiki words in buffers where `hywiki-mode' is enabled
-  ;; or HyWiki pages below `hywiki-directory'.
+  ;; Highlight HyWiki words throughout buffers where `hywiki-mode' is enabled
+  ;; or HyWiki pages below `hywiki-directory' whenever displayed in a window.
   (if (hywiki-active-in-current-buffer-p)
       (unless (and (or (and (null region-start) (null region-end))
 		       (and (markerp region-start) (markerp region-end)
@@ -2837,24 +2843,23 @@ Word may be of form:
 
 When using the word at point, a call to `hywiki-active-in-current-buffer-p'
 at point must return non-nil or this function will return nil."
-  (setq hywiki--word-only word)
-  (when (stringp word)
-    (setq word (hywiki-strip-org-link word)))
-  (if (or (stringp word)
-	  (setq word (hywiki-word-at word)))
-      (unless (hywiki-get-referent (if (stringp word) word (nth 0 word)))
-	(setq word nil))
-    (setq word nil))
-  (when (and (listp word) (= (length word) 3))
-    (setq start (nth 1 word)
-	  end   (nth 2 word)
-	  ;; `word' must be set last so list version can be referenced
-	  ;; first above
-	  word  (nth 0 word)))
-  (if (eq hywiki--word-only :range)
-      (or (hywiki-word-at :range)
-	  (list word start end))
-    word))
+  (let ((save-input-word word))
+    (when (stringp word)
+      (setq word (hywiki-strip-org-link word)))
+    (if (or (stringp word)
+	    (setq word (hywiki-word-at word)))
+	(unless (hywiki-get-referent (if (stringp word) word (nth 0 word)))
+	  (setq word nil))
+      (setq word nil))
+    (when (and (listp word) (= (length word) 3))
+      (setq start (nth 1 word)
+	    end   (nth 2 word)
+	    ;; `word' must be set last so list version can be referenced
+	    ;; first above
+	    word  (nth 0 word)))
+    (if (eq save-input-word :range)
+	(list word start end)
+      word)))
 
 (defun hywiki-section-to-headline-reference ()
   "Replace file#section dashes with spaces to match to an Org headline.
@@ -3045,22 +3050,23 @@ or this will return nil."
 			     ;; Move to start of wikiword reference
 			     (skip-chars-backward "-_*#:[:alnum:]" bol)
 			     (skip-syntax-backward "-" bol))
-			   (when (and (or (bolp)
-					  (string-match (regexp-quote
-							 (char-to-string (char-before)))
-							"\[\(\{\<\""))
-				      (progn
-					(skip-chars-forward " \t")
-					(hywiki-maybe-at-wikiword-beginning))
-				      (looking-at (concat
-						   hywiki-word-regexp
-						   "\\(#[^][#()<>{}\"\n\r\f]+\\)?"
-						   hywiki-word-line-and-column-numbers-regexp "?"))
-				      ;; Can't be followed by a # character
-				      (/= (or (char-after (match-end 0)) 0)
-					  ?#)
-				      (progn (goto-char (match-end 0))
-					     (skip-syntax-forward "-")))
+			   (when (and
+				  ;; (or (bolp)
+				  ;;     (string-match (regexp-quote
+				  ;; 		     (char-to-string (char-before)))
+				  ;; 		    "\[\(\{\<\""))
+				  (progn
+				    (skip-chars-forward " \t")
+				    (hywiki-maybe-at-wikiword-beginning))
+				  (looking-at (concat
+					       hywiki-word-regexp
+					       "\\(#[^][#()<>{}\"\n\r\f]+\\)?"
+					       hywiki-word-line-and-column-numbers-regexp "?"))
+				  ;; Can't be followed by a # character
+				  (/= (or (char-after (match-end 0)) 0)
+				      ?#)
+				  (progn (goto-char (match-end 0))
+					 (skip-syntax-forward "-")))
 			     (setq start (match-beginning 0)
 				   end   (match-end 0)
 				   ;; No following char
@@ -3132,7 +3138,13 @@ or this will return nil."
 			 (string-match "#[^][#()<>{}\"\n\r\f]+\\'" wikiword)
 		       t))
 		(if range-flag
-		    (list wikiword start end)
+		    (progn
+		      ;; Ensure wikiword is highlighted before returning it
+		      (and wikiword start end
+			   (not (hproperty:but-get start 'face hywiki-word-face))
+			   (hywiki-referent-exists-p wikiword)
+			   (hproperty:but-add start end hywiki-word-face))
+		      (list wikiword start end))
 		  wikiword)
 	      (when range-flag
 		'(nil nil nil))))))
@@ -3167,9 +3179,11 @@ a HyWikiWord at point."
 	    (= (matching-paren (char-before (nth 1 range)))
 	       (char-after (nth 2 range))))))))
 
-(defun hywiki-word-face-at-p ()
-  "Non-nil if but at point has `hywiki-word-face' property."
-  (hproperty:but-get (point) 'face hywiki-word-face))
+(defun hywiki-word-face-at-p (&optional pos)
+  "Non-nil if but at point or optional POS has `hywiki-word-face' property."
+  ;; Sometimes this can return a left over button/overlay that points
+  ;; to no buffer.  Ignore this case.
+  (hproperty:but-get (or pos (point)) 'face hywiki-word-face))
 
 ;;;###autoload
 (defun hywiki-word-consult-grep (word)
@@ -3631,11 +3645,11 @@ matching DATUM before creating a new reference."
 (add-variable-watcher 'hywiki-word-highlight-flag
 		      'hywiki-word-highlight-flag-changed)
 
-;; Sets HyWiki page auto-HyWikiWord highlighting and `yank-handled-properties'
+;; Set HyWiki page auto-HyWikiWord highlighting and `yank-handled-properties'
 (hywiki-word-highlight-flag-changed 'hywiki-word-highlight-flag
 				    hywiki-word-highlight-flag 'set nil)
 
-;; Ensures HyWiki referent lookup table is initialized as are HyWiki Org
+;; Ensure HyWiki referent lookup table is initialized as are HyWiki Org
 ;; Publish settings.
 (hywiki-set-directory 'hywiki-directory hywiki-directory)
 

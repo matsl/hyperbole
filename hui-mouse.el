@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:     15-Apr-25 at 12:51:50 by Mats Lidell
+;; Last-Mod:     27-Apr-25 at 16:49:19 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -1569,19 +1569,33 @@ selected buffer.
 If key is pressed:
  (1) on the last line, quit from the magit mode (\"q\" key binding);
  (2) at the end of a line, scroll up a windowful;
- (3) on an initial read-only header line, cycle visibility of diff sections;
- (4) anywhere else, hide/show the thing at point (\"TAB\" key binding)
+ (3) in a `magit-status-mode' buffer on a merge conflict marker, keep
+     either the upper, both or the lower version of the conflict.
+ (4) on an initial read-only header line, cycle visibility of diff sections;
+ (5) anywhere else, hide/show the thing at point (\"TAB\" key binding)
      unless that does nothing in the mode, then jump to the thing at
      point (\"RET\" key binding) but display based on the value of
      `hpath:display-where'."
   (interactive)
-  (cond ((last-line-p)
-	 (call-interactively (key-binding "q")))
-	((eolp)
-	 (smart-scroll-up))
-	(t
-	 (let ((magit-display-buffer-function #'hpath:display-buffer))
-	   (call-interactively #'smart-magit-tab)))))
+  (let (op)
+    (cond ((last-line-p)
+	   (call-interactively (key-binding "q")))
+	  ((eolp)
+	   (smart-scroll-up))
+          ((and
+            (eq major-mode 'magit-status-mode)
+            (save-excursion
+              (beginning-of-line)
+              (cond ((looking-at (regexp-quote "++>>>>>>>"))
+                     (setq op 'magit-smerge-keep-lower))
+                    ((looking-at (regexp-quote "++<<<<<<<"))
+                     (setq op 'magit-smerge-keep-upper))
+                    ((looking-at (regexp-quote "++======="))
+                     (setq op 'magit-smerge-keep-all)))))
+           (call-interactively op))
+	  (t
+	   (let ((magit-display-buffer-function #'hpath:display-buffer))
+	     (call-interactively #'smart-magit-tab))))))
 
 (defun smart-magit-assist ()
   "Use an assist key or mouse key to jump to source and to hide/show changes.

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:     27-Apr-25 at 16:49:19 by Mats Lidell
+;; Last-Mod:     19-May-25 at 00:01:18 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -334,6 +334,23 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ((string-prefix-p "magit-" (symbol-name major-mode))
      . ((smart-magit) . (smart-magit-assist)))
     ;;
+    ;; Select or select-and-kill a markup pair (e.g. hmtl tags), list,
+    ;; array/vector, set, function, comment or string that begins or
+    ;; ends at point.  For markup pairs, point must be at the first
+    ;; character of the opening or closing tag.
+    ((hui-select-at-delimited-thing-p)
+     . ((hui-select-thing) . (progn (hui-select-thing)
+				    (hmouse-kill-region))))
+    ;;
+    ;; If the prior test failed and point is at the start or end of an
+    ;; sexpression, mark it for editing or kill it (assist key).  This
+    ;; only handles the special case where point is just after the
+    ;; closing delimiter and not at an end-of-line, so this may be
+    ;; removed someday.
+    ((hui-select-at-delimited-sexp-p)
+     . ((hui-select-mark-delimited-sexp)
+	. (progn (hui-select-mark-delimited-sexp) (hmouse-kill-region))))
+    ;;
     ;; If on a Hyperbole button, perform action or give help.
     ((hbut:at-p)
      . ((hui:hbut-act 'hbut:current) . (hui:hbut-help 'hbut:current)))
@@ -348,13 +365,13 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 	. (smart-menu hkey-value)))
     ;;
     ;; View minor mode
-    ((if (boundp 'view-minor-mode) view-minor-mode)
+    ((bound-and-true-p view-mode)
      . ((cond ((last-line-p)
 	       (view-quit))
 	      ((pos-visible-in-window-p (point-max))
 	       (goto-char (point-max)))
-	      (t (scroll-up)))
-	. (scroll-down)))
+	      (t (View-scroll-page-forward)))
+	. (View-scroll-page-backward)))
     ;;
     ;; Direct access selection of helm-major-mode completions
     ((setq hkey-value (and (or (eq major-mode 'helm-major-mode)
@@ -380,27 +397,6 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 	      (stringp br-feature-tags-file)
 	      (equal br-feature-tags-file (hypb:buffer-file-name))))
      . ((smart-element) . (hkey-help)))
-    ;;
-    ;; View major mode
-    ((eq major-mode 'view-mode) .
-     ((View-scroll-lines-forward) . (View-scroll-lines-backward)))
-    ;;
-    ;; Select or select-and-kill a markup pair (e.g. hmtl tags), list,
-    ;; array/vector, set, function, comment or string that begins or
-    ;; ends at point.  For markup pairs, point must be at the first
-    ;; character of the opening or closing tag.
-    ((hui-select-at-delimited-thing-p)
-     . ((hui-select-thing) . (progn (hui-select-thing)
-				    (hmouse-kill-region))))
-    ;;
-    ;; If the prior test failed and point is at the start or end of an
-    ;; sexpression, mark it for editing or kill it (assist key).  This
-    ;; only handles the special case where point is just after the
-    ;; closing delimiter and not at an end-of-line, so this may be
-    ;; removed someday.
-    ((hui-select-at-delimited-sexp-p)
-     . ((hui-select-mark-delimited-sexp)
-	. (progn (hui-select-mark-delimited-sexp) (hmouse-kill-region))))
     ;;
     ((eq major-mode 'occur-mode)
      . ((occur-mode-goto-occurrence) . (occur-mode-goto-occurrence)))
@@ -446,7 +442,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;;
     ;; Python files - ensure this comes before Imenu for more advanced
     ;; definition lookups
-    ((and (or (and (derived-mode-p '(python-mode python-ts-mode)) (hypb:buffer-file-name))
+    ((and (or (and (derived-mode-p 'python-mode 'python-ts-mode) (hypb:buffer-file-name))
 	      (and (featurep 'hsys-org) (hsys-org-mode-p)
 		   (equal (hsys-org-get-value :language) "python"))
 	      (let ((case-fold-search))

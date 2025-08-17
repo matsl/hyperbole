@@ -3,11 +3,11 @@
 ;; Author:       Mats Lidell
 ;;
 ;; Orig-Date:     6-Aug-24 at 20:32:51
-;; Last-Mod:      4-Mar-25 at 17:04:46 by Mats Lidell
+;; Last-Mod:     23-Jun-25 at 01:38:38 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2022  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -26,15 +26,16 @@
   (let ((hproperty:but-emphasize-flag t))
     (with-temp-buffer
       (insert "1234")
-      (should (equal 'highlight (hproperty:but-add (point-min) (point-max) hproperty:but-face)))
+      (should (hproperty:but-add (point-min) (point-max) hproperty:but-face))
       (goto-char 3)
-      (should (hproperty:but-p))))
+      (should (hproperty:but-p nil 'face hproperty:but-face))
+      (should (hproperty:but-get nil 'mouse-face 'highlight))))
   (let ((hproperty:but-emphasize-flag nil))
     (with-temp-buffer
       (insert "1234")
-      (should-not (hproperty:but-add (point-min) (point-max) hproperty:but-face))
+      (should (hproperty:but-add (point-min) (point-max) hproperty:but-face))
       (goto-char 3)
-      (should (hproperty:but-p)))))
+      (should-not (hproperty:but-get nil 'mouse-face 'highlight)))))
 
 (provide 'hproperty-tests)
 

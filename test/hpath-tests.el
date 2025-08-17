@@ -7,7 +7,7 @@
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2022  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -393,7 +393,7 @@ See `hpath:line-and-column-regexp'."
   (should-not (string-match hpath:line-and-column-regexp "/foo/bar.org:C1")))
 
 (ert-deftest hpath--hpath:delimited-possible-path ()
-  "Verify delimited path is found in an `ls -R' listings in `shell-mode'."
+  "Verify delimited paths are found in an `ls -R' listing in `shell-mode'."
   (let ((files
          '(("file1.ext file2.ext file3.ext"                   ; Space delimited
             ("file1" "file2" "file3"))

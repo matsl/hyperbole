@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:      6-Apr-25 at 19:45:02 by Mats Lidell
+;; Last-Mod:      6-Jul-25 at 15:40:23 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -20,6 +20,7 @@
 
 (require 'ert)
 (require 'hmouse-drv)                   ; For `action-key'
+(require 'hywiki)                       ; For `hywiki-word-face-at-p'
 (eval-when-compile (require 'cl-lib))
 
 (defun hy-test-helpers:consume-input-events ()
@@ -34,12 +35,21 @@
     (should (= (length possible-types) 1))
     (should (equal first-type type))))
 
-(defun hy-test-helpers:should-last-message (msg)
-  "Verify last message is MSG."
-  (with-current-buffer (messages-buffer)
-    (should (save-excursion
-              (goto-char (point-max))
-              (search-backward msg (- (point-max) 350) t)))))
+(defmacro hy-test-helpers:ert-simulate-keys (keys &rest body)
+  "Execute BODY with KEYS as pseudo-interactive input.
+Disable `vertico-mode' which can get in the way of standard key
+processing."
+  (declare (debug t) (indent 1))
+  `(if (bound-and-true-p vertico-mode)
+       (unwind-protect
+	   (progn (vertico-mode 0)
+		  (ert-simulate-keys ,keys ,@body))
+	 (vertico-mode 1))
+     (ert-simulate-keys ,keys ,@body)))
+
+(defun hy-test-helpers:should-last-message (msg captured)
+  "Verify MSG is in CAPTURED text."
+  (should (string-search msg captured)))
 
 (defun hy-test-helpers:action-key-should-call-hpath:find (str)
   "Call action-key and check that hpath:find was called with STR."

@@ -3,11 +3,11 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    28-Feb-21 at 22:52:00
-;; Last-Mod:     19-May-25 at 22:53:55 by Bob Weiner
+;; Last-Mod:      6-Jul-25 at 13:02:40 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2022  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -190,7 +190,7 @@
   (with-temp-buffer
     (insert "\"/tmp\"\n")
     (goto-char 3)
-    (ert-simulate-keys "TMP\r"
+    (hy-test-helpers:ert-simulate-keys "TMP\r"
       (let ((enable-recursive-minibuffers t))
 	(hui:ibut-label-create)
 	(should (string= "<[TMP]> - \"/tmp\"\n" (buffer-string)))))))
@@ -200,7 +200,7 @@
   (with-temp-buffer
     (insert "<[LBL]>: \"/tmp\"\n")
     (goto-char 14)
-    (ert-simulate-keys "TMP\r"
+    (hy-test-helpers:ert-simulate-keys "TMP\r"
       (condition-case err
           (hui:ibut-label-create)
         (error
@@ -421,10 +421,11 @@
   (with-temp-buffer
     (insert "\"-${hyperb:dir}/test/hy-test-dependencies.el\"")
     (goto-char 2)
-    (action-key)
-    (should (hattr:ibtype-is-p 'pathname))
-    (hy-test-helpers:should-last-message "Loading")
-    (hy-test-helpers:should-last-message "hy-test-dependencies.el")))
+    (ert-with-message-capture cap
+      (action-key)
+      (should (hattr:ibtype-is-p 'pathname))
+      (hy-test-helpers:should-last-message "Loading" cap)
+      (hy-test-helpers:should-last-message "hy-test-dependencies.el" cap))))
 
 (ert-deftest hbut-pathname-directory-test ()
   "Pathname with directory opens Dired."

@@ -1,9 +1,9 @@
-;ui-tests.el --- tests for hui.el Hyperbole UI          -*- lexical-binding: t; -*-
+;; hui-tests.el --- tests for hui.el Hyperbole UI          -*- lexical-binding: t; -*-
 ;;
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     25-Apr-25 at 19:50:39 by Mats Lidell
+;; Last-Mod:      6-Jul-25 at 15:40:32 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -56,7 +56,7 @@
 		   (setenv "HOME" "/tmp")
 
 		   (set-buffer gbut-file-buffer)
-		   (ert-simulate-keys (kbd create-gbut)
+		   (hy-test-helpers:ert-simulate-keys (kbd create-gbut)
 		     (hact (lambda () (call-interactively 'hui:gbut-create))))
 
 		   ;; Create using program
@@ -66,7 +66,7 @@
 		   (should (eq (hattr:get (hbut:at-p) 'actype) 'actypes::link-to-file))
 
 		   (goto-char (point-max)) ;; Move past button so does not prompt with label
-		   (ert-simulate-keys (kbd edit-gbut)
+		   (hy-test-helpers:ert-simulate-keys (kbd edit-gbut)
 		     (hact (lambda () (call-interactively 'hui:gbut-edit))))
 
 		   ;; (set-buffer gbut-file-buffer)
@@ -149,7 +149,7 @@
   (with-temp-buffer
     (insert "\"/tmp\"\n")
     (goto-char 3)
-    (ert-simulate-keys "TMP\r"
+    (hy-test-helpers:ert-simulate-keys "TMP\r"
       (hui:ibut-label-create)
       (should (string= "<[TMP]> - \"/tmp\"\n" (buffer-string))))))
 
@@ -158,7 +158,7 @@
   (with-temp-buffer
     (insert "<[LBL]>: \"/tmp\"\n")
     (goto-char 14)
-    (ert-simulate-keys "TMP\r"
+    (hy-test-helpers:ert-simulate-keys "TMP\r"
       (condition-case err
           (hui:ibut-label-create)
         (error
@@ -183,7 +183,7 @@
   (let ((file (make-temp-file "hypb_" nil ".txt")))
     (unwind-protect
         (find-file file)
-        (ert-simulate-keys "label\rwww-url\rwww.hypb.org\r"
+        (hy-test-helpers:ert-simulate-keys "label\rwww-url\rwww.hypb.org\r"
           (hui:ebut-create)
           (hy-test-helpers-verify-hattr-at-p :actype 'actypes::www-url :args '("www.hypb.org") :loc file :lbl-key "label"))
       (hy-delete-file-and-buffer file))))
@@ -194,10 +194,10 @@ Ensure modifying the button but keeping the label does not create a double label
   (let ((file (make-temp-file "hypb_" nil ".txt")))
     (unwind-protect
         (find-file file)
-        (ert-simulate-keys "label\rwww-url\rwww.hypb.org\r"
+        (hy-test-helpers:ert-simulate-keys "label\rwww-url\rwww.hypb.org\r"
           (hui:ebut-create)
           (hy-test-helpers-verify-hattr-at-p :actype 'actypes::www-url :args '("www.hypb.org") :loc file :lbl-key "label"))
-        (ert-simulate-keys "\r\r\r\r"
+        (hy-test-helpers:ert-simulate-keys "\r\r\r\r"
           (hui:ebut-edit "label")
           (hy-test-helpers-verify-hattr-at-p :actype 'actypes::www-url :args '("www.hypb.org") :loc file :lbl-key "label")
           (should (string= "<(label)>" (buffer-string)))))
@@ -401,8 +401,8 @@ Ensure modifying the button but keeping the label does not create a double label
 
 (ert-deftest hui--kill-ring-save--yank-in-same-kotl ()
   "Yank saved klink into same kotl file."
-  (skip-unless (not noninteractive))
-  (let ((kotl-file (make-temp-file "hypb" nil ".kotl")))
+  (let ((kotl-file (make-temp-file "hypb" nil ".kotl"))
+        last-command)
     (unwind-protect
         (progn
           (find-file kotl-file)
@@ -410,7 +410,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:beginning-of-cell)
 
           (forward-char 1)
-          (call-interactively #'hui-kill-ring-save)
+          (call-interactively #'hui:kill-ring-save)
 
           (kotl-mode:add-cell)
           (yank)
@@ -422,9 +422,9 @@ Ensure modifying the button but keeping the label does not create a double label
 
 (ert-deftest hui--kill-ring-save--yank-in-other-kotl ()
   "Yank saved klink into other kotl file."
-  (skip-unless (not noninteractive))
   (let ((kotl-file (make-temp-file "hypb" nil ".kotl"))
-        (other-file (make-temp-file "hypb" nil ".kotl")))
+        (other-file (make-temp-file "hypb" nil ".kotl"))
+        last-command)
     (unwind-protect
         (progn
           (find-file kotl-file)
@@ -432,7 +432,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:beginning-of-cell)
 
           (forward-char 1)
-          (call-interactively #'hui-kill-ring-save)
+          (call-interactively #'hui:kill-ring-save)
 
           (find-file other-file)
           (yank)
@@ -445,9 +445,9 @@ Ensure modifying the button but keeping the label does not create a double label
 
 (ert-deftest hui--kill-ring-save--yank-in-other-file ()
   "Yank saved klink into other file."
-  (skip-unless (not noninteractive))
   (let ((kotl-file (make-temp-file "hypb" nil ".kotl"))
-        (other-file (make-temp-file "hypb" nil ".txt")))
+        (other-file (make-temp-file "hypb" nil ".txt"))
+        last-command)
     (unwind-protect
         (progn
           (find-file kotl-file)
@@ -455,7 +455,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:beginning-of-cell)
 
           (forward-char 1)
-          (call-interactively #'hui-kill-ring-save)
+          (call-interactively #'hui:kill-ring-save)
 
           (find-file other-file)
           (yank)
@@ -468,10 +468,10 @@ Ensure modifying the button but keeping the label does not create a double label
 
 (ert-deftest hui--kill-ring-save--yank-in-other-file-other-dir ()
   "Yank saved klink into other file in other dir."
-  (skip-unless (not noninteractive))
   (let* ((kotl-file (make-temp-file "hypb" nil ".kotl"))
          (other-dir (make-temp-file "hypb" t))
-         (other-file (expand-file-name "other-file" other-dir)))
+         (other-file (expand-file-name "other-file" other-dir))
+         last-command)
     (unwind-protect
         (progn
           (find-file kotl-file)
@@ -479,7 +479,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:beginning-of-cell)
 
           (forward-char 1)
-          (call-interactively #'hui-kill-ring-save)
+          (call-interactively #'hui:kill-ring-save)
 
           (find-file other-file)
           (yank)
@@ -505,7 +505,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (forward-char 1)
           (with-mock
             (mock (register-read-with-preview  "Copy to register: ") => ?a)
-            (call-interactively #'hui-copy-to-register))
+            (call-interactively #'hui:copy-to-register))
 
           (kotl-mode:add-cell)
           (insert-register ?a)
@@ -530,7 +530,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (forward-char 1)
           (with-mock
             (mock (register-read-with-preview  "Copy to register: ") => ?a)
-            (call-interactively #'hui-copy-to-register))
+            (call-interactively #'hui:copy-to-register))
 
           (find-file other-file)
           (insert-register ?a)
@@ -555,7 +555,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (forward-char 1)
           (with-mock
             (mock (register-read-with-preview  "Copy to register: ") => ?a)
-            (call-interactively #'hui-copy-to-register))
+            (call-interactively #'hui:copy-to-register))
 
           (find-file other-file)
           (insert-register ?a)
@@ -581,7 +581,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (forward-char 1)
           (with-mock
             (mock (register-read-with-preview  "Copy to register: ") => ?a)
-            (call-interactively #'hui-copy-to-register))
+            (call-interactively #'hui:copy-to-register))
 
           (find-file other-file)
           (insert-register ?a)
@@ -605,7 +605,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (kotl-mode:newline 1)
           (insert "b")
           (setq last-command #'ignore)
-          (hui-kill-ring-save (region-beginning) (region-end))
+          (hui:kill-ring-save (region-beginning) (region-end))
           (should (string= (current-kill 0 t) "a\nb")))
       (hy-delete-file-and-buffer kotl-file))))
 
@@ -619,7 +619,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (insert "a")
           (kotl-mode:add-cell)
           (insert "b")
-          (should-error (hui-kill-ring-save (region-beginning) (region-end)) :type 'error))
+          (should-error (hui:kill-ring-save (region-beginning) (region-end)) :type 'error))
       (hy-delete-file-and-buffer kotl-file))))
 
 (ert-deftest hui--ibut-create-interactive ()
@@ -628,7 +628,7 @@ Ensure modifying the button but keeping the label does not create a double label
     (unwind-protect
         (progn
           (find-file file)
-	  (ert-simulate-keys "ibut\rlink-to-rfc\r123\r"
+	  (hy-test-helpers:ert-simulate-keys "ibut\rlink-to-rfc\r123\r"
 	    (hact (lambda () (call-interactively 'hui:ibut-create))))
           (should (string= "<[ibut]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
@@ -642,7 +642,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (insert "ibut")
           (set-mark (point-min))
           (goto-char (point-max))
-	  (ert-simulate-keys "\rlink-to-rfc\r123\r"
+	  (hy-test-helpers:ert-simulate-keys "\rlink-to-rfc\r123\r"
 	    (hact (lambda () (call-interactively 'hui:ibut-create))))
           (should (string= "<[ibut]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
@@ -655,7 +655,7 @@ Ensure modifying the button but keeping the label does not create a double label
         (progn
           (find-file file)
           (insert "(sexp)")
-	  (ert-simulate-keys "ibut\rlink-to-rfc\r123\r"
+	  (hy-test-helpers:ert-simulate-keys "ibut\rlink-to-rfc\r123\r"
 	    (hact (lambda () (call-interactively 'hui:ibut-create))))
           (should (string= "(sexp); <[ibut]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
@@ -668,7 +668,7 @@ Ensure modifying the button but keeping the label does not create a double label
           (find-file file)
           (insert "\"/tmp\"")
           (goto-char 3)
-	  (ert-simulate-keys "label\r"
+	  (hy-test-helpers:ert-simulate-keys "label\r"
 	    (hact (lambda () (call-interactively 'hui:ibut-label-create))))
           (should (string= "<[label]> - \"/tmp\"" (buffer-string))))
       (hy-delete-file-and-buffer file))))
@@ -682,7 +682,7 @@ With point on label suggest that ibut for rename."
           (find-file file)
           (insert "<[label]> - rfc123")
           (goto-char 3)
-	  (ert-simulate-keys (kbd "M-DEL renamed RET")
+	  (hy-test-helpers:ert-simulate-keys (kbd "M-DEL renamed RET")
 	    (hact (lambda () (call-interactively 'hui:ibut-rename))))
           (should (string= "<[renamed]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
@@ -695,7 +695,7 @@ With point on label suggest that ibut for rename."
           (find-file file)
           (insert "<[label]> - rfc123")
           (goto-char (point-max))
-	  (ert-simulate-keys (kbd "label RET M-DEL renamed RET")
+	  (hy-test-helpers:ert-simulate-keys (kbd "label RET M-DEL renamed RET")
 	    (hact (lambda () (call-interactively 'hui:ibut-rename))))
           (should (string= "<[renamed]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
@@ -708,7 +708,7 @@ With point on label suggest that ibut for rename."
           (find-file file)
           (insert "<[label]> - rfc123")
           (goto-char (point-max))
-          (ert-simulate-keys "\r"
+          (hy-test-helpers:ert-simulate-keys "\r"
 	    (should-error (hui:ibut-rename "notalabel") :type 'error)))
       (hy-delete-file-and-buffer file))))
 
@@ -764,7 +764,7 @@ With point on label suggest that ibut for rename."
   (with-temp-buffer
     (ebut:program "label" 'link-to-directory "/tmp")
     (end-of-line)
-    (hui-kill-ring-save (point-min) (point))
+    (hui:kill-ring-save (point-min) (point))
     (yank)
     (goto-char (point-min))
     (should (looking-at-p "<(label)><(label)>"))
@@ -828,7 +828,7 @@ With point on label suggest that ibut for rename."
           (goto-char (point-max))
           (split-window)
           (find-file filea)
-          (ert-simulate-keys "label\r"
+          (hy-test-helpers:ert-simulate-keys "label\r"
             (hui:ibut-link-directly (get-buffer-window) (get-buffer-window (get-file-buffer fileb)) 4))
           (should (string= (buffer-string) (concat "<[label]> - " "\""
 				       (file-name-nondirectory fileb)
@@ -917,7 +917,7 @@ With point on label suggest that ibut for rename."
           (goto-char (point-max))
           (split-window)
           (find-file filea)
-          (ert-simulate-keys "button\r"
+          (hy-test-helpers:ert-simulate-keys "button\r"
             (hui:ebut-link-directly (get-buffer-window)
                                     (get-buffer-window (get-file-buffer fileb)))
             (should (string= (buffer-string) "<(button)>"))
@@ -946,7 +946,7 @@ With point on label suggest that ibut for rename."
 	    (goto-char (1- (point))))
           (split-window)
           (find-file file)
-          (ert-simulate-keys "button\r"
+          (hy-test-helpers:ert-simulate-keys "button\r"
             (hui:ebut-link-directly (get-buffer-window) (get-buffer-window dir-buf))
 	    ;; Implicit link should be the `dir' dired directory,
 	    ;; possibly minus the final directory '/'.
@@ -979,7 +979,7 @@ With point on label suggest that ibut for rename."
         (mocklet ((gbut:file => global-but-file))
           (delete-other-windows)
           (find-file file)
-          (ert-simulate-keys "button\r"
+          (hy-test-helpers:ert-simulate-keys "button\r"
             (hui:gbut-link-directly t)
             (with-current-buffer (find-buffer-visiting global-but-file)
               (should (string= (buffer-string)
@@ -998,7 +998,7 @@ With point on label suggest that ibut for rename."
         (mocklet ((gbut:file => global-but-file))
           (delete-other-windows)
           (find-file file)
-          (ert-simulate-keys "button\r"
+          (hy-test-helpers:ert-simulate-keys "button\r"
             (hui:gbut-link-directly)
             (with-current-buffer (find-buffer-visiting global-but-file)
               (should (string= (buffer-string) "First\n<(button)>\n"))
@@ -1174,7 +1174,7 @@ With point on label suggest that ibut for rename."
       (hy-delete-file-and-buffer global-but-file))))
 
 (ert-deftest hui--kill-highlighted-region-default-settings ()
-  "Verify `hui-kill-region'.
+  "Verify `hui:kill-region'.
 The Emacs default settings are used, i.e. both `transient-mark-mode' and
 `mark-even-if-inactive' are enabled."
   (with-temp-buffer
@@ -1185,17 +1185,14 @@ The Emacs default settings are used, i.e. both `transient-mark-mode' and
       (set-mark nil)
 
       ;; No mark set
-      (condition-case err
-          (call-interactively #'hui-kill-region)
-        (error
-         (progn
-           (should (memq (car err) (list 'error 'user-error)))
-           (should (string-match "The mark is not set now, so there is no region" (cadr err))))))
+      (call-interactively #'hui:kill-region)
+      (should (string= "{def}ghi" (buffer-string)))
 
       (set-mark (point))
+      (activate-mark)
       (goto-char 4)
-      (call-interactively #'hui-kill-region)
-      (should (string= "{def}ghi" (buffer-string)))
+      (call-interactively #'hui:kill-region)
+      (should (string= "f}ghi" (buffer-string)))
 
       (erase-buffer)
       (insert "abc{def}hig")
@@ -1203,7 +1200,7 @@ The Emacs default settings are used, i.e. both `transient-mark-mode' and
       (set-mark (point))
       (goto-char 4)
       (deactivate-mark)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "abchig" (buffer-string)))
 
       (erase-buffer)
@@ -1212,7 +1209,7 @@ The Emacs default settings are used, i.e. both `transient-mark-mode' and
       (set-mark (point))
       (goto-char 4)
       (activate-mark)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "{def}igh" (buffer-string)))
 
       (erase-buffer)
@@ -1221,8 +1218,8 @@ The Emacs default settings are used, i.e. both `transient-mark-mode' and
       (set-mark (point))
       (goto-char 5)
       (deactivate-mark)
-      (call-interactively #'hui-kill-region)
-      (should (string= "def}ghi" (buffer-string)))
+      (call-interactively #'hui:kill-region)
+      (should (string= "bcaghi" (buffer-string)))
 
       ;; Not interactive
       (erase-buffer)
@@ -1231,7 +1228,7 @@ The Emacs default settings are used, i.e. both `transient-mark-mode' and
       (set-mark (point))
       (goto-char 4)
       (activate-mark)
-      (hui-kill-region (mark t) (point))
+      (hui:kill-region (mark t) (point))
       (should (string= "{efd}ghi" (buffer-string)))
 
       ;; Pick up region if beg or end is not set.
@@ -1241,27 +1238,28 @@ The Emacs default settings are used, i.e. both `transient-mark-mode' and
       (set-mark (point))
       (goto-char 4)
       (deactivate-mark)
-      (hui-kill-region nil nil)
+      (hui:kill-region nil nil)
       (should (string= "{def}ghi" (buffer-string))))))
 
 
 (ert-deftest hui--kill-highlighted-region ()
-  "Verify `hui-kill-region'.
+  "Verify `hui:kill-region'.
 `transient-mark-mode' is enabled and `mark-even-if-inactive' is
 disabled."
   (with-temp-buffer
     (let ((transient-mark-mode t)
 	  (mark-even-if-inactive nil))
-      (insert "abc{def}ghi")
+      (insert " abc{def}ghi")
       (goto-char 1)
       (set-mark nil)
 
-      ;; No mark set
-      (should-error (call-interactively #'hui-kill-region) :type 'error)
+      ;; No mark set and on whitespace; now kills words forward, does not error
+      ;; (should-error (call-interactively #'hui:kill-region) :type 'error)
 
+      (delete-char 1)
       (set-mark (point))
       (goto-char 4)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "{def}ghi" (buffer-string)))
 
       (erase-buffer)
@@ -1270,7 +1268,7 @@ disabled."
       (set-mark (point))
       (goto-char 4)
       (deactivate-mark)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "abchig" (buffer-string)))
 
       (erase-buffer)
@@ -1279,7 +1277,7 @@ disabled."
       (set-mark (point))
       (goto-char 4)
       (activate-mark)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "{def}igh" (buffer-string)))
 
       (erase-buffer)
@@ -1288,7 +1286,8 @@ disabled."
       (set-mark (point))
       (goto-char 5)
       (deactivate-mark)
-      (should-error (call-interactively #'hui-kill-region) :type 'error)
+      (call-interactively #'hui:kill-region)
+      (should (string= "bcaghi" (buffer-string)))
 
       ;; Not interactive
       (erase-buffer)
@@ -1297,7 +1296,7 @@ disabled."
       (set-mark (point))
       (goto-char 4)
       (activate-mark)
-      (hui-kill-region (mark t) (point))
+      (hui:kill-region (mark t) (point))
       (should (string= "{efd}ghi" (buffer-string)))
 
       (erase-buffer)
@@ -1306,10 +1305,11 @@ disabled."
       (set-mark (point))
       (goto-char 4)
       (deactivate-mark)
-      (should-error (hui-kill-region nil (point)) :type 'error))))
+      (call-interactively #'hui:kill-region)
+      (should (string= "bacghi" (buffer-string))))))
 
 (ert-deftest hui--kill-non-highlighted-region ()
-  "Verify `hui-kill-region'.
+  "Verify `hui:kill-region'.
 `transient-mark-mode' is disabled and `mark-even-if-inactive' is
 enabled."
   (with-temp-buffer
@@ -1321,11 +1321,11 @@ enabled."
       (set-mark nil)
 
       ;; No mark set
-      (should-error (call-interactively #'hui-kill-region) :type 'error)
+      (should-error (call-interactively #'hui:kill-region) :type 'error)
 
       (set-mark (point))
       (goto-char 4)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "{def}ghi" (buffer-string)))
 
       (erase-buffer)
@@ -1333,7 +1333,7 @@ enabled."
       (goto-char 1)
       (set-mark (point))
       (goto-char 4)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "{def}hig" (buffer-string)))
 
       (erase-buffer)
@@ -1341,7 +1341,7 @@ enabled."
       (goto-char 1)
       (set-mark (point))
       (goto-char 5)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "def}igh" (buffer-string)))
 
       ;; Not interactive
@@ -1351,7 +1351,7 @@ enabled."
       (goto-char 1)
       (set-mark (point))
       (goto-char 4)
-      (hui-kill-region (mark t) (point))
+      (hui:kill-region (mark t) (point))
       (should (string= "{def}gih" (buffer-string)))
 
       (erase-buffer)
@@ -1359,17 +1359,17 @@ enabled."
       (goto-char 1)
       (set-mark nil)
       (goto-char 4)
-      (should-error (hui-kill-region nil (point)) :type 'error)
+      (should-error (hui:kill-region nil (point)) :type 'error)
 
       (erase-buffer)
       (insert "bca{def}hig")
       (goto-char 1)
       (set-mark (point))
       (goto-char 5)
-      (hui-kill-region (mark t) (point))
+      (hui:kill-region (mark t) (point))
       (should (string= "def}hig" (buffer-string)))
 
-      (hui-kill-region (mark t) (point))
+      (hui:kill-region (mark t) (point))
       (should (string= "def}hig" (buffer-string))))))
 
 (ert-deftest hui--kill-empty-region-twice ()
@@ -1382,15 +1382,16 @@ Mimics the test case of setting a mark and hitting `C-w' twice."
       (insert "foo bar")
       (goto-char 4)
       (set-mark (point))
-      (call-interactively #'hui-kill-region)
+      (activate-mark)
+      (call-interactively #'hui:kill-region)
       ;; Prepare second call to be setup as kill-region would leave
       ;; the state when calling it using C-w.
       (setq mark-active nil)
       (setq last-command #'kill-region)
-      (call-interactively #'hui-kill-region))))
+      (call-interactively #'hui:kill-region))))
 
 (ert-deftest hui--kill-region-multiple-kill ()
-  "Verify `hui-kill-region' saves to the yank ring on multiple kills.
+  "Verify `hui:kill-region' saves to the yank ring on multiple kills.
 See test case `kill-whole-line-after-other-kill' and others in
 simple-tests.el for prior art of forcing values on `last-command'."
   ;; Two regions
@@ -1401,12 +1402,12 @@ simple-tests.el for prior art of forcing values on `last-command'."
       (goto-char 2)
       (set-mark (point))
       (goto-char 4)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (goto-char 2)
       (set-mark (point))
       (goto-char 4)
       (setq last-command #'kill-region)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "16" (buffer-string)))
       (should (string= "2345" (car kill-ring)))))
 
@@ -1425,7 +1426,7 @@ line 1
       (set-mark (point))
       (goto-char 4)
       (setq last-command #'kill-region)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "14" (buffer-string)))
       (should (string= "line 1\n23" (car kill-ring)))))
 
@@ -1439,11 +1440,91 @@ line 1
       (goto-char 4)
       (deactivate-mark)
       (setq last-command #'ignore)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (setq last-command #'kill-region)
-      (call-interactively #'hui-kill-region)
+      (call-interactively #'hui:kill-region)
       (should (string= "abcjkl" (buffer-string)))
       (should (string= "{def}{ghi}" (car kill-ring))))))
+
+(ert-deftest hui--select-boundaries ()
+  "Verify `hui-select-boundaries´."
+    (with-temp-buffer
+      (let ((hui-select-region (cons nil nil))
+            (hui-select-previous 'char)
+            (hui-select-old-region (cons nil nil)))
+        (text-mode)
+        (insert "hi\n")
+        (goto-char 1)
+        (should (equal '(1 . 3) (hui-select-boundaries (point))))))
+    (with-temp-buffer
+      (let ((hui-select-region (cons nil nil))
+            (hui-select-previous 'char)
+            (hui-select-old-region (cons nil nil)))
+        (text-mode)
+        (insert "hi")
+        (goto-char 1)
+        (should (equal '(1 . 1) (hui-select-boundaries (point))))))
+    (with-temp-buffer
+      (let ((hui-select-region (cons nil nil))
+            (hui-select-previous 'char)
+            (hui-select-old-region (cons nil nil)))
+        (text-mode)
+        (insert "<hi>\n")
+        (goto-char 2)
+        (should (equal '(2 . 4) (hui-select-boundaries (point))))))
+    (with-temp-buffer
+      (let ((hui-select-region (cons nil nil))
+            (hui-select-previous 'char)
+            (hui-select-old-region (cons nil nil)))
+        (text-mode)
+        (insert "<hi>\n")
+        (goto-char 1)
+        (should (equal '(1 . 5) (hui-select-boundaries (point))))))
+    (with-temp-buffer
+      (let ((hui-select-region (cons nil nil))
+            (hui-select-previous 'char)
+            (hui-select-old-region (cons nil nil)))
+        (text-mode)
+        (insert "<hi>")
+        (goto-char 1)
+        (should (equal '(1 . 1) (hui-select-boundaries (point)))))))
+
+(ert-deftest hui--kill-region-delimited-text-and-yank-back ()
+  "Verify multiple `hui:kill-region' followed by a `yank' restores contents."
+  :expected-result :failed
+  (with-temp-buffer
+    (let ((transient-mark-mode t)
+          (mark-even-if-inactive t)
+          last-command)
+      (insert "<hi>")
+      (goto-char 2)
+      (setq last-command #'ignore)
+      (call-interactively #'hui:kill-region)
+      (should (string= (buffer-string) "<>"))
+      (yank)
+      (should (string= (buffer-string) "<hi>"))))
+  (with-temp-buffer
+    (let ((transient-mark-mode t)
+          (mark-even-if-inactive t)
+          last-command)
+      (insert "<hi>\n")
+      (goto-char 1)
+      (setq last-command #'ignore)
+      (call-interactively #'hui:kill-region)
+      (should (string= (buffer-string) "\n"))
+      (yank)
+      (should (string= (buffer-string) "<hi>\n"))))
+  (with-temp-buffer
+    (let ((transient-mark-mode t)
+          (mark-even-if-inactive t)
+          last-command)
+      (insert "<hi>")
+      (goto-char 1)
+      (setq last-command #'ignore)
+      (call-interactively #'hui:kill-region)
+      (should (string= (buffer-string) ""))
+      (yank)
+      (should (string= (buffer-string) "<hi>")))))
 
 ;; This file can't be byte-compiled without the `el-mock' which
 ;; is not part of the actual dependencies, so:

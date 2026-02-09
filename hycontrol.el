@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Jun-16 at 15:35:36
-;; Last-Mod:     22-Jun-25 at 10:48:50 by Bob Weiner
+;; Last-Mod:     31-Dec-25 at 16:02:19 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -109,15 +109,6 @@
 ;;   new offset values.  `hycontrol-get-screen-offsets' returns the
 ;;   list of offsets in clockwise order starting from the top edge.
 ;;
-;;   ----
-;;
-;;   Please note that the frame zoom in/out commands on Z and z will
-;;   not work unless you have the separately available "zoom-frm.el"
-;;   library (which itself requires another library).  If not available,
-;;   this command will just beep at you.  The window-based zoom commands
-;;   utilize a built-in Emacs library, so they will always work under
-;;   any window system.  These commands enlarge and shrink the default
-;;   text face.
 
 ;;; Code:
 ;;; ************************************************************************
@@ -133,12 +124,6 @@
   ;; Get from: https://github.com/emacsmirror/framemove/blob/master/framemove.el
   (require 'framemove nil t)
   (require 'windmove))
-;; Frame face enlarging/shrinking (zooming) requires this separately available library.
-;; Everything else works fine without it, so don't make it a required dependency.
-;; It also requires the separate library, 'frame-cmds', so ignore any
-;; errors if that library is not found as well.
-(ignore-errors
-  (require 'zoom-frm nil t))
 
 ;;; ************************************************************************
 ;;; Public declarations
@@ -154,6 +139,10 @@
 (defvar outline-minor-mode-map)         ; "outline.el"
 
 (declare-function kbd-key:key-series-to-events "hib-kbd")
+
+(declare-function zoom-all-frames-in "ext:zoom-frm")
+(declare-function zoom-all-frames-out "ext:zoom-frm")
+(declare-function zoom-frm-unzoom "ext:zoom-frm")
 
 ;;; ************************************************************************
 ;;; Public variables
@@ -175,22 +164,22 @@ evaluated with the buffer argument as the current buffer, e.g. (eq
 major-mode \\='c-mode).")
 
 (defcustom hycontrol-help-flag t
-  "*Non-nil means show key binding help in the minibuffer when in a HyControl mode."
+  "Non-nil means show key binding help in the minibuffer when in a HyControl mode."
   :type 'boolean
   :group 'hyperbole-screen)
 
 (defcustom hycontrol-invert-mode-line-flag t
-  "*Non-nil means invert mode-line to emphasize the special key bindings in effect."
+  "Non-nil means invert mode-line to emphasize the special key bindings in effect."
   :type 'boolean
   :group 'hyperbole-screen)
 
 (defcustom hycontrol-keep-window-flag nil
-  "*Non-nil means leave original window when tear off window to another frame."
+  "Non-nil means leave original window when tear off window to another frame."
   :type 'boolean
   :group 'hyperbole-screen)
 
 (defcustom hycontrol-maximum-units 1000
-  "*Maximum units setting allowed for hycontrol commands.
+  "Maximum units setting allowed for hycontrol commands.
 The unit counter resets to the last digit entered whenever this
 value is exceeded."
   :type '(integer :match (lambda (_widget value)
@@ -199,7 +188,7 @@ value is exceeded."
   :group 'hyperbole-screen)
 
 (defcustom hycontrol-frame-offset '(13 . 23)
-  "*Increase in offset for new hycontrol frames relative to the selected frame.
+  "Increase in offset for new hycontrol frames relative to the selected frame.
 Its value is an (x-offset . y-offset) pair in pixels."
   :type '(cons integer integer)
   :group 'hyperbole-screen)
@@ -222,25 +211,25 @@ Lisp boolean form to evaluate.
 The final predicate should always be t, for default values, typically of zero.")
 
 (defcustom hycontrol-screen-top-offset    0
-  "*Pixel offset from top used when placing a frame at a top corner."
+  "Pixel offset from top used when placing a frame at a top corner."
   :type '(integer :match (lambda (_widget value)
 			   (and (integerp value) (>= value 0)
 				(< value (display-pixel-height)))))
   :group 'hyperbole-screen)
 (defcustom hycontrol-screen-right-offset  0
-  "*Pixel offset from right used when placing a frame at a right corner."
+  "Pixel offset from right used when placing a frame at a right corner."
   :type '(integer :match (lambda (_widget value)
 			   (and (integerp value) (>= value 0)
 				(< value (display-pixel-width)))))
   :group 'hyperbole-screen)
 (defcustom hycontrol-screen-bottom-offset 0
-  "*Pixel offset from bottom used when placing a frame at a bottom corner."
+  "Pixel offset from bottom used when placing a frame at a bottom corner."
   :type '(integer :match (lambda (_widget value)
 			   (and (integerp value) (>= value 0)
 				(< value (display-pixel-height)))))
   :group 'hyperbole-screen)
 (defcustom hycontrol-screen-left-offset   0
-  "*Pixel offset from left used when placing a frame at a left corner."
+  "Pixel offset from left used when placing a frame at a left corner."
   :type '(integer :match (lambda (_widget value)
 			   (and (integerp value) (>= value 0)
 				(< value (display-pixel-width)))))
@@ -335,8 +324,9 @@ for it to be omitted by `list-buffers'."
     (define-key map "t"     'hycontrol-enable-windows-mode)
     (define-key map "u"     'unbury-buffer)
     (define-key map "w"     (lambda () (interactive) (hycontrol-set-frame-width nil (+ (frame-width) hycontrol-arg))))
-    (define-key map "Z"     (lambda () (interactive) (if (> hycontrol-arg 9) (setq hycontrol-arg 1)) (hycontrol-frame-zoom 'zoom-frm-in hycontrol-arg hycontrol-debug)))
-    (define-key map "z"     (lambda () (interactive) (if (> hycontrol-arg 9) (setq hycontrol-arg 1)) (hycontrol-frame-zoom 'zoom-frm-out hycontrol-arg hycontrol-debug)))
+    (define-key map "X"     (lambda () (interactive) (hycontrol-frame-zoom-reset)))
+    (define-key map "Z"     (lambda () (interactive) (if (> hycontrol-arg 9) (setq hycontrol-arg 1)) (hycontrol-frame-zoom hycontrol-arg)))
+    (define-key map "z"     (lambda () (interactive) (if (> hycontrol-arg 9) (setq hycontrol-arg 1)) (hycontrol-frame-zoom (- hycontrol-arg))))
     (define-key map "\["    'hycontrol-make-frame)
     (define-key map "\]"    'hycontrol-make-frame)
     (define-key map "\("    'hycontrol-save-frame-configuration)
@@ -440,6 +430,7 @@ for it to be omitted by `list-buffers'."
     (define-key map "t"     'hycontrol-enable-frames-mode)
     (define-key map "u"     'unbury-buffer)
     (define-key map "w"     (lambda () (interactive) (enlarge-window-horizontally hycontrol-arg)))
+    (define-key map "X"     (lambda () (interactive) (text-scale-increase 0)))
     (define-key map "Z"     (lambda () (interactive) (if (fboundp 'text-scale-increase)
 							 ;; Emacs autoloaded function
 							 (text-scale-increase (if (< hycontrol-arg 10) hycontrol-arg (setq hycontrol-arg 1))))))
@@ -493,7 +484,7 @@ for it to be omitted by `list-buffers'."
 	 ;; d/^/D=delete/iconify frame/others - iconify left out due to some bug on macOS (see comment near ^ below)
 	 "a/A=cycle adjust width/height, d/D=delete frame/others, o/O=other win/frame, I/J/K/M=to frame, [/]=create frame, (/)=save/restore fconfig\n"
 	 "@=grid of wins, f/F=clone/move win to new frame, -/+=minimize/maximize frame, ==frames same size, u/b/~=un/bury/swap bufs\n"
-	 "Frame to edges: c=cycle, i/j/k/m=expand/contract, p/num-keypad=move; z/Z=zoom out/in, t=to WINDOWS mode, Q=quit")
+	 "Frame to edges: c=cycle, i/j/k/m=expand/contract, p/num-keypad=move; z/Z/X=zoom out/in/reset, t=to WINDOWS mode, Q=quit")
  "HyControl frames-mode minibuffer prompt string to pass to format.
 Format it with 2 arguments: `prefix-arg' and a plural string indicating if
 `prefix-arg' is not equal to 1.")
@@ -503,7 +494,7 @@ Format it with 2 arguments: `prefix-arg' and a plural string indicating if
    "WINDOWS: (h=heighten, s=shorten, w=widen, n=narrow, arrow=move frame) by %d unit%s, .=clear units\n"
    "a/A=cycle adjust frame width/height, d/D=delete win/others, o/O=other win/frame, I/J/K/M=to window, [/]=split win atop/sideways, (/)=save/restore wconfig\n"
    "@=grid of wins, f/F=clone/move win to new frame, -/+=minimize/maximize win, ==wins same size, u/b/~=un/bury/swap bufs\n"
-   "Frame to edges: c=cycle, i/j/k/m=expand/contract, p/num-keypad=move; z/Z=zoom out/in, t=to FRAMES mode, Q=quit")
+   "Frame to edges: c=cycle, i/j/k/m=expand/contract, p/num-keypad=move; z/Z/X=zoom out/in/reset, t=to FRAMES mode, Q=quit")
   "HyControl windows-mode minibuffer prompt string to pass to format.
 Format it with 2 arguments: `prefix-arg' and a plural string indicating if
 `prefix-arg' is not equal to 1.")
@@ -796,15 +787,84 @@ Screen bottom edge is adjusted based on `hycontrol-screen-bottom-offset'."
       hycontrol-screen-offset-sensitivity))
 
 ;; Frame Zoom Support
-(defun hycontrol-frame-zoom (zoom-func arg max-msgs)
-  "Zoom default frame face using ZOOM-FUNC and amount ARG (must be 1-9).
-MAX-MSGS is a number used only if ZOOM-FUNC is undefined and an
-error message is logged."
-  (if (fboundp zoom-func)
-      (let ((frame-zoom-font-difference arg))
-	(funcall zoom-func))
-    (hycontrol-user-error max-msgs "(HyControl): Zooming requires separate \"zoom-frm.el\" Emacs Lisp library installation")))
+(require 'face-remap)
 
+(unless (fboundp 'global-text-scale-adjust)
+  (defvar global-text-scale-adjust--default-height)
+  (defvar global-text-scale-adjust--default-height)
+  (defvar global-text-scale-adjust--increment-factor)
+  (defvar global-text-scale-adjust-limits)
+  (defvar global-text-scale-adjust-resizes-frames)
+  (defvar global-text-scale-adjust--increment-factor))
+
+(defun hycontrol-global-text-scale-adjust (increment)
+  "Change (a.k.a. \"adjust\") the font size of all faces by INCREMENT.
+
+Interactively, INCREMENT is the prefix numeric argument, and defaults
+to 1.  Positive values of INCREMENT increase the font size, negative
+values decrease it.  A value of 0 reset the font size.
+
+Buffer-local face adjustments have higher priority than global
+face adjustments.
+
+The variable `global-text-scale-adjust-resizes-frames' controls
+whether the frames are resized to keep the same number of lines
+and characters per line when the font size is adjusted.
+
+See also the related command `text-scale-adjust'.  Unlike that
+command, which scales the font size with a factor,
+`global-text-scale-adjust' scales the font size with an
+increment.
+
+This is a modification of `global-text-scale-adjust'.  The key handling
+and definition of a transient keymap is removed so it can be called from
+the hycontrol menu."
+  (interactive "p")
+  (when (display-graphic-p)
+    (unless global-text-scale-adjust--default-height
+      (setq global-text-scale-adjust--default-height
+            (face-attribute 'default :height)))
+    (let* ((cur (face-attribute 'default :height))
+           (inc
+            (if (zerop increment)
+                (- global-text-scale-adjust--default-height cur)
+              (* increment global-text-scale-adjust--increment-factor)))
+           (new (+ cur inc)))
+      (when (< (car global-text-scale-adjust-limits)
+               new
+               (cdr global-text-scale-adjust-limits))
+        (let ((frame-inhibit-implied-resize
+               (not global-text-scale-adjust-resizes-frames)))
+          (set-face-attribute 'default nil :height new)
+          (redisplay 'force)
+          (when (and (not (zerop increment))
+                     (= cur (face-attribute 'default :height)))
+            (setq global-text-scale-adjust--increment-factor
+                  (1+ global-text-scale-adjust--increment-factor))
+            (hycontrol-global-text-scale-adjust increment)))))))
+
+(defun hycontrol-frame-zoom (increment)
+  "Change the font size of all faces by INCREMENT.
+Use `global-text-scale-adjust' if it exists.  If on an older Emacs without
+that function, use \"zoom-frm.el\" if available."
+  (if (fboundp 'global-text-scale-adjust)
+      (hycontrol-global-text-scale-adjust increment)
+    (unless (fboundp 'zoom-frm-in)
+      (hycontrol-user-error hycontrol-debug "(HyControl): Zooming requires separate \"zoom-frm.el\" Emacs Lisp library installation"))
+    (require 'zoom-frm)
+    (if (< 0 increment)
+        (zoom-all-frames-in)
+      (zoom-all-frames-out))))
+
+(defun hycontrol-frame-zoom-reset ()
+  "Reset zoom level back to default."
+  (if (fboundp 'global-text-scale-adjust)
+      (hycontrol-global-text-scale-adjust 0)
+    (unless (fboundp 'zoom-frm-in)
+      (hycontrol-user-error hycontrol-debug "(HyControl): Zooming requires separate \"zoom-frm.el\" Emacs Lisp library installation"))
+    (require 'zoom-frm)
+    (dolist (fr (visible-frame-list))
+      (zoom-frm-unzoom fr))))
 
 (defun hycontrol-make-frame ()
   "Create a new frame with the same size and selected buffer as the selected frame.

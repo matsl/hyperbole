@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    21-Jun-16 at 14:24:53
-;; Last-Mod:      4-Jan-25 at 21:57:09 by Bob Weiner
+;; Last-Mod:     15-Sep-25 at 18:51:51 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -80,6 +80,7 @@
 (declare-function debbugs-get-status "ext:debbugs-gnu")
 (declare-function debbugs-gnu-bugs "ext:debbugs-gnu")
 (declare-function debbugs-gnu-current-id "ext:debbugs-gnu")
+(declare-function debbugs-gnu-rescan "ext:debbugs-gnu")
 (declare-function debbugs-gnu-select-report "ext:debbugs-gnu")
 (declare-function debbugs-gnu-show-reports "ext:debbugs-gnu")
 (defvar debbugs-gnu-current-query)
@@ -93,7 +94,15 @@
   '(progn
      (defvar debbugs-gnu-all-packages)
      (push "hyperbole"  debbugs-gnu-all-packages)
-     (push "oo-browser" debbugs-gnu-all-packages)))
+     (push "oo-browser" debbugs-gnu-all-packages)
+     ;;
+     ;; debbugs-gnu has a bug that causes an infinite recursion in
+     ;; Emacs 27 and 28 but not versions after, so fix it here by
+     ;; removing the offending hook
+     (when (string-lessp emacs-version "29")
+       (add-hook 'after-change-major-mode-hook
+		 (lambda ()
+		   (remove-hook 'tabulated-list-revert-hook #'debbugs-gnu-rescan t))))))
 
 ;;; ************************************************************************
 ;;; Public implicit button types
@@ -193,6 +202,7 @@ used as well in place of `bug'."
       (push (cons 'bugs (list (string-to-number id))) attr-pair-list))
     (debbugs-gnu-query:list attr-pair-list)))
 
+;;;###autoload
 (defun debbugs-gnu-query:list (query-attribute-list)
   "Show the results of a Gnu debbugs query with QUERY-ATTRIBUTE-LIST attributes.
 Each element of the list should be of the form (attribute . attribute-value).

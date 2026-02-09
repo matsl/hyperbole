@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    28-Feb-21 at 23:26:00
-;; Last-Mod:     25-Apr-25 at 21:51:39 by Mats Lidell
+;; Last-Mod:      6-Dec-25 at 22:34:32 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -73,6 +73,66 @@
     )
   "List of paths to test that should not exist when expanded in ${hyperb:dir}.")
 
+(ert-deftest hpath--posix-path-p ()
+  "Verify `hpath:posix-path-p'."
+  (should (hpath:posix-path-p "/dir/file"))
+  (should-not (hpath:posix-path-p nil))
+  (should-not (hpath:posix-path-p "filename")))
+
+(ert-deftest hpath--posix-to-mswindows-separators ()
+  "Verify `hpath:posix-to-mswindows-separators'."
+  (should (string= (hpath:posix-to-mswindows-separators "/dir/subdir/file")
+                   "\\dir\\subdir\\file")))
+
+(ert-deftest hpath--mswindows-to-posix-separators ()
+  "Verify `hpath:posix-to-mswindows-separators'."
+  (should (string= (hpath:mswindows-to-posix-separators "\\dir\\subdir\\file")
+                   "/dir/subdir/file"))
+  (should (string= (hpath:mswindows-to-posix-separators "\\\\server\\dir\\subdir\\file")
+                   "//server/dir/subdir/file")))
+
+(ert-deftest hpath--posix-to-mswindows ()
+  "Verify `hpath:posix-to-mswindows'."
+  (dolist (v '(("/dir/subdir/file" . "\\dir\\subdir\\file")
+               ("/mnt/a/dir/subdir/file" . "a:\\dir\\subdir\\file")))
+    (let ((posix (car v))
+          (msw (cdr v)))
+      (ert-info ((format "Posix: %s to Mswindows: %s" posix msw))
+        (should (string= (hpath:posix-to-mswindows posix) msw))))))
+
+(ert-deftest hpath--mswindows-to-posix ()
+  "Verify `hpath:mswindows-to-posix'."
+  (should (string= (hpath:mswindows-to-posix "\\dir\\subdir\\file")
+                   "/dir/subdir/file"))
+  (should (string= (hpath:mswindows-to-posix "A:\\dir\\subdir\\file")
+                   "/mnt/a/dir/subdir/file"))
+  (let ((hyperb:microsoft-os-p t))
+    (should (string= (hpath:mswindows-to-posix "A:\\dir\\subdir\\file")
+                     "/mnt/a:/dir/subdir/file"))))
+
+(ert-deftest hpath--substitute-posix-or-mswindows ()
+  "Verify `hpath:substitute-posix-or-mswindows'."
+  (should-not (hpath:substitute-posix-or-mswindows 'not-a-string))
+  (should (string= (hpath:substitute-posix-or-mswindows "/dir/subdir/file")
+                   "\\dir\\subdir\\file"))
+  (should (string= (hpath:substitute-posix-or-mswindows "\\dir\\subdir\\file")
+                   "/dir/subdir/file")))
+
+(ert-deftest hpath--substitute-posix-or-mswindows-at-point ()
+  "Verify `hpath:substitute-posix-or-mswindows-at-point'."
+  ;; Quotes required around path. Point needs to be within the quotes.
+  (with-temp-buffer
+    (insert "\"/dir/subdir/file\"")
+    (goto-char 2)
+    (hpath:substitute-posix-or-mswindows-at-point)
+    (should (string= (buffer-substring-no-properties (point-min) (point-max))
+                     "\"\\dir\\subdir\\file\""))
+    ;; Back to Posix path again.
+    (goto-char 2)
+    (hpath:substitute-posix-or-mswindows-at-point)
+    (should (string= (buffer-substring-no-properties (point-min) (point-max))
+                     "\"/dir/subdir/file\""))))
+
 (defun hpath--should-exist-p (path)
   (let ((default-directory hyperb:dir)
 	(expanded (condition-case err
@@ -125,6 +185,29 @@
     (insert "\"foo:bar:lisp\"")
     (goto-char 7)
     (should (not (hpath:at-p)))))
+
+(ert-deftest hpath--at-p-prefix-paths ()
+  "Verify `hpath:at-p' finds paths with prefixes."
+  (dolist (v '("&path" "!path" "-path"
+               "& path")) ;; Can be space between prefix and path.
+    (with-temp-buffer
+      (insert (format "\"%s\"" v))
+      (goto-char 2)
+      (should (string= (hpath:at-p) v)))))
+
+(ert-deftest hpath:path-at-point-with-unbalanced-quote-on-same-line ()
+  "Verify `hpath:at-p' behavior when there is an unbalanced quotes on same line."
+  (dolist (v '(("  \"/tmp\"  "  . t)
+               ("  \"/tmp\" \"" . t)
+               ("\" \"/tmp\"  " . nil)))
+    (let ((text (car v))
+          (find (cdr v)))
+      (with-temp-buffer
+        (insert (format "%s\n" v))
+        (goto-char 6)
+        (if find
+            (should (string= (hpath:at-p nil t) "/tmp"))
+          (should-not (hpath:at-p nil t)))))))
 
 (ert-deftest hpath:find-exec-shell-cmd-test ()
   "Path prefix ! will run pathname as a non windowed program."
@@ -252,13 +335,58 @@
               (hy-test-helpers:action-key-should-call-hpath:find (expand-file-name py-file hyperb:dir)))))
       (setenv "PYTHONPATH" old-python-path))))
 
+(ert-deftest hpath--absolute-to ()
+  "Verify `hpath:absolute-to'."
+  ;; Not valid path return unchanged
+  (should-not (hpath:absolute-to nil))
+  (should (= (hpath:absolute-to 1) 1))
+  (let ((default-directory "/tmp"))
+    (should (string= (hpath:absolute-to "HY-NEWS" hyperb:dir)
+                     (expand-file-name "HY-NEWS" hyperb:dir)))
+    (should (string= (hpath:absolute-to "HY-NEWS" (list "/tmp" "/" hyperb:dir))
+                     (expand-file-name "HY-NEWS" hyperb:dir)))))
+
 (ert-deftest hpath:remote-at-p ()
   "Verify hpath:remote-at-p match a tramp remote file name."
+  (mocklet ((hpath:remote-available-p => nil))
+    (should-not (hpath:remote-at-p)))
   (let ((tramp-file "/ssh:user@host.org:/home/username/file"))
     (with-temp-buffer
       (insert (concat "\"" tramp-file "\""))
       (goto-char 5)
       (should (string= (hpath:remote-at-p) tramp-file)))))
+
+(ert-deftest hpath--remote-p ()
+  "Verify `hpath:remote-p' returns a remote file name."
+  (mocklet ((hpath:remote-available-p => nil))
+    (should-not (hpath:remote-p "name-ignored-no-remote-package-available")))
+  (let ((tramp-file "/ssh:user@host.org:/home/username/file"))
+    (should (string= (hpath:remote-p tramp-file) tramp-file))))
+
+(ert-deftest hpath--call ()
+  "Verify `hpath:call'."
+  (should-error (hpath:call #'invalid-function "string"))
+  (cl-flet* ((identity-call (arg &optional non-exist) (identity arg)))
+    (should-error (hpath:call #'identity-call 'not-a-string))
+    (should (string= (hpath:call #'identity-call "/tmp") "/tmp"))
+    ;; Prepend with file:// if in some modes
+    (with-temp-buffer
+      (let ((major-mode 'js-mode))
+        (should (string= (hpath:call #'identity-call "/tmp") "file:///tmp"))))
+    ;; Expand to absolute paths using hpath:expand
+    (let ((hpath:auto-variable-alist '(("\\.el" . load-path))))
+      (should (string= (hpath:call #'identity-call "dired.el")
+                       (locate-library "dired.el")))
+      (should (string= (hpath:call #'identity-call "-dired.el")
+                       (format "-%s" (locate-library "dired.el"))))
+      (should (string= (hpath:call #'identity-call "file://dired.el")
+                       (locate-library "dired.el"))))))
+
+(ert-deftest hpath--is-path-variable-p ()
+  "Verify `hpath:is-path-variable-p'."
+  (should (hpath:is-path-variable-p "PATH"))
+  (should (hpath:is-path-variable-p "hyperb:dir"))
+  (should-not (hpath:is-path-variable-p "load-path")))
 
 (ert-deftest hpath--at-p-checks-files-with-hash-in-name-exists ()
   "Verify that file existence is checked for filenames containing a hash character."
@@ -392,7 +520,7 @@ See `hpath:line-and-column-regexp'."
   (should-not (string-match hpath:line-and-column-regexp "/foo/bar.org:LL1"))
   (should-not (string-match hpath:line-and-column-regexp "/foo/bar.org:C1")))
 
-(ert-deftest hpath--hpath:delimited-possible-path ()
+(ert-deftest hpath--hpath:delimited-possible-path-in-ls-R ()
   "Verify delimited paths are found in an `ls -R' listing in `shell-mode'."
   (let ((files
          '(("file1.ext file2.ext file3.ext"                   ; Space delimited
@@ -420,7 +548,7 @@ See `hpath:line-and-column-regexp'."
            ("\tfile1.ext file2.ext file3.ext"                 ; Leading tab
             ("file1" "file2" "file3"))
 
-           ;; Failing cases
+           ;; !! TODO - Failing cases
            ;; ("'file1\".ext' 'file2\".ext' 'file3\".ext'"    ; Single quoted with double quote
            ;;  ("file1\"" "file2\"" "file3\""))
            ;; ("\"file1'.ext\" \"file2'.ext\" \"file3'.ext\"" ; Double quoted with single quote
@@ -441,6 +569,74 @@ dir/subdir:
             (mocklet (((file-exists-p "dir/subdir") => t))
               (should (string= (expand-file-name (concat filename ".ext") "dir/subdir")
                                (hpath:delimited-possible-path))))))))))
+
+(ert-deftest hpath--hpath:delimited-possible-path ()
+  "Verify hpath:delimited-possible-path."
+  ;;              text   result mode
+  (let ((paths '(("/tmp" "/tmp" text-mode)
+                 ("/does-not-exist" "/does-not-exist" text-mode)
+                 ("file://file " "file" text-mode)
+                 ("&quot;'file'&quote" "file" text-mode)
+                 ("\\\"'file'\\\"" "file" text-mode)
+                 ("@file{file}" "file" text-mode)
+                 ("\"file\"" "file" text-mode)
+                 ("\"'file'\"" "file" text-mode)
+                 ("\"`file'\"" "file" text-mode)
+                 ("'file'" "file" python-mode)
+                 ("'''file'''" "file" python-mode)
+                 ("``file''" "file" texinfo-mode))))
+    (dolist (path paths)
+      (let ((text (nth 0 path))
+            (result (nth 1 path))
+            (mode (nth 2 path)))
+        (ert-info ((format "Find path %s in mode: %s" text mode))
+          (with-temp-buffer
+            (funcall mode)
+            (insert (format "%s\n" text))
+            (goto-char (/ (length text) 2))
+            (should (string= result (hpath:delimited-possible-path)))))))))
+
+(ert-deftest hpath--display-buffer ()
+  "Verify `hpath:display-buffer'."
+  (with-temp-buffer
+    (should (string-match (format "#<window [0-9]+ on")
+                          (format "%s" (hpath:display-buffer (current-buffer)))))
+    (should (string-match (format "#<window [0-9]+ on")
+                          (format "%s" (hpath:display-buffer (buffer-name (current-buffer))))))))
+
+(ert-deftest hpath--relative-arguments ()
+  "Verify `hpath:relative-arguments'."
+  (progn
+    (hattr:set 'hbut:current 'loc "/")
+    (should (equal (hpath:relative-arguments '("/tmp")) '("/tmp"))))
+  (progn
+    (hattr:set 'hbut:current 'loc "/dir/")
+    (should (equal (hpath:relative-arguments '("/tmp")) '("../tmp"))))
+  (progn
+    (hattr:set 'hbut:current 'loc "/dir/dir/")
+    (should (equal (hpath:relative-arguments '("/tmp")) '("../../tmp"))))
+  (progn
+    (hattr:set 'hbut:current 'loc "/dir/dir/dir/")
+    (should (equal (hpath:relative-arguments '("/tmp")) '("/tmp"))))
+  (progn
+    (hattr:set 'hbut:current 'loc "/dir/")
+    (should (equal (hpath:relative-arguments '("/" "/tmp")) '("../" "../tmp")))))
+
+(ert-deftest hpath--relative-to ()
+  "Verify `hpath:relative-to'."
+  ;; Not valid path is unchanged
+  (should (string= (hpath:relative-to "/not/valid/path" default-directory) "/not/valid/path"))
+
+  ;; Hyperbole property marked path is unchanged
+  (let ((path "/tmp"))
+    (hypb:mark-object path)
+    (should (string= (hpath:relative-to path "/dir") "/tmp")))
+
+  ;; Normal relative paths
+  (should (string= (hpath:relative-to "/tmp" "/") "/tmp"))
+  (should (string= (hpath:relative-to "/tmp" "/dir/") "../tmp"))
+  (should (string= (hpath:relative-to "/tmp" "/dir/dir/") "../../tmp"))
+  (should (string= (hpath:relative-to "/tmp" "/dir/dir/dir/") "/tmp")))
 
 (ert-deftest hpath--to-markup-anchor ()
   "Verify `hpath:to-markup-anchor'."
@@ -488,6 +684,62 @@ dir/subdir:
     (should (string= "a b c" (hpath:spaces-to-dashes-markup-anchor "a b c")))
     (should (string= "a-b-c" (hpath:dashes-to-spaces-markup-anchor "a-b-c")))
     (should (string= "a b-c" (hpath:dashes-to-spaces-markup-anchor "a b-c")))))
+
+(ert-deftest hpath--file-line-and-column ()
+  "Verify `hpath:file-line-and-column'."
+  (should-not (hpath:file-line-and-column 'not-a-string))
+  (should-not (hpath:file-line-and-column "does-not-exist"))
+  (should (equal (hpath:file-line-and-column "/tmp") '("/tmp")))
+  (should (equal (hpath:file-line-and-column "/tmp:1") '("/tmp" 1)))
+  (should (equal (hpath:file-line-and-column "/tmp:L1") '("/tmp" 1)))
+  (should (equal (hpath:file-line-and-column "/tmp:1:2") '("/tmp" 1 2)))
+  (should (equal (hpath:file-line-and-column "/tmp:L1:C2") '("/tmp" 1 2)))
+  ;; Verify filename is expanded
+  (let ((file (make-temp-file "hypb")))
+    (unwind-protect
+        (with-current-buffer (find-file-noselect file)
+          (let ((basename (file-name-nondirectory (buffer-file-name))))
+            (should (equal (hpath:file-line-and-column basename) (list (buffer-file-name))))
+            (should (equal (hpath:file-line-and-column (format "%s:1:1" basename))
+                           (list buffer-file-name 1 1)))))
+      (hy-delete-file-and-buffer file))))
+
+(ert-deftest hpath--file-position-to-line-and-column ()
+  "Verify `hpath:file-position-to-line-and-column'."
+  (let ((file (make-temp-file "hypb" nil ".txt" "01\n")))
+    (unwind-protect
+        (with-current-buffer (find-file-noselect file)
+          (let ((basename (file-name-nondirectory (buffer-file-name))))
+            (should (equal (hpath:file-position-to-line-and-column (buffer-file-name) 1)
+                           (format "%s:L1" basename)))
+            (should (equal (hpath:file-position-to-line-and-column (buffer-file-name) 2)
+                           (format "%s:L1:C1" basename)))))
+      (hy-delete-file-and-buffer file))))
+
+(ert-deftest hpath:trim ()
+  "Verify `hpath:trim'."
+  (dolist (v '("str" " str " "\n\t\r str\n\t\r" "\"str\""))
+    (should (string= (hpath:trim v) "str")))
+  (should (string= (hpath:trim "\" str \"") " str ")))
+
+(ert-deftest hpath--exists-p ()
+  "Verify `hpath:exists-p'."
+  (let ((file-with-ext (make-temp-file "hypb" nil ".txt"))
+        (file-no-ext (make-temp-file "hypb"))
+        (hpath:suffixes '(".txt")))
+    (unwind-protect
+        (progn
+          ;; With extension
+          (should (string= (hpath:exists-p file-with-ext) file-with-ext))
+          (should (string= (hpath:exists-p (file-name-sans-extension file-with-ext)) file-with-ext))
+          (should (hpath:exists-p file-with-ext t))
+          (should (string= (hpath:exists-p (file-name-sans-extension file-with-ext) t) ".txt"))
+          ;; Without extension
+          (should (string= (hpath:exists-p file-no-ext) file-no-ext))
+          (should (string= (hpath:exists-p (format "%s.txt" file-no-ext)) file-no-ext))
+          (should (hpath:exists-p file-no-ext t))
+          (should (string= (hpath:exists-p (format "%s.txt" file-no-ext) t) ".txt")))
+      (hy-delete-files-and-buffers (list file-with-ext file-no-ext)))))
 
 (provide 'hpath-tests)
 

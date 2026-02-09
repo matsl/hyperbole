@@ -2,7 +2,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     4-Jul-24 at 09:57:18
-;; Last-Mod:     18-Jun-25 at 00:27:08 by Mats Lidell
+;; Last-Mod:     30-Dec-25 at 14:42:23 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -82,6 +82,11 @@ When nil, trigger an error that consult is not installed."
 ;;; ************************************************************************
 ;;; Public functions
 ;;; ************************************************************************
+
+;;;###autoload
+(defun hsys-consult-active-p ()
+  "Return non-nil if `hsys-consult-flag' is true and `consult-grep' is fboundp."
+  (and hsys-consult-flag (fboundp 'consult-grep)))
 
 ;;;###autoload
 (defun hsys-consult-apropos (&optional include-all-flag)
@@ -172,13 +177,14 @@ prompt."
 
 (defun hsys-consult-grep-headlines-read-regexp (grep-function prompt
 						&optional regexp)
-  "With `consult', use GREP-FUNCTION and PROMPT to completing read an
-optional REGEXP, the initial pattern for the grep.  Suppress preview
-and return the selected \"file:line:line-contents\".  GREP-FUNCTION
- must take these arguments: regexp max-matches path-list prompt.
+  "With `consult', use GREP-FUNCTION and PROMPT to completing read.
+The optional REGEXP is an initial pattern for the grep.  Suppress
+preview and return the selected \"file:line:line-contents\".
+GREP-FUNCTION must take these arguments: regexp max-matches path-list
+prompt.
 
 Without `consult', just read a REGEXP with PROMPT."
-  (if (and hsys-consult-flag (fboundp 'consult-grep))
+  (if (hsys-consult-active-p)
       (substring-no-properties
        (hsys-consult-get-exit-value
 	nil

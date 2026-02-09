@@ -3,11 +3,11 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    10-Sep-22 at 20:43:17
-;; Last-Mod:     22-Feb-24 at 00:00:12 by Mats Lidell
+;; Last-Mod:     16-Aug-25 at 15:36:47 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2024  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -22,7 +22,7 @@
 (require 'hui-register)
 (require 'hy-test-helpers "test/hy-test-helpers")
 
-(ert-deftest hui-register-test--create-register-content ()
+(ert-deftest hui-register-tests--create-register-content ()
   "Verify the struct contains its parts."
   (let ((file (make-temp-file "hypb")))
     (unwind-protect
@@ -38,7 +38,7 @@
             (should (equal (hui-register-but-file content) (hypb:buffer-file-name)))))
       (hy-delete-file-and-buffer file))))
 
-(ert-deftest hui-register-test--register-val-jump-to ()
+(ert-deftest hui-register-tests--register-val-jump-to ()
   "Verify register val jumps to right file."
   (let ((file (make-temp-file "hypb")))
     (unwind-protect
@@ -55,7 +55,7 @@
             (should (equal pos (point)))))
       (hy-delete-file-and-buffer file))))
 
-(ert-deftest hui-register-test--register-val-insert-ibut ()
+(ert-deftest hui-register-tests--register-val-insert-ibut ()
   "Verify register val inserts ibut."
   (let ((file1 (make-temp-file "hypb"))
         (file2 (make-temp-file "hypb")))
@@ -78,7 +78,7 @@
       (hy-delete-file-and-buffer file1)
       (hy-delete-file-and-buffer file2))))
 
-(ert-deftest hui-register-test--register-val-insert-ebut ()
+(ert-deftest hui-register-tests--register-val-insert-ebut ()
   "Verify register val inserts link to ebut."
   (let ((file1 (make-temp-file "hypb"))
         (file2 (make-temp-file "hypb")))

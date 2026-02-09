@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell
 ;;
 ;; Orig-Date:    15-Mar-25 at 22:39:37
-;; Last-Mod:      7-May-25 at 23:11:57 by Mats Lidell
+;; Last-Mod:     20-Sep-25 at 01:16:24 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -22,7 +22,7 @@
 (require 'el-mock)
 
 (ert-deftest hui-mouse-tests--hkey-alist ()
-  "Verify that given predicate values results in the proper action."
+  "Verify that given predicate values result in the proper action."
   ;; Mode predicates where only the mode matters for the selection.
   (let ((mode-list
          '((treemacs-mode . ((smart-treemacs) . (smart-treemacs)))
@@ -187,8 +187,7 @@
   (let ((major-mode 'ert-results-mode))
     (mocklet (((ert-results-filter-status-p) => t))
       (cl-letf (((symbol-function 'featurep)
-                 (lambda (symbol)
-                   (if (equal symbol 'ert-results) t nil))))
+                 (lambda (symbol &optional _) (equal symbol 'ert-results))))
         (should (equal (hkey-actions)
                        (cons '(smart-ert-results hkey-value)
                              '(smart-ert-results-assist hkey-value)))))))
@@ -219,10 +218,17 @@
                                  (hmouse-kill-region))))))
 
   ;; Restore window config and hide help buffer when click at buffer end.
-  (mocklet (((point-max) => (point))
-            ((buffer-name) => "*Help*"))
+  (mocklet (((point-max) => (point)))
+    (cl-letf (((symbol-function 'buffer-name) (lambda (&optional _) "*Help*")))
+      (should (equal (hkey-actions)
+                     (cons '(hkey-help-hide) '(hkey-help-hide))))))
+
+  ;; Any other programming mode
+  (mocklet (((smart-prog-at-tag-p) => t)
+	    ((smart-tags-find-p hkey-value) => t))
     (should (equal (hkey-actions)
-                   (cons '(hkey-help-hide) '(hkey-help-hide)))))
+                   (cons '(ignore-errors (smart-prog-tag hkey-value))
+			 '(ignore-errors (smart-prog-tag hkey-value))))))
 
   ;; Python files
   (let ((major-mode 'python-mode))
@@ -239,10 +245,10 @@
       (should (equal (hkey-actions)
                      (cons '(smart-python hkey-value) '(smart-python hkey-value 'next-tag))))))
   (let ((major-mode 'java-mode))
-    (mocklet (((buffer-name) => "Python")
-              ((smart-python-at-tag-p) => t))
-      (should (equal (hkey-actions)
-                     (cons '(smart-python hkey-value) '(smart-python hkey-value 'next-tag))))))
+    (cl-letf (((symbol-function 'buffer-name) (lambda (&optional _) "Python")))
+      (mocklet (((smart-python-at-tag-p) => t))
+        (should (equal (hkey-actions)
+                       (cons '(smart-python hkey-value) '(smart-python hkey-value 'next-tag)))))))
 
   ;; c-mode
   (let ((major-mode 'c-mode))
@@ -292,13 +298,16 @@
         (should (equal (hkey-actions)
                        (cons '(smart-java) '(smart-java nil 'next-tag)))))
       (mocklet (((smart-java-at-tag-p) => nil))
-        (mocklet (((looking-at "@see[ \t]+") => t))
+        (cl-letf (((symbol-function 'looking-at)
+                   (lambda (str &optional _) (string= str "@see[ \t]+"))))
           (should (equal (hkey-actions)
                          (cons '(smart-java) '(smart-java nil 'next-tag)))))
-        ;; Second case with looking back for java doc can't be mocked
-        ;; with el-mock due to mocks not supporting multiple return
-        ;; values. (Possible improvement to el-mock!?) Pausing that
-        ;; case for now.
+        (let ((looking-at-value nil))
+          (cl-letf (((symbol-function 'looking-at) (lambda (str &optional _) looking-at-value))
+                    ((symbol-function 're-search-backward)
+                     (lambda (str &optional _ _ _) (if (string= str "[@\n\r\f]") (setq looking-at-value t)))))
+            (should (equal (hkey-actions)
+                           (cons '(smart-java) '(smart-java nil 'next-tag))))))
         )))
 
   ;; html-mode javascript-mode js-mode js-ts-mode js2-mode js3-mode web-mode
@@ -353,11 +362,6 @@
   (let ((outline-minor-mode t))
     (should (equal (hkey-actions)
                    (cons '(smart-outline) '(smart-outline-assist)))))
-
-  ;; Any other programming mode
-  (mocklet (((smart-prog-at-tag-p) => t))
-    (should (equal (hkey-actions)
-                   (cons '(smart-prog-tag hkey-value) '(smart-prog-tag hkey-value)))))
 
   ;;; No action matches
   (mocklet (((smart-prog-at-tag-p) => nil))

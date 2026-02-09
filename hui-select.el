@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Oct-96 at 02:25:27
-;; Last-Mod:     10-Aug-25 at 21:26:00 by Mats Lidell
+;; Last-Mod:     31-Dec-25 at 16:07:18 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -119,22 +119,33 @@
 ;;; Public variables
 ;;; ************************************************************************
 
+(defcustom hui-select-rgrep-command
+  ;; Only the FreeBSD version of zgrep supports all of the grep
+  ;; options that Hyperbole needs: -r, --include, and --exclude
+  (format "%sgrep -insIHr" (if (and (executable-find "zgrep")
+                                    (string-match-p "bsd" (shell-command-to-string "zgrep --version | head -1")))
+                               "z" ""))
+  "Grep command string and initial arguments sent to `hui-select-rgrep' command.
+It must end with a space."
+  :type 'string
+  :group 'hyperbole-commands)
+
 (defcustom hui-select-brace-modes
   '(c++-mode c++-ts-mode c-mode c-ts-mode java-mode java-ts-mode objc-mode
              perl-mode tcl-mode)
-  "*List of language major modes which define things with brace delimiters."
+  "List of language major modes which define things with brace delimiters."
   :type '(repeat (function :tag "Mode"))
   :group 'hyperbole-commands)
 
 (defcustom hui-select-markup-modes
   '(html-mode mhtml-mode nxml-mode sgml-mode web-mode)
-  "*List of markup language modes that use SGML-style <tag> </tag> pairs."
+  "List of markup language modes that use SGML-style <tag> </tag> pairs."
   :type '(repeat (function :tag "Mode"))
   :group 'hyperbole-commands)
 
 (defcustom hui-select-text-modes
   '(fundamental-mode kotl-mode indented-text-mode Info-mode outline-mode text-mode)
-  "*List of textual modes where paragraphs may be outdented or indented."
+  "List of textual modes where paragraphs may be outdented or indented."
   :type '(repeat (function :tag "Mode"))
   :group 'hyperbole-commands)
 
@@ -142,14 +153,14 @@
   (append '(altmath-mode asm-mode csh-mode eiffel-mode ksh-mode math-mode miranda-mode
                          pascal-mode python-mode python-ts-mode sather-mode)
 	  hui-select-text-modes)
-  "*List of modes that use indentation mostly to define syntactic structure.
+  "List of modes that use indentation mostly to define syntactic structure.
 Use for language major modes."
   :type '(repeat (function :tag "Mode"))
   :group 'hyperbole-commands)
 
 (defcustom hui-select-ignore-quoted-sexp-modes
   '(debugger-mode emacs-lisp-mode lisp-mode lisp-interaction-mode slime-mode cider-mode)
-  "*List of modes in which to ignore quoted sexpressions for syntactic matches.
+  "List of modes in which to ignore quoted sexpressions for syntactic matches.
 Use for language major modes."
   :type '(repeat (function :tag "Mode"))
   :group 'hyperbole-commands)
@@ -191,17 +202,17 @@ Used to avoid early dropoff when marking indented code.")
 Used to include a final line when marking indented code.")
 
 (defcustom hui-select-char-p nil
-  "*If t, return single character boundaries when all else fails."
+  "If t, return single character boundaries when all else fails."
   :type 'boolean
   :group 'hyperbole-commands)
 
 (defcustom hui-select-display-type t
-  "*If t, display the thing selected with each mouse click."
+  "If t, display the thing selected with each mouse click."
   :type 'boolean
   :group 'hyperbole-commands)
 
 (defcustom hui-select-whitespace t
-  "*If t, groups of whitespace are considered as things."
+  "If t, groups of whitespace are considered as things."
   :type 'boolean
   :group 'hyperbole-commands)
 
@@ -408,7 +419,7 @@ The function `hui-select-set-region' updates and returns it.")
     (?   . hui-select-whitespace)
     (?\< . hui-select-comment)
     (?\. . hui-select-punctuation))
-  "*Unordered list of pairs of the form (<syntax-char> <function>).
+  "Unordered list of pairs of the form (<syntax-char> <function>).
 Used by the function `hui-select-syntactical-region'.
 Each <function> takes a single position argument and returns a
 region (start . end) defining the boundaries of the thing at that position."
@@ -422,6 +433,50 @@ region (start . end) defining the boundaries of the thing at that position."
 ;;
 ;; Commands
 ;;
+
+;;;###autoload
+(defun hui-select-rgrep (pattern &optional prefx-arg)
+  "Recursively grep with symbol at point or PATTERN.
+Grep over all non-backup and non-autosave files in the current
+directory tree.  If in an Emacs Lisp mode buffer and no optional
+PREFX-ARG is given, limit search to only .el and .el.gz files."
+  (interactive (list (if (and (not current-prefix-arg) (equal (buffer-name) "*Locate*"))
+			 (read-string "Grep files listed here for: ")
+		       (let* ((delim-func (hui-select-at-delimited-thing-p))
+			      (region (when delim-func (funcall delim-func (point))))
+			      (default (if region
+					   (buffer-substring-no-properties
+					    (car region) (cdr region))
+					 (symbol-at-point))))
+			 (when (and default (symbolp default))
+			   (setq default (symbol-name default)))
+			 (read-string (format "Rgrep below current dir for%s: "
+					      (if default
+						  (format " (default %s)" default)
+						""))
+				      nil nil default)))
+		     current-prefix-arg))
+  (let* ((delim (cond ((not (string-match "\'" pattern)) ?\')
+			      ((not (string-match "\"" pattern)) ?\")
+			      ((not (string-match "=" pattern)) ?=)
+			      (t ?@)))
+	 (grep-cmd
+	  (if (and (not current-prefix-arg) (equal (buffer-name) "*Locate*"))
+	      (format "%s -e \%c%s\%c %s" hui-select-rgrep-command delim pattern delim (hypb:locate-pathnames))
+	    (format "%s %s %s -e \%c%s\%c ."
+		    hui-select-rgrep-command
+		    (when (and (memq major-mode '(emacs-lisp-mode lisp-interaction-mode))
+			       (not prefx-arg))
+		      (if (string-match "\\`rg " hui-select-rgrep-command)
+			  "-g \"*.el\" -g \"*.el.gz\""
+			"--include=\"*.el\" --include=\"*.el.gz\""))
+		    (if (string-match "\\`rg " hui-select-rgrep-command)
+			"-g \"!*~\" -g \"!#*\" -g \"!TAGS\""
+		      "--exclude=\".git\" --exclude=\"CVS\" --exclude=\"*~\" --exclude=\"#*\" --exclude=\"TAGS\"")
+		    delim pattern delim))))
+    (setq this-command `(grep ,grep-cmd))
+    (push this-command command-history)
+    (grep grep-cmd)))
 
 ;;;###autoload
 (defun hui-select-at-p (&optional pos)
@@ -554,8 +609,20 @@ Also, add language-specific syntax setups to aid in thing selection."
 (defun hui-select-get-thing ()
   "Return the thing at point that `hui-select-thing' would select."
   (let ((region-bounds (hui-select-get-region-boundaries)))
-    (when region-bounds
-      (buffer-substring-no-properties (car region-bounds) (cdr region-bounds)))))
+    (if (not region-bounds)
+	(when (eq hui-select-previous 'punctuation)
+	  (setq region-bounds
+		(or (hui-select-brace-def-or-declaration (point))
+		    (hui-select-indent-def (point))
+		    (progn (setq hui-select-previous 'word)
+			   (save-excursion
+			     (goto-char (point))
+			     (forward-word 1)
+			     (let ((end (point)))
+			       (forward-word -1)
+			       (cons (point) end)))))))
+      (when region-bounds
+	(buffer-substring-no-properties (car region-bounds) (cdr region-bounds))))))
 
 (defun hui-select-scan-sexps (from count)
   "Scan FROM point across COUNT sexpressions."
@@ -868,11 +935,12 @@ If an error occurs during syntax scanning, return nil."
 
 (defun hui-select-at-delimited-thing-p ()
   "Return non-nil if point is at a delimited thing, else nil.
+Ignore any match if on an Emacs button and instead return nil.
+
 A delimited thing is a markup pair, list, array/vector, set,
 comment or string.  The non-nil value returned is the function to
-call to select that syntactic unit.
-
-Ignore any match if on an Emacs button and instead return nil."
+call to select that syntactic unit, if any.  The global `hkey-value'
+is set to this value."
   (unless (button-at (point))
     (setq hkey-value (hui-select-delimited-thing-call #'hui-select-at-p))
     (cond ((eq hkey-value 'hui-select-punctuation)
@@ -1039,9 +1107,9 @@ Return the updated cons cell."
     (setcdr hui-select-old-region nil))
   (if (and (not (memq hui-select-previous '(buffer markup-pair)))
 	   (integerp beginning) (integerp end)
-	   (= beginning (point-min)) (= end (point-max)))
-      ;; If we selected the whole buffer and not matching a markup-pair,
-      ;; make sure that 'thing' type is 'buffer'.
+	   (= beginning 1) (= end (1+ (buffer-size))))
+      ;; If we selected the whole widened buffer and not matching a
+      ;; markup-pair, make sure that 'thing' type is 'buffer'.
       nil
     hui-select-region))
 

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:     24-Jun-25 at 16:38:34 by Mats Lidell
+;; Last-Mod:      1-Jan-26 at 18:18:24 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -115,7 +115,7 @@
 
 (defun action-key-error ()
   "If in Org mode and Hyperbole shares {M-RET}, run `org-meta-return'.
-In other context signal an error."
+In any other context, signal an error."
   (if (and (funcall hsys-org-mode-function)
 	   (hsys-org-meta-return-shared-p))
       (hact 'hsys-org-meta-return)
@@ -123,41 +123,41 @@ In other context signal an error."
 
 (defun assist-key-error ()
   "If in Org mode and Hyperbole shares {M-RET}, run `org-meta-return'.
-In other context, signal an error."
+In any other context, signal an error."
   (if (and (funcall hsys-org-mode-function)
 	   (hsys-org-meta-return-shared-p))
       (hact 'hsys-org-meta-return)
     (hypb:error "(Hyperbole Assist Key): No action defined for this context; try another location")))
 
 (defcustom action-key-default-function #'action-key-error
-  "*Function run by the Action Key in an unspecified context.
+  "Function run by the Action Key in an unspecified context.
 Set it to `hyperbole' if you want it to display the Hyperbole minibuffer menu."
   :type 'function
   :group 'hyperbole-keys)
 
 (defcustom assist-key-default-function #'assist-key-error
-  "*Function run by the Assist Key in an unspecified context.
+  "Function run by the Assist Key in an unspecified context.
 Set it to `hkey-summarize' if you want it to display a summary of
 Smart Key behavior."
   :type 'function
   :group 'hyperbole-keys)
 
 (defcustom action-key-modeline-buffer-id-function #'dired-jump
-  "*Function to call for Action Key clicks on the buf id portion of a modeline.
+  "Function to call for Action Key clicks on the buf id portion of a modeline.
 Its default value is `dired-jump'; set it to `smart-treemacs-modeline'
 to use the Treemacs file manager package instead."
   :type 'function
   :group 'hyperbole-keys)
 
 (defcustom action-key-eol-function #'smart-scroll-up
-  "*Function run by the Action Key at the end of a line.
+  "Function run by the Action Key at the end of a line.
 Its default value is `smart-scroll-up'.  To disable it, set it to
 #\\='ignore."
   :type 'function
   :group 'hyperbole-keys)
 
 (defcustom assist-key-eol-function #'smart-scroll-down
-  "*Function run by the Assist Key at the end of a line.
+  "Function run by the Assist Key at the end of a line.
 Its default value is `smart-scroll-down'.  To disable it, set it to
 #\\='ignore."
   :type 'function
@@ -230,6 +230,10 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 ;;; ************************************************************************
 ;;; Hyperbole context-sensitive keys dispatch table
 ;;; ************************************************************************
+
+(defvar hkey-at-hbut nil
+  "Non-nil communicates between Smart Key predicates that point is at an hbut.
+The button's attributes are stored in the symbol, `hbut:current'.")
 
 (defvar hkey-value nil
   "Communicates a value between a Smart Key predicate and its actions.")
@@ -338,8 +342,13 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;; Select or select-and-kill a markup pair (e.g. hmtl tags), list,
     ;; array/vector, set, function, comment or string that begins or
     ;; ends at point.  For markup pairs, point must be at the first
-    ;; character of the opening or closing tag.
-    ((hui-select-at-delimited-thing-p)
+    ;; character of the opening or closing tag.  Ignore delimiters in
+    ;; the middle of a Hyperbole button.
+    ((and (if (setq hkey-at-hbut (hbut:at-p))
+	      (or (eq (point) (hattr:get 'hbut:current 'lbl-end))
+		  (eq (point) (hattr:get 'hbut:current 'name-end)))
+	    t)
+	  (hui-select-at-delimited-thing-p))
      . ((hui-select-thing) . (progn (hui-select-thing)
 				    (hmouse-kill-region))))
     ;;
@@ -347,13 +356,18 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;; sexpression, mark it for editing or kill it (assist key).  This
     ;; only handles the special case where point is just after the
     ;; closing delimiter and not at an end-of-line, so this may be
-    ;; removed someday.
-    ((hui-select-at-delimited-sexp-p)
+    ;; removed someday.  Ignore delimiters in the middle of a
+    ;; Hyperbole button.
+    ((and (if hkey-at-hbut
+	      (or (eq (point) (hattr:get 'hbut:current 'lbl-end))
+		  (eq (point) (hattr:get 'hbut:current 'name-end)))
+	    t)
+	  (hui-select-at-delimited-sexp-p))
      . ((hui-select-mark-delimited-sexp)
 	. (progn (hui-select-mark-delimited-sexp) (hmouse-kill-region))))
     ;;
     ;; If on a Hyperbole button, perform action or give help.
-    ((hbut:at-p)
+    (hkey-at-hbut
      . ((hui:hbut-act 'hbut:current) . (hui:hbut-help 'hbut:current)))
     ;;
     ;; This potentially displays a Smart Menu.
@@ -441,6 +455,22 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ((eq major-mode 'pages-directory-mode)
      . ((pages-directory-goto) . (pages-directory-goto)))
     ;;
+    ;; If a variable holding an in-memory Hyperbole button object, e.g. hbut:current:
+    ;; Action Key - Jump to variable definition
+    ;; Assist Key - Display button attributes of any Hyperbole button symbol at point
+    ((and (setq hkey-value (smart-prog-at-tag-p))
+	  (hbut:is-p (intern-soft hkey-value)))
+     . ((ignore-errors (smart-prog-tag hkey-value)) .
+	(hbut:report (intern-soft hkey-value))))
+    ;;
+    ;; Handle programming language tag definition finding via xref.
+    ;; For most programming languages use xref which supports various
+    ;; Language Servers
+    ((and (setq hkey-value (smart-prog-at-tag-p))
+	  (smart-tags-find-p hkey-value))
+     . ((ignore-errors (smart-prog-tag hkey-value)) .
+	(ignore-errors (smart-prog-tag hkey-value))))
+    ;;
     ;; Python files - ensure this comes before Imenu for more advanced
     ;; definition lookups
     ((and (or (and (derived-mode-p 'python-mode 'python-ts-mode) (hypb:buffer-file-name))
@@ -471,7 +501,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
 		 (or (setq hkey-value (smart-lisp-at-load-expression-p))
 		     (smart-lisp-at-tag-p)))
 	       ;; Tightly limit Lisp matches in change-log-mode but
-	       ;; only call this if hkey-value is true since
+	       ;; call this only if hkey-value is true since
 	       ;; otherwise, already know there is no tag at point.
 	       (when hkey-value
 	         (smart-lisp-at-change-log-tag-p))))
@@ -578,8 +608,7 @@ Its default value is `smart-scroll-down'.  To disable it, set it to
     ;;
     ;; Any other programming modes not specially supported
     ;; Use xref which supports various Language Servers
-    ((setq hkey-value (smart-prog-at-tag-p))
-     . ((smart-prog-tag hkey-value) . (smart-prog-tag hkey-value))))
+    )
   "Alist of predicates and form-conses for the Action and Assist Keyboard Keys.
 Each element is: (PREDICATE-FORM . (ACTION-KEY-FORM . ASSIST-KEY-FORM)).
 When the Action or Assist Key is pressed, the first or second form,
@@ -1837,7 +1866,7 @@ When the Action Key is pressed and `hsys-org-enable-smart-keys' is t:
   3. On an Org agenda view item, jump to the item for editing.
 
 When the Action Key is pressed and `hsys-org-enable-smart-keys' is
-either `t' or `:buttons':
+either t or `:buttons':
 
   4. Within a radio or internal target or a link to it, jump between
      the target and the first link to it, allowing two-way navigation.

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    16-Mar-90 at 03:38:48
-;; Last-Mod:     26-Jan-25 at 18:30:30 by Bob Weiner
+;; Last-Mod:     30-Dec-25 at 14:42:14 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -136,12 +136,12 @@ in the hash table.  Use `hash-key-p' instead for that function."
 
 (defun hash-make (initializer &optional reverse)
   "Create and return a hash table from INITIALIZER.
-INITIALIZER may be an alist with elements of the form (<value>. <key>)
+INITIALIZER may be an alist with elements of the form (<value> . <key>)
 from which the hash table is built (<key> must be a string).
 Alternatively, it may be a non-negative integer which is used as the
 minimum size of a new, empty hash table.  Optional non-nil second
 argument REVERSE means INITIALIZER has elements of form
-(<key> . <value>).
+\(<key> . <value>).
 
 The resultant value associated with a <key> is the <value> from the last
 entry in INITIALIZER with that <key>.  See `hash-make-prepend' to
@@ -151,7 +151,7 @@ merge all the values for a given <key> instead."
 	     (make-hash-table :size initializer)
 	   (error "(hash-make): Initializer must be >= 0, not `%s'"
 		  initializer)))
-	((numberp initializer) 
+	((numberp initializer)
 	 (error "(hash-make): Initializer must be a positive integer, not `%f'"
 		initializer))
 	(t (let* ((size (length initializer))
@@ -197,11 +197,10 @@ in reverse order of occurrence (they are prepended to the list).  See
     hash-table))
 
 (defun hash-map (func hash-table)
-  "Return list result of calling FUNC over each (<value> . <key>) in HASH-TABLE.
-<key> is a symbol.
+  "Return the list from calling FUNC on (<value> . <string-key>) in HASH-TABLE.
 
-If FUNC is in \\='(cdr key second symbol-name), then return all <key>s
-as strings.  If FUNC is in \\='(car value first symbol-value), then
+If FUNC is in \\='(cdr key second `symbol-name'), then return all <key>s
+as strings.  If FUNC is in \\='(car value first `symbol-value'), then
 return all <value>s."
   (unless (hash-table-p hash-table)
     (error "(hash-map): Invalid hash-table: `%s'" hash-table))
@@ -213,10 +212,9 @@ return all <value>s."
 	     (maphash
 	      (lambda (key value)
 		(push (funcall func (cons value (symbol-name key)))
-		      key)
-		result)
+		      result))
 	      hash-table)
-	     result))))
+	     (nreverse result)))))
 
 (defun hash-merge (&rest hash-tables)
   "Merge any number of HASH-TABLES.  Return resultant hash table.
@@ -307,7 +305,7 @@ This is suitable for use as a value of `hash-merge-values-function'."
 If KEY is not found in HASH-TABLE, it is added with a value of (list VALUE).
 
 Trigger an error if an existing VALUE is not a list.  Do nothing and return nil
-if KEY or HASH-TABLE are of the wrong type." 
+if KEY or HASH-TABLE are of the wrong type."
   (when (and (hash-table-p hash-table)
 	     (stringp key))
       (let* ((key-sym (intern key))
@@ -351,7 +349,7 @@ An error will occur if KEY is not found in HASH-TABLE."
     (let ((key-sym (intern-soft key)))
 	(if (gethash key-sym hash-table)
 	    (puthash key-sym value hash-table)
-	  (error "(hash-replace): `%s' key not found in hash table." key)))))
+	  (error "(hash-replace): `%s' key not found in hash table" key)))))
 
 (defun hash-size (hash-table)
   "Return size of HASH-TABLE which is >= number of elements in the table.
@@ -383,3 +381,4 @@ Optional COUNT conses number of duplicates on to front of list before return."
   (if count (cons count sorted-strings) sorted-strings))
 
 (provide 'hasht)
+;;; hasht.el ends here

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    21-Aug-92
-;; Last-Mod:      6-Jul-25 at 23:45:41 by Bob Weiner
+;; Last-Mod:     31-Jan-26 at 22:44:11 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -14,27 +14,27 @@
 
 ;;; Commentary:
 ;;
-;;   Can't use read-only buttons here because then outline-mode
+;;   Can't use read-only buttons here because then `outline-mode'
 ;;   becomes unusable.
 
 ;;; Code:
 
-;; (when noninteractive
-;;   ;; Don't load this library
-;;   (with-current-buffer " *load*"
-;;     (goto-char (point-max))))
-
-;;; ************************************************************************
-;;; Other required Elisp libraries
-;;; ************************************************************************
-
+(eval-when-compile
+  (require 'subr-x))                    ; For when-let* in Emacs 28.2
 (require 'hload-path)
-(require 'custom) ;; For defface.
-(require 'hbut)
 
-;; Comment out next line out because this triggers loads of kview
-;; which loads klink which contains a defib whose priority should be set
-;; by loading klink from hibtypes.el instead.
+;;; ************************************************************************
+;;; Public declarations
+;;; ************************************************************************
+
+(declare-function hattr:get "hbut")
+(declare-function hbut:is-p "hbut")
+(declare-function ibut:map "hbut")
+(declare-function ebut:map "hbut")
+
+;; Comment out next line out because this loads kview which loads
+;; klink which contains a defib whose priority should be set by
+;; loading klink from hibtypes.el instead.
 ;; (eval-when-compile (require 'hyrolo))
 
 ;;; ************************************************************************
@@ -42,24 +42,24 @@
 ;;; ************************************************************************
 
 (defcustom hproperty:but-highlight-flag t
-  "*Non-nil means highlight named Hyperbole buttons with `hproperty:but-face'."
+  "Non-nil means highlight named Hyperbole buttons with `hproperty:but-face'."
   :type 'boolean
   :group 'hyperbole-buttons)
 
 (defcustom hproperty:but-emphasize-flag nil
-  "*Non-nil means emphasize selectability of Hyperbole button labels.
+  "Non-nil means emphasize selectability of Hyperbole button labels.
 This is shown when hovering over the button with the mouse."
   :type 'boolean
   :group 'hyperbole-buttons)
 
 (defcustom hproperty:but-flash-time 1000
-  "*Emacs button flash delay."
+  "Emacs button flash delay."
   :type '(integer :match (lambda (_widget value) (and (integerp value) (> value 0))))
   :group 'hyperbole-buttons)
 (make-obsolete-variable 'hproperty:but-flash-time "Use `hproperty:but-flash-time-seconds' instead" "8.0")
 
 (defcustom hproperty:but-flash-time-seconds 0.05
-  "*Emacs button flash delay."
+  "Emacs button flash delay."
   :type 'float
   :group 'hyperbole-buttons)
 
@@ -245,6 +245,12 @@ moves over it."
 See `hproperty:but-get'."
   (overlay-end hproperty-but))
 
+(defun hproperty:but-face-p (pos face-list)
+  "At POS, return non-nil if find any face in FACE-LIST, else nil."
+  (save-excursion
+    (goto-char pos)
+    (seq-intersection (face-at-point nil t) face-list #'eq)))
+
 (defun hproperty:but-flash ()
   "Flash a Hyperbole button at or near point to indicate selection."
   (interactive)
@@ -283,7 +289,8 @@ with that PROPERTY and VALUE."
 (defun hproperty:but-get-all-in-region (start end &optional property value)
   "Return a list of all buttons in the current buffer between START and END.
 If optional PROPERTY and non-nil VALUE are given, return only matching
-buttons.
+buttons.  No ordering is specified; the caller must sort the buttons
+if an order is needed.
 
 Use `hproperty:but-get-first-in-region' instead if you want only the first
 matching button."
@@ -292,14 +299,13 @@ matching button."
 		    (list hproperty:but-face
 			  hproperty:ibut-face
 			  hproperty:flash-face))))
-    (nreverse
-     (delq nil
-	   (mapcar (lambda (overlay)
-		     (and (bufferp (overlay-buffer overlay))
-			  (memq (overlay-get overlay (or property 'face))
-				val-list)
-			  overlay))
-		   (overlays-in start end))))))
+    (delq nil
+	  (mapcar (lambda (overlay)
+		    (and (bufferp (overlay-buffer overlay))
+			 (memq (overlay-get overlay (or property 'face))
+			       val-list)
+			 overlay))
+		  (overlays-in start end)))))
 
 (defun hproperty:but-get-all-positions (start end &optional property value)
   "Return a list of all button start and end positions between START and END.
@@ -325,6 +331,7 @@ Return nil if none."
 	  (overlays-in start end))
     nil))
 
+(defalias 'hproperty:but-is-p 'hbut:is-p)
 (defun hproperty:but-move (hproperty-but start end &optional buffer)
   "Set the endpoints of HPROPERTY-BUT to START and END in optional BUFFER.
 If BUFFER is nil and HPROPERTY-BUT has no buffer, put it in the current buffer;

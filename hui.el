@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 21:42:03
-;; Last-Mod:     13-Aug-25 at 23:59:06 by Mats Lidell
+;; Last-Mod:     31-Dec-25 at 16:02:19 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -51,12 +51,12 @@
 ;;; ************************************************************************
 
 (defcustom hui:ebut-prompt-for-action nil
-  "*Non-nil prompts for a button-specific action on explicit button creation."
+  "Non-nil prompts for a button-specific action on explicit button creation."
   :type 'boolean
   :group 'hyperbole-buttons)
 
 (defcustom hui:hbut-delete-confirm-flag t
-  "*Non-nil means prompt before interactively deleting explicit buttons."
+  "Non-nil means prompt before interactively deleting explicit buttons."
   :type 'boolean
   :group 'hyperbole-buttons)
 
@@ -361,7 +361,8 @@ extracted from a region."
 	       (setcar thing-and-bounds (klink:absolute thing-and-bounds))
 	       (cons 'klink thing-and-bounds)))
 	    ((hui-select-at-delimited-thing-p)
-	     (when (setq thing-and-bounds (hui-select-get-region-boundaries))
+	     (when (setq hui-select-previous 'char ;; Reset to first syntactical unit
+			 thing-and-bounds (hui-select-get-region-boundaries))
 	       (list hui-select-previous
 		     (buffer-substring-no-properties
 		      (car thing-and-bounds) (cdr thing-and-bounds))
@@ -2061,8 +2062,12 @@ Buffer without File      link-to-buffer-tmp"
 				       (list 'link-to-gbut lbl-key))
 				      ((and hbut-sym lbl-key (eq (hattr:get hbut-sym 'categ) 'explicit))
 				       (list 'link-to-ebut lbl-key))
-				      ((and hbut-sym lbl-key)
-				       ;; On an implicit button, so link to it
+				      ((and hbut-sym lbl-key
+					    (not (eq (ibtype:def-symbol
+						      (hattr:get 'hbut:current 'categ))
+						     'hywiki-word)))
+				       ;; On an implicit button other than a non-existing
+				       ;; potential HyWikiWord, so link to it
 				       ;; (message "%S" (hattr:list hbut-sym))
 				       (list 'link-to-ibut lbl-key (or (hypb:buffer-file-name) (buffer-name))))
 				      ((and (require 'bookmark)

@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    28-Feb-21 at 22:52:00
-;; Last-Mod:      6-Jul-25 at 13:02:40 by Bob Weiner
+;; Last-Mod:     23-Nov-25 at 12:59:17 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -343,6 +343,32 @@
           (should (looking-at "\* Anchor")))
       (hy-delete-file-and-buffer file))))
 
+(ert-deftest hbut-pathname-html-anchor-test ()
+  "Pathname with HTML anchor."
+  (let ((file (make-temp-file "hypb" nil ".html" "\
+<a href=\"#idstr1\">link</a>
+<h2 id=\"idstr11\"> header</h2>
+<h2 id=\"idstr1\"> header</h2>
+<h2 id=\"idstr22\"> header</h2>
+<h2 id=\"idstr2\"> header</h2>
+")))
+    (unwind-protect
+        (progn
+          ;; Link to same file
+          (with-current-buffer (find-file file)
+            (goto-char 12)
+            (action-key)
+            (should (hattr:ibtype-is-p 'pathname))
+            (should (looking-at "id=\"idstr1\"")))
+          ;; Link from temp buff to file
+          (with-temp-buffer
+            (insert (format "<a href=\"%s#idstr2\">link</a>\n" file))
+            (goto-char 12)
+            (action-key)
+            (should (hattr:ibtype-is-p 'pathname))
+            (should (looking-at "id=\"idstr2\""))))
+      (hy-delete-file-and-buffer file))))
+
 (ert-deftest hbut-pathname-anchor-trailing-text ()
   "Pathname with anchor and trailing parenthesised text."
   (let ((file (make-temp-file "hypb" nil nil
@@ -558,6 +584,16 @@
                  (lambda (filename)
                    (setq was-called (should (string= "/bin/ls" filename))))))
         (action-key)
+        (should was-called))))
+  ;; Whitespace before quote
+  (with-temp-buffer
+    (insert " \"!/bin/ls\"")
+    (goto-char 3)
+    (let ((was-called nil))
+      (cl-letf (((symbol-function 'actypes::exec-shell-cmd)
+                 (lambda (filename)
+                   (setq was-called (should (string= "/bin/ls" filename))))))
+        (action-key)
         (should was-called)))))
 
 ;; exec-window-cmd
@@ -566,6 +602,16 @@
   (with-temp-buffer
     (insert "\"&/bin/ls\"")
     (goto-char 2)
+    (let ((was-called nil))
+      (cl-letf (((symbol-function 'actypes::exec-window-cmd)
+                 (lambda (filename)
+                   (setq was-called (should (string= "/bin/ls" filename))))))
+        (action-key)
+        (should was-called))))
+  ;; Whitespace before quote
+  (with-temp-buffer
+    (insert " \"&/bin/ls\"")
+    (goto-char 3)
     (let ((was-called nil))
       (cl-letf (((symbol-function 'actypes::exec-window-cmd)
                  (lambda (filename)
@@ -604,9 +650,8 @@ Regression: Looked up path name '-narrow'."
           (goto-char (point-min))
           (goto-char (1- (re-search-forward "-")))
           (should (string= (smart-lisp-at-tag-p) symbol-name))
-          (with-mock
-            (mock (smart-lisp-find-tag nil nil) => t)
-            (action-key)))
+          (action-key)
+	  (should (looking-at "(defun hmail:msg-narrow (")))
       (hy-delete-file-and-buffer el-file))))
 
 (ert-deftest hmouse-drv--hmouse-choose-link-and-referent-windows--two-windows-same-frame ()
@@ -672,7 +717,7 @@ The frame setup is mocked."
                  (lambda () (setq marker (1+ marker)))))
         (let ((err (should-error (hkey-actions) :type 'error)))
           (should (string-match-p
-                   (format "(Hyperbole): predicate %s improperly moved point from %s to %s" t 1 2)
+                   (format "(Hyperbole): predicate %s improperly moved point from %s to %s" t 2 4)
                    (cadr err))))))
 
     ;; Debug is called for action and assist.

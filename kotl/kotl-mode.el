@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    6/30/93
-;; Last-Mod:     20-Jun-25 at 20:08:20 by Bob Weiner
+;; Last-Mod:     19-Jan-26 at 22:34:04 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -39,7 +39,7 @@
 ;;; ************************************************************************
 
 (defcustom kotl-mode:indent-tabs-mode t
-  "*Non-nil means {\\[kotl-mode:tab-command]} may insert literal tab characters.
+  "Non-nil means {\\[kotl-mode:tab-command]} may insert literal tab characters.
 Tab characters are inserted rather than space characters when
 `kotl-mode:tab-flag' is non-nil.  Default value is t.  The value
 of this variable is local to each Koutline buffer."
@@ -47,7 +47,7 @@ of this variable is local to each Koutline buffer."
   :group 'hyperbole-koutliner)
 
 (defcustom kotl-mode:refill-flag nil
-  "*Non-nil means automatically refill cells during operations.
+  "Non-nil means automatically refill cells during operations.
 Operations are move, copy, promotion and demotion.  Default value
 is nil.  Cells with a `no-fill' attribute are never refilled
 during such operations, regardless of the value of this flag."
@@ -55,7 +55,7 @@ during such operations, regardless of the value of this flag."
   :group 'hyperbole-koutliner)
 
 (defcustom kotl-mode:shrink-region-flag nil
-  "*Non-nil means Koutliner commands automatically shrink the region.
+  "Non-nil means Koutliner commands automatically shrink the region.
 The region is shrinked within the visible bounds of a single cell
 before editing it.  The region then falls within the first
 visible cell that was part of the region or that followed it.
@@ -64,7 +64,7 @@ Default value is nil."
   :group 'hyperbole-koutliner)
 
 (defcustom kotl-mode:tab-flag nil
-  "*Non-nil means {\\[kotl-mode:tab-command]} inserts a literal tab character and {\\[kotl-mode:untab-command]} deletes backward.
+  "Non-nil means {\\[kotl-mode:tab-command]} inserts a literal tab character and {\\[kotl-mode:untab-command]} deletes backward.
 Nil means {\\[kotl-mode:tab-command]} demotes the current tree and
 {\\[kotl-mode:untab-command]} promotes the tree.  The default is nil."
   :type 'boolean
@@ -240,7 +240,7 @@ It provides the following keys:
     ;; We have been converting a buffer from a foreign format to a koutline.
     ;; Now that it is converted, ensure that `kotl-previous-mode' is set to
     ;; koutline.
-    (hyperb:with-suppressed-warnings ((free-vars kotl-previous-mode))
+    (with-suppressed-warnings ((free-vars kotl-previous-mode))
       (setq kotl-previous-mode 'kotl-mode))
     (run-mode-hooks 'kotl-mode-hook)
     (unless (string-prefix-p hyrolo-display-buffer (buffer-name))
@@ -446,14 +446,17 @@ With optional prefix arg DELETE-FLAG, delete region."
 Return number of characters deleted.
 Optional KILL-FLAG non-nil means save in kill ring instead of deleting.
 Do not delete across cell boundaries."
-  (interactive "*P")
-  (when (called-interactively-p 'interactive)
-    (when current-prefix-arg
-      (setq kill-flag t
-	    arg (prefix-numeric-value current-prefix-arg))))
-  (unless arg
-    (setq arg 1))
-  (kotl-mode:delete-char (- arg) kill-flag))
+  (interactive "*p\nP")
+  (cond ((and (use-region-p)
+	      delete-active-region
+	      (= arg 1))
+         ;; If a region is active, kill or delete it.
+	 (if (or kill-flag
+                 (eq delete-active-region 'kill))
+	     (kotl-mode:kill-region (region-beginning) (region-end))
+	   (kotl-mode:delete-region (region-beginning) (region-end))))
+        (t
+         (kotl-mode:delete-char (- arg) kill-flag))))
 
 (defun kotl-mode:delete-blank-lines ()
   "On blank line in a cell, delete all surrounding blank lines, leaving just one.
@@ -478,69 +481,95 @@ whitespace at the end of the cell."
       (delete-region (max start (point)) end)))
   (kotl-mode:to-valid-position))
 
+(defvar kotl-mode:delete-char-acc nil
+  "Accumulate deleted chars to populate `kill-ring'.")
+
+(defun kotl-mode:delete-char-acc (arg kill-flag)
+  "Delete one character and accumulate in the kill ring.
+Deletes (forward if ARG > 0, backward if ARG < 0).
+First call creates a new kill ring entry, subsequent calls appends.
+With KILL-FLAG nil just call `delete-char'."
+  (if (not kill-flag)
+      (delete-char arg)
+    (let ((char (char-to-string (if (< arg 0)
+                                    (char-before)
+                                  (char-after)))))
+      (delete-char arg)
+      (if kotl-mode:delete-char-acc
+          (kill-append char (< arg 0))
+        (kill-new char)
+        (setq kotl-mode:delete-char-acc t)))))
+
 (defun kotl-mode:delete-char (arg &optional kill-flag)
   "Delete up to prefix ARG characters following point.
 Return number of characters deleted.
 Optional KILL-FLAG non-nil means save in kill ring instead of deleting.
 Do not delete across cell boundaries."
-  (interactive "*P")
-  (when (called-interactively-p 'interactive)
-    (when current-prefix-arg
-      (setq kill-flag t
-	    arg (prefix-numeric-value current-prefix-arg))))
-  (unless arg
-    (setq arg 1))
-
-  (if (not (and (boundp 'kotl-kview) (kview:is-p kotl-kview)))
-      ;; Support use within Org tables outside of the Koutliner
-      (delete-char arg kill-flag)
-    (let ((del-count 0)
-	  (indent (kcell-view:indent))
-	  count start end)
-      (cond ((> arg 0)
-	     (if (kotl-mode:eocp)
-		 (error "(kotl-mode:delete-char): End of cell")
-	       (setq end (kcell-view:end)
-		     arg (min arg (- end (point))))
-	       (while (and (> arg 0) (not (kotl-mode:eocp)))
-		 (if (kotl-mode:eolp)
-		     (if (not (eq ?\  (char-syntax (following-char))))
-			 (setq arg 0
-			       del-count (1- del-count))
-		       (delete-char 1 kill-flag)
-		       ;; There may be non-whitespace characters in the
-		       ;; indent area.  Don't delete them.
-		       (setq count indent)
-		       (while (and (> count 0)
-				   (eq ?\ (char-syntax (following-char))))
-			 (delete-char 1)
-			 (setq count (1- count))))
-		   (delete-char 1 kill-flag))
-		 (setq arg (1- arg)
-		       del-count (1+ del-count)))))
-	    ((< arg 0)
-	     (if (kotl-mode:bocp)
-		 (error "(kotl-mode:delete-char): Beginning of cell")
-	       (setq start (kcell-view:start)
-		     arg (max arg (- start (point))))
-	       (while (and (< arg 0) (not (kotl-mode:bocp)))
-		 (if (kotl-mode:bolp)
-		     (if (not (eq ?\  (char-syntax (preceding-char))))
-			 (setq arg 0
-			       del-count (1- del-count))
-		       ;; There may be non-whitespace characters in the
-		       ;; indent area.  Don't delete them.
-		       (setq count indent)
-		       (while (and (> count 0)
-				   (eq ?\ (char-syntax (preceding-char))))
-			 (delete-char -1)
-			 (setq count (1- count)))
-		       (if (zerop count)
-			   (delete-char -1 kill-flag)))
-		   (delete-char -1 kill-flag))
-		 (setq arg (1+ arg)
-		       del-count (1+ del-count))))))
-      del-count)))
+  (interactive "*p\nP")
+  (unless (integerp arg)
+    (signal 'wrong-type-argument (list 'integerp arg)))
+  (cond ((and (use-region-p)
+	      delete-active-region
+	      (= arg 1))
+	 ;; If a region is active, kill or delete it.
+	 (if (or kill-flag
+                 (eq delete-active-region 'kill))
+	     (kotl-mode:kill-region (region-beginning) (region-end))
+	   (kotl-mode:delete-region (region-beginning) (region-end))))
+        (t
+         (if (not (and (boundp 'kotl-kview) (kview:is-p kotl-kview)))
+             ;; Support use within Org tables outside of the Koutliner
+             (delete-char arg kill-flag)
+           (let ((del-count 0)
+	         (indent (kcell-view:indent))
+	         count start end
+                 kotl-mode:delete-char-acc)
+             (cl-flet ((delete-char (arg &optional kill-flag)
+                         (kotl-mode:delete-char-acc arg kill-flag)))
+               (cond ((> arg 0)
+	              (if (kotl-mode:eocp)
+		          (error "(kotl-mode:delete-char): End of cell")
+	                (setq end (kcell-view:end)
+		              arg (min arg (- end (point))))
+	                (while (and (> arg 0) (not (kotl-mode:eocp)))
+		          (if (kotl-mode:eolp)
+		              (if (not (eq ?\  (char-syntax (following-char))))
+			          (setq arg 0
+			                del-count (1- del-count))
+		                (delete-char 1 kill-flag)
+		                ;; There may be non-whitespace characters in the
+		                ;; indent area.  Don't delete them.
+		                (setq count indent)
+		                (while (and (> count 0)
+				            (eq ?\ (char-syntax (following-char))))
+			          (delete-char 1)
+			          (setq count (1- count))))
+		            (delete-char 1 kill-flag))
+		          (setq arg (1- arg)
+		                del-count (1+ del-count)))))
+	             ((< arg 0)
+	              (if (kotl-mode:bocp)
+		          (error "(kotl-mode:delete-char): Beginning of cell")
+	                (setq start (kcell-view:start)
+		              arg (max arg (- start (point))))
+	                (while (and (< arg 0) (not (kotl-mode:bocp)))
+		          (if (kotl-mode:bolp)
+		              (if (not (eq ?\  (char-syntax (preceding-char))))
+			          (setq arg 0
+			                del-count (1- del-count))
+		                ;; There may be non-whitespace characters in the
+		                ;; indent area.  Don't delete them.
+		                (setq count indent)
+		                (while (and (> count 0)
+				            (eq ?\ (char-syntax (preceding-char))))
+			          (delete-char -1)
+			          (setq count (1- count)))
+		                (if (zerop count)
+			            (delete-char -1 kill-flag)))
+		            (delete-char -1 kill-flag))
+		          (setq arg (1+ arg)
+		                del-count (1+ del-count)))))))
+             del-count)))))
 
 (defun kotl-mode:delete-horizontal-space ()
   "Delete all spaces and tabs around point."
@@ -796,6 +825,13 @@ If a completion is active, this aborts the completion only."
 	       (message "Saved selectable thing: %s" thing))
 	      ((mark t)
 	       (indicate-copied-region)))))))
+
+(defun kotl-mode:delete-region (start end)
+  "Delete region between START and END within a single kcell.
+Delegates to `kotl-mode:kill-region' but does not store killed text in
+`kill-ring'."
+  (let (kill-ring kill-ring-yank-pointer)
+    (kotl-mode:kill-region start end)))
 
 (defun kotl-mode:kill-or-copy-region (start end copy-flag &optional kill-str)
   (when (and start end)
@@ -2974,7 +3010,7 @@ Prefix ARG selects the cells whose attributes are removed or set:
   "Split the current cell into two cells and move to the new cell.
 The cell contents after point become part of the newly created cell.
 The default is to create the new cell as a sibling of the current cell.
-With optional universal ARG, {C-u}, the new cell is added as the child of
+With optional universal ARG, {\\`C-u'}, the new cell is added as the child of
 the current cell.  Non-read-only attributes from the current cell are
 replicated in the new cell."
   (interactive "*P")
@@ -3117,7 +3153,7 @@ to a specified buffer, otherwise, copy the active region.
 Use 0 to copy the whole outline buffer.  Prompt for whether or not
 to expand and include any hidden/invisible text within the copied text."
   (interactive)
-  (call-interactively 
+  (call-interactively
    (if (use-region-p)
        #'kotl-mode:copy-region-to-buffer
      #'kotl-mode:copy-tree-to-buffer)))
@@ -3409,7 +3445,7 @@ because, in this case the deletion might narrow the column."
    (lambda () (org-force-self-insert n))))
 
 (defun kotl-mode:org-self-insert-command (n)
-  "Like `self-insert-command’, use overwrite-mode for whitespace in tables.
+  "Like `self-insert-command’, use `overwrite-mode' for whitespace in tables.
 If the cursor is in a table looking at whitespace, the whitespace is
 overwritten, and the table is not marked as requiring realignment."
   (interactive "p")
@@ -3433,7 +3469,7 @@ conflicting binding to this key outside orgtbl-mode."
    (lambda () (orgtbl-create-or-convert-from-region arg))))
 
 (defun kotl-mode:orgtbl-self-insert-command (n)
-  "Like `self-insert-command', use overwrite-mode for whitespace in tables.
+  "Like `self-insert-command', use `overwrite-mode' for whitespace in tables.
 If the cursor is in a table looking at whitespace, the whitespace is
 overwritten, and the table is not marked as requiring realignment."
   (interactive "p")

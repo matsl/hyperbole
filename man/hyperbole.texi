@@ -7,7 +7,7 @@
 @c Author:       Bob Weiner
 @c
 @c Orig-Date:     6-Nov-91 at 11:18:03
-@c Last-Mod:     26-Jun-25 at 18:26:06 by Mats Lidell
+@c Last-Mod:      7-Feb-26 at 10:10:33 by Bob Weiner
 
 @c %**start of header (This is for running Texinfo on a region.)
 @setfilename hyperbole.info
@@ -30,8 +30,8 @@
 @set txicodequoteundirected
 @set txicodequotebacktick
 
-@set UPDATED June, 2025
-@set UPDATED-MONTH June 2025
+@set UPDATED February 7, 2026
+@set UPDATED-MONTH February 2026
 @set EDITION 9.0.2pre
 @set VERSION 9.0.2pre
 
@@ -67,7 +67,7 @@
 This manual is for GNU Hyperbole
 (Edition @value{EDITION}, Published @value{UPDATED}).
 
-Copyright @copyright{} 1989-2025  Free Software Foundation, Inc.
+Copyright @copyright{} 1989-2026  Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -158,7 +158,7 @@ Texinfo markup language.
 <CENTER><H3><A HREF="mailto:rsw@@gnu.org">Say thanks or send a testimonial if you like Hyperbole.</A></H3></CENTER>
 
 
-<P>Copyright &copy; 1989-2025  Free Software Foundation, Inc.</P>
+<P>Copyright &copy; 1989-2026  Free Software Foundation, Inc.</P>
 
 <P>GNU Hyperbole is available for use, modification, and distribution under
 the terms of the GNU General Public License (GPL) Version 3 or later,
@@ -171,7 +171,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</P>
 
 <PRE>
 Edition 9.0.2pre
-Printed June 26, 2025.
+Printed February 7, 2026.
 
   Published by the Free Software Foundation, Inc.
   Author:    Bob Weiner
@@ -199,7 +199,7 @@ Printed June 26, 2025.
 
 @sp 2
 @noindent
-Copyright @copyright{} 1989-2025  Free Software Foundation, Inc.
+Copyright @copyright{} 1989-2026  Free Software Foundation, Inc.
 
 GNU Hyperbole is available for use, modification, and distribution
 under the terms of the GNU General Public License (GPL) Version 3 or
@@ -213,7 +213,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 @example
 Edition 9.0.2pre
-June 26, 2025 @c AUTO-REPLACE-ON-SAVE
+February 7, 2026 @c AUTO-REPLACE-ON-SAVE
 
 
   Published by the Free Software Foundation, Inc.
@@ -2527,7 +2527,7 @@ minibuffer or the other window.
 @cindex hywiki existing word
 @anchor{hywiki-existing-word}
 @item hywiki-existing-word
-When on a HyWiki word with an existing page, display its page and
+When on a HyWikiWord with an existing page, display its page and
 optional section.
 
 @findex ibtypes action
@@ -3104,7 +3104,7 @@ source reference line again.
 @cindex hywiki word
 @anchor{hywiki-word}
 @item hywiki-word
-When on a HyWiki word, display its page and optional section.  If the
+When on a HyWikiWord, display its page and optional section.  If the
 associated HyWiki page does not exist, create it automatically.
 
 @findex ibtypes hynote-file
@@ -4168,13 +4168,13 @@ menubar.  Here is the Hyperbole Menubar Menu and its Find submenu.
 
 @float Image,image:Hyperbole Menu
 @caption{Hyperbole Menubar Menu}
-@image{im/menu-hyperbole,,5in,Hyperbole Menu}
+@image{im/menu-hyperbole,5in,,Hyperbole Menu}
 @end float
 @page
 
 @float Image,image:Find Menu
 @caption{Find Menubar Menu}
-@image{im/menu-find,,5in,Find Menu}
+@image{im/menu-find,5in,,Find Menu}
 @end float
 @sp 1
 
@@ -4365,7 +4365,7 @@ Below are each of the commands on the Find menu.
 @cindex menu item, OccurHere
 @cindex menu item, RemoveLines
 @cindex menu item, SaveLines
-@vindex hypb:rgrep-command
+@vindex hui-select-rgrep-command
 @vindex locate-command
 @itemize @bullet
 @item
@@ -4373,7 +4373,7 @@ GrepFiles -        Show numbered line matches for a regexp in all
                    non-backup, non-auto-save files below the current directory.
                    If in an Emacs Lisp mode buffer and no PREFIX-ARG
                    is given, limit search to only .el and .el.gz
-                   files.  Set @code{hypb:rgrep-command} to change the
+                   files.  Set @code{hui-select-rgrep-command} to change the
                    grep command or options.
 
 @item
@@ -4500,11 +4500,18 @@ highlighting of HyWikiWords in Org files within
 h p} you can publish any updated part of your HyWiki to an HTML
 directory for export to the web.
 
+@float Image,image:HyWiki Page
+@caption{HyWiki Page}
+@image{im/hywiki-page,3.5in,,HyWiki Page}
+@end float
+@sp 1
+
 @menu
 * HyWikiWords::
 * Publish HyWiki::
 * HyWiki Menu::
 @end menu
+
 
 @node HyWikiWords, Publish HyWiki, HyWiki, HyWiki
 @section HyWikiWords
@@ -4567,17 +4574,6 @@ links are highlighted regardless of whether associated sections exist
 or not.  When activating a link with a section reference, you will get
 an error if the section does not exist.
 
-@cindex HyWikiWord, outside the wiki
-@cindex hywiki-mode
-@cindex toggle hywiki-mode
-@findex hywiki-mode
-@kindex C-h h h t
-HyWikiWords can also be highlighted and treated as hyperlinks in
-non-special text and programming buffers outside of the
-@code{hywiki-directory} when the global minor mode, @code{hywiki-mode}
-is enabled.  Toggle it via @bkbd{C-h h h t} or @bkbd{M-x hywiki-mode
-@key{RET}}.
-
 @vindex hywiki-org-link-type-required
 @vindex hsys-org-enable-smart-keys
 @cindex override Org M-RET
@@ -4595,15 +4591,54 @@ whose page has not yet been created, set
 Action Key does the right thing in this context.
 
 @cindex HyWikiWord contexts
+@cindex HyWikiWord, outside the wiki
+@cindex hywiki-mode
+@findex hywiki-mode
+@kindex C-h h h m
 Once Hyperbole has been loaded and activated, HyWikiWords (with or
-without delimiters) are automatically highlighted and active in
-the following contexts:
+without delimiters) are automatically highlighted and active based
+on the setting of @code{hywiki-mode}.  Set it with @bkbd{C-h h h m}
+ModeToggle into one of these three states:
 
-@itemize @bullet
-@item HyWiki page buffers;
-@item non-special text buffers, after `hywiki-mode' is enabled;
-@item comments of programming buffers, after `hywiki-mode' is enabled.
-@end itemize
+@table @kbd
+@item All-Editable-Buffers
+This is the default setting.  Highlight HyWikiWord references within
+HyWiki page buffers only.  The @code{hywiki-mode} variable is set to
+@samp{:pages}.
+
+@vindex hywiki-exclude-major-modes
+@item HyWiki-Pages-Only
+Highlight HyWikiWord references within all editable buffers except
+those with major modes in @code{hywiki-exclude-major-modes}.  The
+@code{hywiki-mode} variable is set to @samp{:all}.
+
+@item Nowhere
+Disable highlighting HyWikiWord references everywhere.  The
+@code{hywiki-mode} variable is set to @samp{nil}.
+@end table
+
+@cindex toggle hywiki-mode
+@noindent
+@{M-x hywiki-mode @key{RET}@} will also toggle between disabling
+HyWikiWords everywhere and enabling them in all editable buffers.
+
+---------
+  "The default, non-nil value treats HyWikiWords in HyWiki pages as hyperlinks.
+A nil value disables HyWikiWord hyperlink buttons in both HyWiki
+pages and all other buffers (since it also disables `hywiki-mode').
+
+Outside of HyWiki pages, the global minor mode `hywiki-mode' must be
+manually enabled for auto-HyWikiWord highlighting. Interactively,
+@bkbd{C-h h h m a} does this; programmatically, use `(hywiki-mode :all)'
+to enable it.
+
+Use `hywiki-active-in-current-buffer-p' to determine if HyWikiWord
+hyperlinks are currently active in a buffer or not.
+
+Regardless of this flag, HyWikiWords in Org links and targets are not
+highlighted nor treated as hyperlinks; they are handled normally by Org."
+--------
+
 
 @cindex HyWikiWord highlighting
 As HyWikiWords are typed, highlighting occurs after a trailing
@@ -4612,12 +4647,6 @@ is surrounded by a matching pair of characters such as curly braces or
 single square brackets.  Since Org links use double square brackets
 and Org targets use double or triple angle brackets, HyWikiWords
 within these delimiters are ignored once the brackets are in place.
-
-@vindex hywiki-word-highlight-flag
-The custom setting, @code{hywiki-word-highlight-flag} (default =
-@samp{t}), means HyWikiWords will be auto-highlighted within HyWiki
-pages.  Outside of such pages, @code{hywiki-mode} must also be enabled
-for such auto-highlighting.
 
 @vindex hywiki-exclude-major-modes
 @cindex HyWiki exclude modes
@@ -4691,7 +4720,7 @@ It looks like this:
 
 @smallexample
 @noindent
-HyWiki>  Act Create EditPages FindPage GrepConsult Help Info Link ModeToggle Org-M-RET/ Publish TagFind WikiWordConsult
+HyWiki>  Act Create DiredHyWiki EditPage FindReferent GrepConsult Help Info Link ModeToggle Org-M-RET/ Publish TagFind WikiWordConsult
 @end smallexample
 
 @noindent
@@ -4723,17 +4752,20 @@ aid in new naming.
 @cindex HyWiki dired
 @cindex HyWiki treemacs
 @cindex HyWiki edit pages
-@item EditPages
+@item DiredHyWiki
 Display and edit HyWiki pages in current @code{hywiki-directory}.  Use
 @code{dired} unless @code{action-key-modeline-buffer-id-function} is
 set to @code{smart-treemacs-modeline}, then use the @code{treemacs}
 package.
 
-
 @cindex HyWiki find/edit a page
-@item FindPage
+@item EditPage
 Prompt with completion for and find a HyWiki page, typically editable.
 If the page is already in a buffer, point is left unchanged.
+
+@cindex HyWiki find/edit a referent
+@item FindReferent
+Prompt with completion for and find any kind of HyWiki referent.
 
 @cindex HyWiki interactive grep
 @findex hywiki-consult-grep
@@ -5430,7 +5462,7 @@ read the following sections explaining commands.
 
 @float Image,image:Koutline Menu
 @caption{Koutline Menu}
-@image{im/menu-koutline,,6in,Koutline Menu}
+@image{im/menu-koutline,6in,,Koutline Menu}
 @end float
 @sp 1
 
@@ -8860,7 +8892,7 @@ below the Hyperbole menubar menu, as seen here.
 
 @float Image,image:Customize Menu
 @caption{Hyperbole Customize Menu}
-@image{im/menu-customization,,3.5in,Hyperbole Customize Menu}
+@image{im/menu-customization,3.5in,,Hyperbole Customize Menu}
 @end float
 @sp 1
 
@@ -11427,9 +11459,11 @@ identifier:
      Emacs Lisp require, load, or autoload clause and the (find-library)
      function is defined, jumps to the library source, if possible.
   ASSIST KEY
-     Jumps to the next tag matching an identifier at point or if
-     the identifier is an Emacs Lisp symbol, then this displays the
-     documentation for the symbol.
+     Jumps to the next tag matching an identifier at point unless
+     the identifier is an Emacs Lisp symbol, then:
+       1. if it contains an in-memory Hyperbole button, display the buttons
+          attributes in a help buffer.
+       2. otherwise, display the identifier's documentation in a help buffer.
 @end group
 @end format
 

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     7-Jun-89 at 22:08:29
-;; Last-Mod:     10-Aug-25 at 23:00:16 by Mats Lidell
+;; Last-Mod:     30-Dec-25 at 14:42:32 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -32,7 +32,6 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
-(require 'custom)   ;; For `defface'
 (require 'hversion)
 (require 'hmail)
 (require 'hsys-consult)
@@ -139,6 +138,10 @@
 ;;; ************************************************************************
 ;;; Public variables
 ;;; ************************************************************************
+
+(defvar hyrolo-logical-regexp
+  "\\`(\\(r-\\)?\\(and\\|or\\|xor\\|not\\)\\>"
+  "Regexp matching the beginning of a HyRolo logical search string.")
 
 (defvar hyrolo-boolean-only-flag nil
   "Set to prevent HyRolo from displaying an error buffer when running tests.
@@ -617,7 +620,7 @@ a parent entry which begins with the parent string."
   ;; With consult-grep, 'name' is the entire line matched prefixed
   ;; by filename and line number, so remove these prefixes.
   (when (and name
-	     (fboundp 'consult-grep)
+	     (hsys-consult-active-p)
 	     (string-match "\\([^ \t\n\r\"'`]*[^ \t\n\r:\"'`0-9]\\): ?\\([1-9][0-9]*\\)[ :]"
 			   name))
     (setq file-or-buf (expand-file-name (match-string 1 name))
@@ -745,7 +748,7 @@ on the logical sexpression matching."
 			       (cadr input-and-matching-files)))))
   (setq string (string-trim string "\"" "\""))
   (let ((total-matches 0))
-    (if (string-match-p "\(\\(r-\\)?\\(and\\|or\\|xor\\|not\\)\\>" string)
+    (if (string-match-p hyrolo-logical-regexp string)
 	(progn
 	  ;; Search string contains embedded logic operators.
 	  ;; First try to match logical sexpression within a single
@@ -955,7 +958,7 @@ Return t if entry is killed, nil otherwise."
     (unless file
       (setq file (car file-list)))
     (save-excursion
-      (if (if (and (fboundp 'consult-grep)
+      (if (if (and (hsys-consult-active-p)
 		   (string-match "\\([^ \t\n\r\"'`]*[^ \t\n\r:\"'`0-9]\\): ?\\([1-9][0-9]*\\)[ :]"
 				 name))
 	      (hyrolo-to (substring name (match-end 0))
@@ -1587,7 +1590,7 @@ the entry to be inserted.
 
 With optional prefix arg, REGEXP-FLAG, treat NAME as a regular expression
 instead of a string."
-  (interactive (list 
+  (interactive (list
 		(hsys-consult-grep-headlines-read-regexp
 		 #'hyrolo-consult-grep "Yank rolo headline matching")
 		current-prefix-arg))
@@ -1601,7 +1604,7 @@ instead of a string."
 	found)
     (save-excursion
       (setq found
-	    (if (and (fboundp 'consult-grep)
+	    (if (and (hsys-consult-active-p)
 		     (string-match "\\([^ \t\n\r\"'`]*[^ \t\n\r:\"'`0-9]\\): ?\\([1-9][0-9]*\\)[ :]"
 				   name))
 		(hyrolo-grep-file (match-string-no-properties 1 name)
@@ -1610,7 +1613,7 @@ instead of a string."
 	      (hyrolo-grep (if regexp-flag name (regexp-quote name)) -1 nil nil t))))
     ;; Let user reformat the region just yanked.
     (when (= found 1)
-      (funcall hyrolo-yank-reformat-function start (point)))
+      (funcall hyrolo-yank-reformat-function start (mark)))
     found))
 
 ;;; ************************************************************************
@@ -2012,7 +2015,7 @@ Return non-nil if point moves, else return nil."
   (apply #'hyrolo-search-directories #'hyrolo-grep file-regexp dirs))
 
 (defun hyrolo-grep-file (hyrolo-file-or-buf pattern &optional max-matches count-only headline-only)
-  "Retrieve entries in HYROLO-FILE-OR-BUF matching REGEXP.
+  "Retrieve entries in HYROLO-FILE-OR-BUF matching PATTERN.
 PATTERN is searched for using the function given by
 `hyrolo-next-match-function', so it can be a text property for
 example, rather than just a regexp matching buffer text.
@@ -2131,6 +2134,7 @@ Return number of matching entries found."
 		  num-found))
 	  (when (and (> num-found 0) (not count-only))
 	    (with-current-buffer hyrolo-display-buffer
+	      (push-mark nil t)
 	      ;; Require a final blank line in `hyrolo-display-buffer'
 	      ;; so that `outline-hide-sublevels' won't hide it and
 	      ;; combine with any next file header.
@@ -2216,7 +2220,6 @@ Return number of groupings matched."
 This mode does not add any outline-related font-locking.
 
 See the command `outline-mode' for more information on this mode."
-  ;; nil " Outl" nil ;; FIXME: From when is this obsolete?
   :init-value nil
   :lighter " Outl"
   :keymap nil
@@ -3004,7 +3007,7 @@ a default of MM/DD/YYYY."
 Grep over optional `path-list' or `hyrolo-file-list', which may
 contain wildcards.  Return the input read, to be fed to a HyRolo
 grep call."
-  (if (and (fboundp 'consult-grep)
+  (if (and (hsys-consult-active-p)
 	   (bound-and-true-p vertico-mode))
       (hsys-consult-get-exit-value
        '(list (car vertico--input) vertico--groups)

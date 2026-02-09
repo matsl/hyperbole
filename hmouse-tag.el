@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    24-Aug-91
-;; Last-Mod:     12-Apr-25 at 18:46:48 by Bob Weiner
+;; Last-Mod:     31-Dec-25 at 16:02:19 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -111,7 +111,7 @@ should insert the implicit link type definition name.")
 (define-obsolete-variable-alias 'smart-asm-include-dirs
   'smart-asm-include-path "06.00")
 (defcustom smart-asm-include-path nil
-  "*Ordered list of directories to search for assembly language include files.
+  "Ordered list of directories to search for assembly language include files.
 Each directory must end with a directory separator."
   :type '(repeat directory)
   :group 'hyperbole-commands)
@@ -130,7 +130,7 @@ Examples include:
 (define-obsolete-variable-alias 'smart-c-cpp-include-dirs
   'smart-c-cpp-include-path "06.00")
 (defcustom smart-c-cpp-include-path '("/usr/include/")
-  "*Ordered list of include directories by default searched by C/C++ preprocessor.
+  "Ordered list of include directories by default searched by C/C++ preprocessor.
 Each directory must end with a directory separator.  See also
 `smart-c-include-path'."
   :type '(repeat directory)
@@ -139,7 +139,7 @@ Each directory must end with a directory separator.  See also
 (define-obsolete-variable-alias 'smart-c-include-dirs
   'smart-c-include-path "06.00")
 (defcustom smart-c-include-path nil
-  "*Ordered list of directories to search for C/C++ include files.
+  "Ordered list of directories to search for C/C++ include files.
 Each directory must end with a directory separator.  Directories normally
 searched by the C/C++ pre-processor should be set instead in
 `smart-c-cpp-include-path'."
@@ -173,7 +173,7 @@ File name is grouping 3.")
 (defcustom smart-java-package-path
   (and (fboundp 'getenv) (getenv "JAVA_HOME")
        (list (expand-file-name "src/" (file-name-as-directory (getenv "JAVA_HOME")))))
-  "*Ordered list of directories to search for imported Java packages.
+  "Ordered list of directories to search for imported Java packages.
 Each directory must end with a directory separator."
   :type '(repeat directory)
   :group 'hyperbole-commands)
@@ -186,8 +186,13 @@ Each directory must end with a directory separator."
 Keyword matched is grouping 1.  Referent is grouping 2.")
 
 (defcustom smart-emacs-tags-file nil
-  "*Full path name of etags file for GNU Emacs source."
+  "Full path name of etags file for GNU Emacs source."
   :type '(file :must-match t)
+  :group 'hyperbole-commands)
+
+(defcustom smart-tags-mode-list '(fundamental-mode prog-mode text-mode)
+  "Major modes where programming symbols are recognized by the Smart Keys."
+  :type '(repeat symbol)
   :group 'hyperbole-commands)
 
 ;;; ************************************************************************
@@ -217,7 +222,7 @@ If:
 	      (smart-tags-display tag next)
 	      ;; (message "Found definition for `%s'" tag)
 	      t)
-	  (error (message "`%s' definition not found in identifier lookup/tag tables" tag)
+	  (error (message "(smart-asm): `%s' definition not found in identifier lookup/tag tables" tag)
 		 (beep))))))
 
 ;;;###autoload
@@ -277,7 +282,7 @@ Optional second arg NEXT means jump to next matching C++ tag."
       (error
        (if (or (not smart-c-use-lib-man)
 	       (not (file-readable-p "~/.CLIBS-LIST")))
-	   (progn (message "`%s' definition not found in identifier lookup/tag tables" tag)
+	   (progn (message "(smart-c++-tag): `%s' definition not found in identifier lookup/tag tables" tag)
 		  (beep)
 		  nil)
 	 (message "Checking if `%s' is a C++ library function..." tag)
@@ -285,7 +290,7 @@ Optional second arg NEXT means jump to next matching C++ tag."
 	     (progn (message "Displaying C++ library man page for `%s'" tag)
 		    (manual-entry tag)
 		    t)
-	   (message "`%s' definition not found in identifier lookup/tag tables or C++ libraries" tag)
+	   (message "(smart-c++-tag): `%s' definition not found in identifier lookup/tag tables or C++ libraries" tag)
 	   (beep)
 	   nil))))))
 
@@ -358,13 +363,13 @@ If:
 	  (error
 	   (if (or (not smart-c-use-lib-man)
 		   (not (file-readable-p "~/.CLIBS-LIST")))
-	       (progn (message "`%s' definition not found in identifier lookup/tag tables" tag)
+	       (progn (message "(smart-c): `%s' definition not found in identifier lookup/tag tables" tag)
 		      (beep))
 	     (message "Checking if `%s' is a C library function..." tag)
 	     (if (smart-library-symbol tag)
 		 (progn (message "Displaying C library man page for `%s'" tag)
 			(manual-entry tag))
-	       (message "`%s' definition not found in identifier lookup/tag tables or C libraries" tag)
+	       (message "(smart-c): `%s' definition not found in identifier lookup/tag tables or C libraries" tag)
 	       (beep))))))))
 
 (defconst smart-c-keywords
@@ -447,7 +452,7 @@ in the current directory or any of its ancestor directories."
 	  ;; (message "Found definition for `%s'" tag)
 	  t)
       (error
-       (message "`%s' definition not found in identifier lookup/tag tables" tag)
+       (message "(smart-fortran): `%s' definition not found in identifier lookup/tag tables" tag)
        (beep)))))
 
 (defconst smart-fortran-keywords
@@ -520,7 +525,7 @@ Optional second arg NEXT means jump to next matching Java tag."
 	  (smart-tags-display tag next)
 	  ;; (message "Found definition for `%s'" tag)
 	  t)
-      (error (progn (message "`%s' definition not found in identifier lookup/tag tables" tag)
+      (error (progn (message "(smart-java-tag): `%s' definition not found in identifier lookup/tag tables" tag)
 		    (beep))))))
 
 ;;; The following should be called only if the OO-Browser is available.
@@ -591,7 +596,7 @@ in the current directory or any of its ancestor directories."
 	  ;; (message "Found definition for `%s'" tag)
 	  t)
       (error
-       (message "`%s' definition not found in identifier lookup/tag tables" tag)
+       (message "(smart-javascript): `%s' definition not found in identifier lookup/tag tables" tag)
        (beep)))))
 
 (defconst smart-javascript-keywords
@@ -904,7 +909,7 @@ Otherwise:
       (error
        (if (or (not smart-c-use-lib-man)
 	       (not (file-readable-p "~/.CLIBS-LIST")))
-	   (progn (message "`%s' definition not found in identifier lookup/tag tables" tag)
+	   (progn (message "(smart-objc-tag): `%s' definition not found in identifier lookup/tag tables" tag)
 		  (beep))
 	 (message
 	  "Checking if `%s' is an Objective-C library function..." tag)
@@ -913,7 +918,7 @@ Otherwise:
 	       (message
 		"Displaying Objective-C library man page for `%s'" tag)
 	       (manual-entry tag))
-	   (message "`%s' definition not found in identifier lookup/tag tables or Objective-C libraries"
+	   (message "(smart-objc-tag): `%s' definition not found in identifier lookup/tag tables or Objective-C libraries"
 		    tag)
 	   (beep)))))))
 
@@ -966,20 +971,25 @@ When optional NO-FLASH, do not flash."
   "Return programming language tag name that point is within, else nil.
 When optional NO-FLASH, do not flash.
 Uses `xref' for identifier recognition."
-  (when (derived-mode-p 'prog-mode)
+  (when (apply #'derived-mode-p smart-tags-mode-list)
     (let ((identifier (hsys-xref-identifier-at-point)))
       (when identifier
 	(setq identifier (substring-no-properties identifier))
-	(if no-flash
-	    identifier
-	  (smart-flash-tag identifier (point) (match-end 0)))
+	(unless no-flash
+	  (let ((start-end (bounds-of-thing-at-point 'symbol)))
+	    (when start-end
+	      (smart-flash-tag identifier (car start-end) (cdr start-end)))))
 	identifier))))
 
 ;;;###autoload
 (defun smart-prog-tag (&optional identifier next)
-  "Jump to definition of optional programming IDENTIFIER or the one at point.
-Optional second arg NEXT means jump to next matching tag."
-  (smart-tags-display (or identifier (hsys-xref-identifier-at-point)) next)
+  "Jump to definition of optional IDENTIFIER string or the one at point.
+Optional second arg NEXT is used by the Assist Key.  If IDENTIFIER is
+an Elisp symbol, it displays the IDENTIFIER'S documention; otherwise, it jumps
+to next matching tag definition."
+  (if (and next (smart-emacs-lisp-mode-p))
+      (describe-symbol (intern identifier))
+    (smart-tags-display (or identifier (hsys-xref-identifier-at-point)) next))
   t)
 
 (defun smart-jedi-find-file (file line column other-window)
@@ -1037,16 +1047,16 @@ see the documentation for `smart-python-oo-browser' for the behavior."
     (cond ((condition-case err
 	       (progn (smart-python-tag identifier next)
 		      t)
-	     (t (setq err-msg (cdr err))
+	     (t (setq err-msg (concat "(smart-python): " (error-message-string err)))
 		nil)))
 	  ((smart-python-jedi-to-definition-p))
 	  ((fboundp 'python-to-definition)
 	   ;; Only fboundp if the OO-Browser has been loaded.
 	   (smart-python-oo-browser))
 	  (t
-	   (error (progn (message (or err-msg
-				      (format "`%s' definition not found in identifier lookup/tag tables" identifier)))
-			 (beep)))))))
+	   (error (progn (beep t)
+			 (message "%s" (or err-msg
+					   (format "(smart-python): `%s' definition not found in identifier lookup/tag tables" identifier)))))))))
 
 ;;;###autoload
 (defun smart-python-tag (&optional identifier next)
@@ -1117,7 +1127,7 @@ When optional NO-FLASH, do not flash."
 
 (defun smart-ancestor-tag-files (&optional dirs name-of-tags-file)
   "Walk up DIRS trees looking for NAME-OF-TAGS-FILE.
-DIRS may be a list of directory or a single directory.
+DIRS may be a list of directories or a single directory.
 Return a tags table list in DIRS order, where for each directory,
 list the found tags tables from furthest to nearest."
   (or dirs (setq dirs default-directory))
@@ -1268,7 +1278,7 @@ known Emacs Lisp identifier."
 	       (let ((result (smart-lisp-bound-symbol-def tag-sym)))
 		 (when (cdr result)
 		   tag))))
-	    ;; This part only works properly for Emacs Lisp, so is conditionalized.
+	    ;; This part works properly for Emacs Lisp only, so is conditionalized.
 	    ((and tag (smart-tags-find-p tag) tag))))))
 
 (defun smart-lisp-bound-symbol-def (tag-sym)
@@ -1294,14 +1304,18 @@ variable or face."
 		       (find-definition-noselect tag-sym 'defface)))))
 
 (defun smart-tags-find-p (tag)
-  "Return non-nil if TAG is found within a tags table, else nil."
+  "Return non-nil if TAG is found by xref, else nil."
   (let* ((tags-table-list (smart-entire-tags-table-list))
+	 ;; Identifier searches should almost always be case-sensitive today
+	 (tags-case-fold-search nil)
 	 (func (smart-tags-noselect-function))
-	 (tags-file-name (if tags-table-list
-			     nil
-			   (and (boundp 'tags-file-name) tags-file-name)))
+	 (tags-file-name (or (bound-and-true-p tags-file-name)
+			     (car tags-table-list)))
 	 (tags-add-tables nil))
-    (ignore-errors (and func (funcall func tag) t))))
+    (or (ignore-errors
+	  (with-no-warnings (and (hsys-xref-definition tag) t)))
+	(ignore-errors
+	  (and func tags-table-list (funcall func tag) t)))))
 
 (defun smart-java-cross-reference ()
   "If within a Java @see comment, edit the def and return non-nil, else nil.
@@ -1532,11 +1546,10 @@ backend is used."
 		  ;; many callers of this function.
 		  ;; Find exact identifier matches only.
 		  (with-no-warnings (xref-find-definitions tag)))))
-	  ((or tags-table-list tags-file-name)
-	   ;; Signals an error if tag is not found which is caught by
-	   ;; many callers of this function.
-	   ;; Find exact identifier matches only.
-	   (with-no-warnings (xref-find-definitions tag)))
+	  ;; Signals an error if tag is not found which is caught by
+	  ;; many callers of this function.
+	  ;; Find exact identifier matches only.
+	  ((with-no-warnings (xref-find-definitions tag)))
 	  (t
 	   (error "No existing tag tables in which to find `%s'" tag)))))
 

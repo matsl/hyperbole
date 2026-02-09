@@ -1,5 +1,8 @@
 # GNU Hyperbole 9.0.2pre - The Everyday Hypertextual Information Manager
 
+[ If you are looking for the documentation for the stable release look
+[here](stable/hyperbole.html).]
+
 [We work on Hyperbole as a gift to the Emacs community and request you
  send us a thank you or a testimonial describing your usage if you like
  Hyperbole to [rsw@gnu.org](mailto:rsw@gnu.org)].
@@ -232,6 +235,8 @@ them.  Hyperbole also binds {C-c \} for quick access to HyControl's
 window control menu if it was not already bound prior to Hyperbole's
 initialization.  A long video demonstrating many of HyControl's
 features is available at https://youtu.be/M3-aMh1ccJk.
+
+## Hyperbole Manual
 
 The above are the best interactive ways to learn about Hyperbole.
 Hyperbole also includes the Hyperbole Manual, a full reference manual,
@@ -466,7 +471,7 @@ Typical Hyperbole applications include:
 
 See the [HY-ABOUT](HY-ABOUT) file for a description and overview of Hyperbole.
 
-See the [HY-NEWS](HY-NEWS) file for a summary of new features in this release.
+See the [HY-NEWS](HY-NEWS.html) file for a summary of new features in this release.
 
 See the [INSTALL](INSTALL) file for installation and invocation instructions.
 

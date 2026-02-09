@@ -27,6 +27,7 @@ man/hyperbole.texi   - The GNU Hyperbole Manual  (GNU Texinfo source form)
 man/hkey-help.txt    - Summarizes Smart Key behaviors in different contexts
 HY-TALK/HY-TALK.org  - EmacsNYC 2020 Talk: Make Your Text Come Alive slides
 HY-TALK/HYPERAMP.org - EmacsConf 2023 Talk: Top 10 Ways Hyperbole Amps Up Emacs slides
+HY-TALK/HYPERBOLEQA.kotl - EmacsConf 2025 Talk: Questions and answers to help you fly with Hyperbole
 HY-TALK/HYPERORG.org - EmacsConf 2022 Talk: Powerful Productivity with Hyperbole and Org Mode slides
 
 * --- USER INTERFACE ---
@@ -106,6 +107,7 @@ topwin.py            - Python script to find the topmost macOS app window at a s
 .hypb & _hypb        - Button data files used by the GNU Hyperbole DEMO file
 
 * --- EXTERNAL SYSTEM ENCAPSULATIONS ---
+hsys-activities.el   - GNU Hyperbole support functions for Activities
 hsys-consult.el      - Hyperbole interactive consult-grep convenience functions
 hsys-ert.el          - Hyperbole support for jumping to ert 'should' source lines
 hsys-flymake.el      - Add missing source buffer keymap to flymake linter

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Nov-91 at 00:44:23
-;; Last-Mod:     27-Jul-25 at 11:07:45 by Bob Weiner
+;; Last-Mod:      1-Jan-26 at 18:17:35 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -43,7 +43,7 @@
 					      icomplete-mode ivy-mode
 					      org-roam-mode vertico-mode
                                               selectrum-mode)
-  "*List of boolean mode variables whose modes automatically list completions.
+  "List of boolean mode variables whose modes automatically list completions.
 These are modes where completions are listed without the need for
 pressing the ? key."
   :type '(repeat variable)
@@ -131,22 +131,22 @@ The format is ${variable}.  Match grouping 1 is the name of the variable.")
 ;;; ************************************************************************
 ;;; Public Declarations
 ;;; ************************************************************************
-(declare-function br-quit "ext:br")
-(declare-function br-in-browser "ext:br")
-(declare-function br-to-view-window "ext:br")
 
-(declare-function mm-mailcap-command "mm-decode")
-(declare-function hypb:decode-url "hypb")
-(declare-function hattr:get "hbut")
-(declare-function kbd-key:key-series-to-events "hib-kbd")
-(declare-function hbut:label-to-key "hbut")
-(declare-function hbut:key-to-label "hbut")
-(declare-function hargs:delimited "hargs")
-(declare-function hypb:object-p "hypb")
 (declare-function Info-find-node "info")
-
+(declare-function br-in-browser "ext:br")
+(declare-function br-quit "ext:br")
+(declare-function br-to-view-window "ext:br")
+(declare-function hargs:delimited "hargs")
+(declare-function hattr:get "hbut")
+(declare-function hbut:key-to-label "hbut")
+(declare-function hbut:label-to-key "hbut")
+(declare-function hmail:editor-p "hmail")
+(declare-function hypb:decode-url "hypb")
+(declare-function hypb:object-p "hypb")
+(declare-function kbd-key:key-series-to-events "hib-kbd")
 (declare-function kcell-view:indent "kcell-view")
 (declare-function klink:act "klink")
+(declare-function mm-mailcap-command "mm-decode")
 
 ;;; ************************************************************************
 ;;; MS WINDOWS PATH CONVERSIONS
@@ -207,17 +207,16 @@ converted path with the value of `hpath:mswindows-mount-prefix'."
   (when (and (stringp path) (not (equal path "\\\\")))
     (setq path (hpath:mswindows-to-posix-separators path))
     (when (string-match hpath:mswindows-drive-regexp path)
-      (when (string-match hpath:mswindows-drive-regexp path)
-	(let* ((drive-prefix (downcase (match-string 2 path)))
-	       (rest-of-path (substring path (match-end 0)))
-	       (absolute-p (and (not (string-empty-p rest-of-path))
-				(= (aref rest-of-path 0) ?/))))
-	  ;; Convert MSWindows disk drive paths to POSIX-style with a mount prefix.
-	  (setq path (concat hpath:mswindows-mount-prefix drive-prefix
-			     (cond (hyperb:microsoft-os-p ":")
-				   (absolute-p "")
-				   (t "/"))
-			     rest-of-path))))))
+      (let* ((drive-prefix (downcase (match-string 2 path)))
+	     (rest-of-path (substring path (match-end 0)))
+	     (absolute-p (and (not (string-empty-p rest-of-path))
+			      (= (aref rest-of-path 0) ?/))))
+	;; Convert MSWindows disk drive paths to POSIX-style with a mount prefix.
+	(setq path (concat hpath:mswindows-mount-prefix drive-prefix
+			   (cond (hyperb:microsoft-os-p ":")
+				 (absolute-p "")
+				 (t "/"))
+			   rest-of-path)))))
   path)
 
 (defun hpath:mswindows-to-posix-separators (path)
@@ -242,23 +241,18 @@ If path begins with an optional mount prefix,
 letter, remove the mount prefix."
   (interactive "sPOSIX path to convert to MSWindows: ")
   (when (stringp path)
-    (setq path (hpath:posix-to-mswindows-separators path))
-    ;; Remove any POSIX mount prefix preceding an MSWindows path.
-    (if (eq 0 (string-match hpath:mswindows-mount-prefix path))
-	(setq path (substring path (match-end 0))))
     (when (string-match hpath:mswindows-drive-regexp path)
-      (when (string-match hpath:mswindows-drive-regexp path)
-	(let* ((drive-prefix (downcase (match-string 2 path)))
-	       (rest-of-path (substring path (match-end 0)))
-	       (absolute-p (= (aref path (1- (match-end 0))) ?\\)))
-	  ;; Convert formerly Posix-style Windows disk drive paths to MSWindows-style.
-	  (setq path (concat drive-prefix ":"
-			     (if (or (not absolute-p)
-				     (string-match "\\`[~/]" rest-of-path))
-				 ""
-			       "\\")
-			     rest-of-path))))))
-  path)
+      (let* ((drive-prefix (downcase (match-string 2 path)))
+             (absolute-p (= (aref path (1- (match-end 0))) ?/))
+             (rest-of-path (substring path (match-end 0))))
+	;; Convert formerly Posix-style Windows disk drive paths to MSWindows-style.
+	(setq path (concat drive-prefix ":"
+			   (if (or (not absolute-p)
+				   (string-match "\\`[~/]" rest-of-path))
+			       ""
+			     "/")
+			   rest-of-path))))
+    (hpath:posix-to-mswindows-separators path)))
 
 (defun hpath:posix-to-mswindows-separators (path)
   "Replace forward slashes with backslashes and abbreviate the PATH if possible.
@@ -361,7 +355,7 @@ Call this function manually if mount points change after Hyperbole is loaded."
 ;;; ************************************************************************
 
 (defcustom hpath:external-open-office-suffixes "doc[mx]?\\|od[st]\\|ppsx?\\|ppt[mx]?\\|v[dst][s]?[tx]\\|vsd[x]?\\|xls[mx]?"
-  "*Regexp of Open Office document suffix alternatives.
+  "Regexp of Open Office document suffix alternatives.
 These are to be display externally with the Action Key
 Do not include an initial period or enclosing grouping parentheses;
 these will be added automatically.
@@ -372,7 +366,7 @@ possible suffixes."
   :group 'hyperbole-commands)
 
 (defcustom hpath:external-file-suffixes "e?ps\\|dvi\\|pdf\\|ps\\.g?[zZ]\\|gif\\|tiff?\\|xpm\\|xbm\\|xwd\\|pm\\|pbm\\|jpe?g\\|xcf"
-  "*Non-operating system dependent regexp of file suffixes to open outside Emacs.
+  "Non-operating system dependent regexp of file suffixes to open outside Emacs.
 These are opened with the Action Key when not handled by
 `hpath:native-image-suffixes'.  Do not include an initial period
 or enclosing grouping parentheses; these will be added
@@ -384,7 +378,7 @@ automatically."
 								  hpath:external-open-office-suffixes
 								  hpath:external-file-suffixes)
 							  "open"))
-  "*An alist of (FILENAME-REGEXP . DISPLAY-PROGRAM-STRING-OR-LIST) for the macOS.
+  "An alist of (FILENAME-REGEXP . DISPLAY-PROGRAM-STRING-OR-LIST) for the macOS.
 See the function `hpath:get-external-display-alist' for detailed
 format documentation."
   :type '(alist :key-type regexp :value-type string)
@@ -394,7 +388,7 @@ format documentation."
 							      "openoffice.exe")
 							(cons (format "\\.\\(%s\\|vba\\)$" hpath:external-file-suffixes)
 							      "/c/Windows/System32/cmd.exe //c start \"${@//&/^&}\""))
-  "*An alist of (FILENAME-REGEXP . DISPLAY-PROGRAM-STRING-OR-LIST) for MS Windows.
+  "An alist of (FILENAME-REGEXP . DISPLAY-PROGRAM-STRING-OR-LIST) for MS Windows.
 See the function `hpath:get-external-display-alist' for detailed
 format documentation."
   :type '(alist :key-type regexp :value-type string)
@@ -414,7 +408,7 @@ format documentation."
 							      hpath:external-open-office-suffixes
 							      hpath:external-file-suffixes)
 						      "setsid -w xdg-open"))
-  "*An alist of (FILENAME-REGEXP . DISPLAY-PROGRAM-STRING-OR-LIST) for X.
+  "An alist of (FILENAME-REGEXP . DISPLAY-PROGRAM-STRING-OR-LIST) for X.
 See the function `hpath:get-external-display-alist' for detailed
 format documentation."
   :type '(alist :key-type regexp :value-type string)
@@ -462,7 +456,7 @@ format documentation."
 		  (error "Invalid file"))))))
 
     '("\\.rdb\\'" . rdb:initialize)))
-  "*Alist for calling special functions to display file types in Emacs.
+  "Alist for calling special functions to display file types in Emacs.
 The alist consists of (FILENAME-REGEXP . EDIT-FUNCTION) elements.
 See also the function (hpath:get-external-display-alist) for
 external display program settings."
@@ -564,7 +558,7 @@ Used only if the function `image-mode' is defined."
 ;;
 (defcustom hpath:variables
   '(hyperb:dir hywiki-directory load-path exec-path Info-directory-list sm-directory)
-  "*List of Emacs Lisp variable symbols to substitute within matching link paths.
+  "List of Emacs Lisp variable symbols to substitute within matching link paths.
 Each variable value, if bound, must be either a pathname or a list of pathnames.
 When embedded within a path, the format is ${variable}."
   :type '(repeat variable)
@@ -578,7 +572,7 @@ When embedded within a path, the format is ${variable}."
   "*Url pattern for (hpath:rfc rfc-num) to get the RFC document for `rfc-num'.")
 
 (defcustom hpath:suffixes '(".gz" ".Z")
-  "*List of filename suffixes to add or remove within hpath calls.
+  "List of filename suffixes to add or remove within hpath calls.
 Used by `hpath:exists-p' and `hpath:substitute-dir'."
   :type '(repeat string)
   :group 'hyperbole-commands)
@@ -682,7 +676,7 @@ use with `string-match'.")
 ;;; Private variables
 ;;; ************************************************************************
 
-(defconst hpath:html-anchor-id-pattern "\\(id\\|name\\)=['\"]%s['\"]?"
+(defconst hpath:html-anchor-id-pattern "\\(id\\|name\\)=['\"]%s['\"]"
   "Regexp matching an html anchor id definition.
 Contains a %s for replacement of a specific anchor id.")
 
@@ -768,30 +762,29 @@ used."
      (lambda (path non-exist)
        (when (stringp path)
 	 (setq path (hpath:trim path)))
-       (cond ((not (and (stringp path)
-			(not (hypb:object-p path))
-			(setq path (hpath:expand path))
-			(not (get-buffer path))
-			(not (file-name-absolute-p path))
-			(hpath:is-p path nil non-exist)))
-              path)
-             ((not (cond ((null default-dirs)
-			  (setq default-dirs (cons default-directory nil)))
-			 ((stringp default-dirs)
-			  (setq default-dirs (cons default-dirs nil)))
-			 ((listp default-dirs))
-			 (t nil)))
-              path)
-             (t
-              (let ((rtn) dir)
-		(while (and default-dirs (null rtn))
-		  (setq dir (expand-file-name
-                             (file-name-as-directory (car default-dirs)))
-			rtn (expand-file-name path dir)
-			default-dirs (cdr default-dirs))
-		  (unless (file-exists-p rtn)
-		    (setq rtn nil)))
-		(or rtn path)))))
+       (let ((dirs default-dirs)
+	     dir
+	     expanded-path)
+	 (setq expanded-path
+	       (cond ((or (stringp dirs) (null dirs))
+		      (expand-file-name path dirs))
+		     ((listp dirs)
+		      (while (and dirs (null expanded-path))
+			(setq dir (expand-file-name
+				   (file-name-as-directory (car dirs)))
+			      expanded-path (expand-file-name path dir)
+			      dirs (cdr dirs))
+			(unless (file-exists-p expanded-path)
+			  (setq expanded-path nil)))
+		      (or expanded-path path))
+		     (t (error "(hpath:absolute-to): `default-dirs' must be a string or list, not `%s'" default-dirs))))
+	 (if (and (stringp expanded-path)
+		  (not (hypb:object-p expanded-path))
+		  (not (get-buffer expanded-path))
+		  (file-name-absolute-p expanded-path)
+		  (hpath:is-p expanded-path nil non-exist))
+	     expanded-path
+	   path)))
      path 'allow-spaces)))
 
 (defun hpath:tramp-file-name-regexp ()
@@ -958,16 +951,24 @@ quote, whitespace, or Texinfo file references.  If optional TYPE
 is the symbol \\='file or \\='directory, then only that path type
 is accepted as a match.  Only locally reachable paths are checked
 for existence.  With optional NON-EXIST, nonexistent local paths
-are allowed.  Absolute pathnames must begin with a `/' or `~'."
+are allowed.  Nonexistent local paths may not contain whitespace
+unless they are delimited.  Absolute pathnames must begin with a `/'
+or `~'."
   (let ((path (hpath:delimited-possible-path non-exist))
+	prefix
 	subpath)
     (when path
       (setq path (string-trim path)))
-    (when (and path (not non-exist) (string-match hpath:prefix-regexp path)
+    (when (and path (not non-exist)
+	       (string-match hpath:prefix-regexp path)
+	       (setq prefix (substring path 0 1)
+		     path (substring path 1))
 	       (not (string-equal (match-string 0 path) path)))
       (setq non-exist t))
-    (if (and path (not (string-empty-p path)) (file-readable-p path))
-	path
+    (if (and path (not (string-empty-p path))
+	     (or (and non-exist prefix)
+		 (file-readable-p path)))
+	(concat prefix path)
       (unless (and path (or (string-empty-p path)
 			    (string-match "::" path)))
 	(cond ((and path
@@ -1051,7 +1052,7 @@ Make any existing path within a file buffer absolute before returning."
       ;; Never expand paths with a prefix character, e.g. program
       ;; names which need to use exec-directory expansion.
       (setq expanded-path (if prefix (hpath:resolve path) (hpath:expand path))
-	    path (funcall func expanded-path non-exist)))
+	    path (funcall func path non-exist)))
     ;;
     ;; If path is just a local reference that begins with #,
     ;; in a file buffer, prepend the file name to it.  If an HTML
@@ -1061,18 +1062,19 @@ Make any existing path within a file buffer absolute before returning."
 			 "")))
       (if (and path
 	       (not (string-empty-p path))
-	       ;; If just a numeric suffix like ":40" by itself, ignore
-	       ;; it, but if a markdown type suffix alone, like
-	       ;; "#section", use it.
-	       (and suffix (not (string-empty-p suffix))
-		    (= ?# (aref suffix 0))))
+	       (or (file-exists-p path)
+		   ;; If just a numeric suffix like ":40" by itself, ignore
+		   ;; it, but if a markdown type suffix alone, like
+		   ;; "#section", use it.
+		   (and suffix (not (string-empty-p suffix))
+			(= ?# (aref suffix 0)))))
 	  (progn
 	    (setq path (concat prefix path suffix))
 	    (cond ((and (hypb:buffer-file-name)
-			;; ignore HTML color strings
-			(not (string-match "\\`#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]\\'" path))
 			;; match to in-file #anchor references
-			(string-match "\\`#[^+\'\"<>#]+\\'" path))
+			(string-match "\\`#[^+\'\"<>#]+\\'" path)
+			;; ignore HTML color strings
+			(not (string-match "\\`#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]\\'" path)))
 		   (setq path (concat mode-prefix (hypb:buffer-file-name) path)))
 		  ((string-match "\\`\\([^#]+\\)\\(#[^#+]*.*\\)\\'" path)
 		   ;; file and #anchor reference
@@ -1087,7 +1089,7 @@ Make any existing path within a file buffer absolute before returning."
 		     (setq path (concat mode-prefix path suffix))))
 		  (t
 		   (when (or non-exist (file-exists-p path))
-		     path))))
+		     (setq path (concat mode-prefix path))))))
 
 	(when (or (and (stringp suffix) (not (string-empty-p suffix))
 		       (= ?# (aref suffix 0)))
@@ -1098,7 +1100,9 @@ Make any existing path within a file buffer absolute before returning."
 			   (string-match-p "\\`([^\):]+)" expanded-path)))) ;; Info node
 	  (when (or non-exist (file-exists-p expanded-path)
 		    (string-match-p ".+\\.info\\([.#]\\|\\'\\)" expanded-path))
-	    (concat prefix mode-prefix expanded-path suffix)))))))
+	    (if (string-empty-p expanded-path)
+		(concat prefix expanded-path suffix)
+	      (concat prefix mode-prefix expanded-path suffix))))))))
 
 (defun hpath:is-path-variable-p (path-var)
   "Return a colon or semicolon-delimited set in PATH-VAR or nil if not a match."
@@ -1145,11 +1149,13 @@ end-pos) or nil."
 			(hargs:delimited "\\\"" "\\\"" nil nil include-positions "[`'’]")
 			;; Filenames in TexInfo docs
 			(hargs:delimited "@file{" "}" nil nil include-positions)
-			;; Double quoted filenames
-			(hargs:delimited "\"" "\"" nil nil include-positions "[`'’]")
-			;; Filenames in Info docs, Python files or 'ls' listing files in
-			;; single quotes
-			(hargs:delimited "[`'‘]" "[`'’]" t t include-positions "\"")))
+			(and (hypb:in-string-p)
+			     (or
+			      ;; Double quoted filenames
+			      (hargs:delimited "\"" "\"" nil nil include-positions "[`'’]")
+			      ;; Filenames in Info docs, Python files or 'ls' listing files in
+			      ;; single quotes
+			      (hargs:delimited "[`'‘]" "[`'’]" t t include-positions "\"")))))
 	   (p (if (listp triplet) (car triplet) triplet)))
       (if non-exist
 	  ;; This may be a triplet of (path start-pos end-pos) or just path
@@ -1397,20 +1403,22 @@ If PATH is absolute, return it unchanged."
 (defun hpath:file-line-and-column (path-line-and-col)
   "Return list of parts from PATH-LINE-AND-COL string of format path:line:col.
 Parse out the parts and return a list, else nil."
-  (when (and (stringp path-line-and-col)
-	     (string-match hpath:section-line-and-column-regexp path-line-and-col))
-    ;; Ensure any variables and heading suffixes following [#,] are removed before returning file.
-    (let ((file (save-match-data (hpath:expand (match-string-no-properties 1 path-line-and-col))))
-	  (line-num (string-to-number (match-string-no-properties 3 path-line-and-col)))
-	  (col-num (when (match-end 4)
-		     (string-to-number (match-string-no-properties 5 path-line-and-col)))))
-      (when (and (save-match-data (setq file (hpath:is-p file)))
-		 file)
-	(if line-num
-	    (if col-num
-		(list file line-num col-num)
-	      (list file line-num))
-	  (list file))))))
+  (when (stringp path-line-and-col)
+    (cond ((string-match hpath:section-line-and-column-regexp path-line-and-col)
+           ;; Ensure any variables and heading suffixes following [#,] are removed before returning file.
+           (let ((file (save-match-data (hpath:expand (match-string-no-properties 1 path-line-and-col))))
+	         (line-num (string-to-number (match-string-no-properties 3 path-line-and-col)))
+	         (col-num (when (match-end 4)
+		            (string-to-number (match-string-no-properties 5 path-line-and-col)))))
+             (when (and (save-match-data (setq file (hpath:is-p file)))
+		        file)
+	       (if line-num
+	           (if col-num
+		       (list file line-num col-num)
+	             (list file line-num))))))
+          (t (let ((file (hpath:is-p (hpath:expand path-line-and-col))))
+               (when file
+                 (list file)))))))
 
 (defun hpath:file-position-to-line-and-column (path position)
   "Return \"path:L<line-num>:C<col-num>\" given PATH and character POSITION.
@@ -1499,9 +1507,13 @@ but locational suffixes within the file are utilized."
 				(if (stringp loc)
 				    (file-name-directory loc)
 				  default-directory)))
+    ;; Parse Hyperbole action prefix char
     (when (string-match hpath:prefix-regexp pathname)
       (setq modifier (aref pathname 0)
 	    pathname (substring pathname (match-end 0))))
+    ;; Remove http file:// url prefix and decode the url
+    (when (string-match "\\`file://" pathname)
+      (setq pathname (hypb:decode-url (substring pathname (match-end 0)))))
     (setq path pathname) ;; default
     (cond ((string-match hpath:instance-line-column-regexp path)
 	   (setq instance-num (string-to-number (match-string 1 path))
@@ -1535,7 +1547,11 @@ but locational suffixes within the file are utilized."
       (if modifier
 	  (setq path (hpath:resolve path))
 	(setq path (hpath:expand path)
-	      pathname (hpath:absolute-to path default-directory))))
+	      pathname (hpath:absolute-to path default-directory))
+	;; Remove http file:// url prefix that`hpath:absolute-to' may have
+	;; added and decode the url
+	(when (string-match "\\`file://" pathname)
+	  (setq pathname (hypb:decode-url (substring pathname (match-end 0)))))))
     (let ((remote-pathname (hpath:remote-p path)))
       (or modifier remote-pathname
 	  (file-exists-p pathname)
@@ -1602,9 +1618,8 @@ but locational suffixes within the file are utilized."
 			    ;; certain cases, e.g. with mount point or os path
 			    ;; alterations.
 			    (when (or (null (hypb:buffer-file-name))
-				      (and (hypb:buffer-file-name)
-				       (equal (file-name-nondirectory path)
-					      (file-name-nondirectory (hypb:buffer-file-name)))))
+				      (equal (file-name-nondirectory path)
+					     (file-name-nondirectory (hypb:buffer-file-name))))
 			      (cond ((and anchor kotl-flag)
 				     (klink:act path-with-anchor anchor-start-pos))
 				    ((or hash anchor)
@@ -1673,25 +1688,25 @@ of the buffer."
 			    (t
 			     (let* ((opoint (point))
 				    (prog-mode (derived-mode-p 'prog-mode))
-				    ;; Markdown or outline link ids are case
-				    ;; insensitive.
+				    ;; Markdown or outline link ids are case insensitive.
 				    (case-fold-search (not prog-mode))
 				    (anchor-name (hpath:dashes-to-spaces-markup-anchor anchor))
 				    (referent-regexp (format
 						      (cond ((or (derived-mode-p 'outline-mode) ;; Includes Org mode
-								 ;; Treat all caps filenames without suffix like outlines, e.g. README, INSTALL.
+								 ;; Treat all caps filenames without suffix like outlines,
+                                                                 ;; e.g. README, INSTALL, HY-NEWS, ...
 								 (and (hypb:buffer-file-name)
-								      (string-match-p "\\`[A-Z][A-Z0-9]+\\'" (hypb:buffer-file-name))))
+								      (string-match-p "\\`[A-Z0-9][A-Z0-9_-]*\\'"
+                                                                                      (file-name-nondirectory (hypb:buffer-file-name)))))
 							     hpath:outline-section-pattern)
-							    ((or prog-mode (null (hypb:buffer-file-name)))
-							     "%s")
 							    ((or (and (hypb:buffer-file-name)
 								      (string-match-p hpath:markdown-suffix-regexp (hypb:buffer-file-name)))
-								 (memq major-mode hpath:shell-modes))
+								 (apply #'derived-mode-p hpath:shell-modes))
 							     hpath:markdown-section-pattern)
 							    ((derived-mode-p 'texinfo-mode)
 							     hpath:texinfo-section-pattern)
-							    ((derived-mode-p 'text-mode)
+							    ((or prog-mode (null (hypb:buffer-file-name))
+								 (apply #'derived-mode-p '(fundamental-mode text-mode)))
 							     "%s")
 							    (t hpath:outline-section-pattern))
 						      (regexp-quote anchor-name)))
@@ -1820,7 +1835,7 @@ the end following a # or , character are temporarily stripped, and path
 variables are expanded with `hpath:substitute-value'.  This normalized path
 form is what is returned for PATH."
   (when (and (stringp path)
-	     (or 
+	     (or
 	      ;; Due to the colons, "hui.el#save-excursion:I2:L2:C30",
 	      ;; will improperly match to a PATH variable. Ensure it doesn't.
 	      (string-match hpath:instance-line-column-regexp path)
@@ -2062,29 +2077,36 @@ prior to calling this function."
       var-group)))
 
 (defun hpath:shorten (path &optional relative-to)
-  "Shorten and return a PATH optionally RELATIVE-TO other path.
-If RELATIVE-TO is omitted or nil, set it to `default-directory'.
-Replace Emacs Lisp variables and environment variables (format of
-${var}) with their values in PATH.  The first matching value for
-variables like `${PATH}' is used.  Then abbreviate any remaining
-path."
+  "Expand and then shorten and return a PATH optionally RELATIVE-TO other path.
+Don't shorten if acting on a global button.
+
+Ignore optional RELATIVE-TO if editing a message,
+i.e. (hmail:editor-p) => t.  If RELATIVE-TO is omitted or nil,
+set it to `default-directory'.  Replace Emacs Lisp variables and
+environment variables (format of ${var}) with their values in
+PATH.  The first matching value for variables like `${PATH}' is
+used.  Then abbreviate any remaining path."
   (setq path (expand-file-name (hpath:substitute-value path)))
   (when (file-directory-p path)
     ;; Force path to have a final directory separator so comparisons
     ;; to `default-directory' work
     (setq path (file-name-as-directory path)))
-  (unless relative-to
-    (setq relative-to default-directory))
-  (when (stringp relative-to)
-    (setq relative-to (expand-file-name
-		       (hpath:substitute-value relative-to))
-	  path
-	  (cond ((string-equal path relative-to)
-		 "")
-		((string-equal (file-name-directory path) relative-to)
-		 (file-name-nondirectory path))
-		(t (hpath:relative-to path relative-to)))))
-  (hpath:abbreviate-file-name (hpath:substitute-var path)))
+  (if (hmail:editor-p)
+      (hpath:substitute-var path)
+    (unless relative-to
+      (setq relative-to default-directory))
+    (when (stringp relative-to)
+      (setq relative-to (expand-file-name
+			 (hpath:substitute-value relative-to))
+	    path
+	    (cond ((hyperb:stack-frame '(gbut:act))
+		   path)
+		  ((string-equal path relative-to)
+		   "")
+		  ((string-equal (file-name-directory path) relative-to)
+		   (file-name-nondirectory path))
+		  (t (hpath:relative-to path relative-to)))))
+    (hpath:abbreviate-file-name (hpath:substitute-var path))))
 
 (defun hpath:substitute-value (path)
   "Substitute values for Emacs Lisp variables and environment variables in PATH.
@@ -2536,23 +2558,6 @@ from path or t."
 	(if suffix-flag
 	    (or suffix t)
 	  return-path))))
-
-;; Next function from: 2006-11-02  Mats Lidell
-(defun hpath:find-file-mailcap (file-name)
-  "Find command to view FILE-NAME according to the mailcap file."
-  (when (featurep 'mailcap)
-    (mailcap-parse-mailcaps)
-    (let (mime-type method)
-      (when (and (string-match "\\.[^\\.]+$" file-name)
-		 (setq mime-type
-		       (mailcap-extension-to-mime
-			(match-string-no-properties 0 file-name)))
-		 (stringp
-		  (setq method
-			(cdr (assoc 'viewer
-				    (car (mailcap-mime-info mime-type
-							    'all)))))))
-	(mm-mailcap-command method file-name nil)))))
 
 (defun hpath:find-program (filename)
   "Return one or a list of shell or Lisp commands to execute to display FILENAME.

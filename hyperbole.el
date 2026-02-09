@@ -9,7 +9,7 @@
 ;; Maintainer:   Robert Weiner <rsw@gnu.org>
 ;; Maintainers:  Robert Weiner <rsw@gnu.org>, Mats Lidell <matsl@gnu.org>
 ;; Created:      06-Oct-92 at 11:52:51
-;; Last-Mod:     20-Jun-25 at 00:21:49 by Bob Weiner
+;; Last-Mod:     18-Jan-26 at 08:29:42 by Bob Weiner
 ;; Released:     10-Mar-24
 ;; Version:      9.0.2pre
 ;; Keywords:     comm, convenience, files, frames, hypermedia, languages, mail, matching, mouse, multimedia, outlines, tools, wp
@@ -82,9 +82,6 @@
 
 (defconst hyperbole-loading t
   "Temporary constant available for testing while Hyperbole is loading.")
-
-;; Ensure defgroup and defcustom are defined for use throughout Hyperbole.
-(require 'custom)
 
 (defgroup hyperbole nil
   "Hyperbole customizations category."
@@ -183,13 +180,14 @@ Info documentation at \"(hyperbole)Top\".
 (require 'set (expand-file-name "set" hyperb:dir))
 (require 'hypb)
 (require 'hui-select)  ;; This requires 'hvar which defines the var:append function.
+(require 'hywiki)
 
 ;;; ************************************************************************
 ;;; Public Variables
 ;;; ************************************************************************
 
 (defcustom hkey-init t
-  "*A non-nil value (default) at system load time binds Hyperbole keys.
+  "A non-nil value (default) at system load time binds Hyperbole keys.
 Keys bound are the Action and Assist Keyboard Keys, as well as
 other keys.  {\\[hkey-either]} invokes the Action Key and
 {\\`C-u' \\[hkey-either]} invokes the Assist Key.  Additionally,
@@ -503,7 +501,7 @@ frame, those functions by default still return the prior frame."
   ;; loaded parts of Org before his load path is finalized.  It loads
   ;; the newer version of Org, if any, assuming `load-path' is configured
   ;; correctly.
-  (hsys-org-fix-version)
+  ;; (hsys-org-fix-version)
   ;;
   ;; When vertico-mode is used, vertico-mouse-mode is needed for the
   ;; Action Key to properly select completions from the candidate
@@ -511,6 +509,9 @@ frame, those functions by default still return the prior frame."
   ;; vertico-mouse-mode should be an autoload.
   (when (fboundp #'vertico-mouse-mode)
     (add-hook 'vertico-mode-hook (lambda () (vertico-mouse-mode 1))))
+  ;;
+  ;; Set HyWiki page auto-HyWikiWord highlighting and `yank-handled-properties'
+  (hywiki-mode :pages)
   ;;
   ;; Hyperbole initialization is complete.
   (message "Initializing Hyperbole...done"))

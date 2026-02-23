@@ -24,7 +24,8 @@ jobs:
           apt-get install -y \
             make \
             pandoc \
-            python3-pip
+            python3-pip \
+            texinfo
           pip3 install md-toc --break-system-packages
 
       - name: Debug permissions
@@ -35,12 +36,7 @@ jobs:
           stat man/hyperbole.info
 
       - name: Build docs
-        shell: bash
         run: |
           make doc-clean
-          ls -l man README*
-          make doc
           \rm -f man/hyperbole.info man/hyperbole.html man/hyperbole.pdf
-          make doc
-          /bin/rm -f man/hyperbole.info man/hyperbole.html man/hyperbole.pdf
           make doc

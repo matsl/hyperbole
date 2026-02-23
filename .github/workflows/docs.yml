@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           make doc-clean
-          ls -l man README.md.html
+          ls -l man README*
           make doc
           \rm -f man/hyperbole.info man/hyperbole.html man/hyperbole.pdf
           make doc

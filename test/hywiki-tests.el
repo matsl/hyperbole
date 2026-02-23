@@ -877,7 +877,7 @@ body B
 	  (condition-case err-msg
 	      (dolist (w words)
                 (setq wiki-link (car w)
-		      expected-str-at-pos (cdr w))
+		      expected-str-at-pos (regexp-quote (cdr w)))
 		(erase-buffer)
 		(hywiki-tests--insert wiki-link)
 		(goto-char 4)
@@ -886,6 +886,41 @@ body B
 		  (should (looking-at-p expected-str-at-pos))))
 	    (error (error "'%s', '%s' - Error: %s"
 			  wiki-link expected-str-at-pos err-msg))))))))
+
+(ert-deftest hywiki-tests--action-key-moves-to-word-and-section-using-dash-to-space-conversion ()
+  "Verify action key on a WikiWord with section, line and column works.
+Verify dash in the header matches a target with dash replaced by space."
+  (hywiki-tests--preserve-hywiki-mode
+    (let ((words '(("WikiWord#first" . "* first")
+                   ("WikiWord#header-one" . "* header one")
+                   ("WikiWord#first one" . "* first")
+                   ("(WikiWord#header one)" . "* header one")
+                   ("WikiWord#header--two" . "* header  two")
+                   ("(WikiWord#header--three)" . "* header  three")
+                   ("WikiWord#header---four" . "* header   four"))))
+      ;; Setup target WikiWord
+      (with-current-buffer (find-file-noselect wiki-page)
+        (hywiki-tests--insert "\
+* first
+* header one
+* header  two
+* header  three
+* header   four
+")
+        (save-buffer))
+      ;; Create temp buffers with WikiWord links to the target
+      ;; WikiWord page and verify they work.
+      (with-temp-buffer
+	(dolist (w words)
+          (let ((wiki-link (car w))
+		(expected-str-at-pos (regexp-quote (cdr w))))
+            (ert-info ((format "Link: %s Header: %s" wiki-link expected-str-at-pos))
+	      (erase-buffer)
+	      (hywiki-tests--insert wiki-link)
+	      (goto-char 4)
+	      (save-excursion
+		(action-key)
+		(should (looking-at-p expected-str-at-pos))))))))))
 
 (defun hywiki-tests--search-section (section)
   "Find SECTION in current buffer and return the id string.
@@ -924,7 +959,7 @@ First line
 body A
 ** Bsection subsection
 body B
-*** Csection-subsection
+*** Csection subsection
 body C
 ")
 	    (save-buffer)
@@ -950,7 +985,7 @@ WikiWord#Csection-subsection
               (with-current-buffer (find-file-noselect wikiword-html)
 		(setq idA (should (hywiki-tests--search-section "Asection")))
 		(setq idB (should (hywiki-tests--search-section "Bsection subsection")))
-		(setq idC (should (hywiki-tests--search-section "Csection-subsection"))))
+		(setq idC (should (hywiki-tests--search-section "Csection subsection"))))
 
 	      ;; Verify links are generated
 	      (find-file wikipage-html)
@@ -1493,12 +1528,23 @@ comparison with expected overlays stable."
   "Non-nil to perform face validation of WikiWord.")
 
 (defun hywiki-tests--word-at ()
-  "Test if there is a HyWikiWord reference at point with a referent.
-Choose what test to perform based on value of `hywiki-tests--with-face-test'."
-  (when (hywiki-referent-exists-p)
-    (if hywiki-tests--with-face-test
-	(hywiki-highlighted-word-at)
-      (hywiki-word-at))))
+  "Return potential HyWikiWord and optional #section:Lnum:Cnum at point or nil.
+When `hywiki-tests--with-face-test' is non-nil the HyWikiWord must be
+highlighted to be returned.  When it is highlighted, the range of the
+highlighting and the range of the HyWikiWord is, as a side effect,
+checked for consistency."
+  (let* ((range (hywiki-referent-exists-p :range))
+         (wikiword (car range)))
+    (when wikiword
+      (if (not hywiki-tests--with-face-test)
+          wikiword
+        (save-excursion
+          (goto-char (round (/ (+ (cadr range) (caddr range)) 2.0)))
+          (let* ((highlighted-range (hywiki-highlighted-word-at :range))
+                 (highlighted-wikiword (car highlighted-range)))
+            (when highlighted-wikiword
+              (should (equal range highlighted-range)))
+            highlighted-wikiword))))))
 
 (defun hywiki-tests--verify-hywiki-word (step expected)
   "Verify that `hywiki-word-at' returns t if a wikiword is EXPECTED.
@@ -1560,11 +1606,10 @@ point when the function is called."
                        (hywiki-tests--command-execute #'backward-delete-char 1)))
                    (hywiki-tests--verify-hywiki-word step vfy)))
 		((and (symbolp step) (string-prefix-p "p" (symbol-name step)))
-		 (let* ((pos (string-to-number (substring (symbol-name step) 1)))
-			(newpos (max (min (+ origin (1- pos)) (point-max))
-				     (point-min))))
+                 (let* ((pos (string-to-number (substring (symbol-name step) 1)))
+                        (newpos (+ origin (1- pos))))
                    (when (or (> (point-min) newpos) (< (point-max) newpos))
-                     (ert-fail (format "New point: '%s' is outside of buffer" newpos)))
+                     (ert-fail (format "Error in test specification. Step '%s' moves point to pos '%s' outside of buffer" step newpos)))
                    (goto-char newpos))
 		 (hywiki-tests--verify-hywiki-word step vfy))
 		(t (ert-fail (format "Unknown step: '%s' in WikiWord verification" step)))))))))
@@ -1783,8 +1828,7 @@ face is verified during the change."
 (ert-deftest hywiki-tests--verify-removal-of-delimiter-updates-face ()
   "Verify WikiWord highlight face change when adding/removing a delimiter."
   (hywiki-tests--preserve-hywiki-mode
-    (let ((hywiki-tests--with-face-test t)
-	  (hi-page (cdr (hywiki-add-page "Hi"))))
+    (let ((hi-page (cdr (hywiki-add-page "Hi"))))
       (unwind-protect
 	  (dolist (testcase
 		   '((("\"Hi#a b c\"" . "Hi#a b c") (p3 . "Hi#a b c")
@@ -1798,8 +1842,7 @@ face is verified during the change."
   "Verify that a yanked in WikiWord highlights properly."
   (hywiki-tests--preserve-hywiki-mode
     (let* ((wikiHi (cdr (hywiki-add-page "Hi")))
-           (wikiHo (cdr (hywiki-add-page "Ho")))
-           (hywiki-tests--with-face-test t))
+           (wikiHo (cdr (hywiki-add-page "Ho"))))
       (unwind-protect
           (progn
             ;; Left part of WikiWord yanked in.
@@ -1852,7 +1895,6 @@ face is verified during the change."
   "Verify creating a WikiWord-file highlights the WikiWord in another file."
   (hywiki-tests--preserve-hywiki-mode
     (let* ((wikiHi (cdr (hywiki-add-page "Hi")))
-           (hywiki-tests--with-face-test t)
            wikiHo)
       (unwind-protect
           (progn

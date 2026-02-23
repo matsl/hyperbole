@@ -25,7 +25,8 @@ jobs:
             make \
             pandoc \
             python3-pip \
-            texinfo
+            texinfo \
+            texlive
           pip3 install md-toc --break-system-packages
 
       - name: Debug permissions

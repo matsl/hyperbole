@@ -397,7 +397,8 @@ doc: version README.md.html manual
 # Convenience targets for regenerating the docs
 .PHONY: doc-clean doc-regenerate
 doc-clean:
-	$(RM) man/hyperbole.{log,aux,cp*,fn*,ky*,toc,vr*,info,pdf,html} README.md.html
+	$(RM) $(man_dir)/hyperbole.{log,aux,cp*,fn*,ky*,toc,vr*,info,pdf,html} README.md.html
+
 doc-regenerate: doc-clean
 	make doc
 

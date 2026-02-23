@@ -397,7 +397,7 @@ doc: version README.md.html manual
 # Convenience targets for regenerating the docs
 .PHONY: doc-clean doc-regenerate
 doc-clean:
-	$(RM) man/hyperbole.{log,aux,cp*,fn*,ky*,toc,vr*,info,pdf,html}
+	$(RM) man/hyperbole.{log,aux,cp*,fn*,ky*,toc,vr*,info,pdf,html} README.md.html
 doc-regenerate: doc-clean doc
 
 # Build the Info, HTML and Postscript versions of the user manual

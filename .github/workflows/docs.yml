@@ -27,5 +27,11 @@ jobs:
             python3-pip
           pip3 install md-toc --break-system-packages
 
+      - name: Debug
+        run: |
+          pwd
+          ls -la
+          cat Makefile
+
       - name: Build docs
-        run: make doc
+        run: make doc --dry-run

@@ -1,0 +1,31 @@
+# .github/workflows/docs.yml
+name: Build Docs
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'man/**'
+      - '**.md'
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            make \
+            pandoc \
+            python3-pip
+          pip3 install md-toc --break-system-packages
+
+      - name: Build docs
+        run: make doc

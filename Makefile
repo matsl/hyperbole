@@ -398,7 +398,8 @@ doc: version README.md.html manual
 .PHONY: doc-clean doc-regenerate
 doc-clean:
 	$(RM) man/hyperbole.{log,aux,cp*,fn*,ky*,toc,vr*,info,pdf,html} README.md.html
-doc-regenerate: doc-clean doc
+doc-regenerate: doc-clean
+	make doc
 
 # Build the Info, HTML and Postscript versions of the user manual
 manual: info html pdf
@@ -422,10 +423,12 @@ $(man_dir)/hyperbole.html: $(TEXINFO_SRC) $(man_dir)/hyperbole.css $(man_dir)/te
 #
 # `pandoc' is available from:
 #    https://github.com/jgm/pandoc
-README.md.html: README.md README.toc.md
+README.toc.md: README.md
 	cp -p README.md README.toc.md && md_toc -p -m [TOC] github README.toc.md \
-	  && sed -i -e 's/^\[TOC\]//g' README.toc.md \
-	  && pandoc --from=gfm-tex_math_dollars --to=html+gfm_auto_identifiers -o README.md.html README.toc.md
+	  && sed -i -e 's/^\[TOC\]//g' README.toc.md
+
+README.md.html: README.toc.md
+	pandoc --from=gfm-tex_math_dollars --to=html+gfm_auto_identifiers -o README.md.html README.toc.md
 
 # website maintenance: "https://www.gnu.org/software/hyperbole/"
 define confirm

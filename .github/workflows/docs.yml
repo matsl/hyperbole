@@ -28,4 +28,7 @@ jobs:
           pip3 install md-toc --break-system-packages
 
       - name: Build docs
-        run: make doc-regenerate
+        run: |
+          make doc-clean
+          ls -l man
+          make doc

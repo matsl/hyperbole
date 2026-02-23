@@ -27,6 +27,13 @@ jobs:
             python3-pip
           pip3 install md-toc --break-system-packages
 
+      - name: Debug permissions
+        run: |
+          whoami
+          id
+          ls -la
+          stat man/hyperbole.info
+
       - name: Build docs
         shell: bash
         run: |

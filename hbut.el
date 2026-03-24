@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    18-Sep-91 at 02:57:09
-;; Last-Mod:     18-Feb-26 at 23:49:33 by Bob Weiner
+;; Last-Mod:     15-Mar-26 at 22:16:44 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -95,7 +95,7 @@ Use the function, (hbut:max-len), to read the proper value.")
 If you change its value, you will be unable to use buttons created by
 others who use a different value!")
 
-(defvar   ibut:label-separator-regexp "\\s-*[-:=|]*\\s-+"
+(defvar   ibut:label-separator-regexp "[ \t]*[-:=|]*[ \t]+"
   "Regular expression that separates an implicit button name from its button text.")
 
 (defvar   ibut:label-separator " - "
@@ -586,9 +586,7 @@ For interactive creation, use `hui:ebut-create' instead."
 	    (hattr:set 'hbut:current 'args args)
 	    (ebut:operate label nil))
 	(error (hattr:clear 'hbut:current)
-	       (if (and (listp (cdr err)) (= (length (cdr err)) 1))
-		   (error "(ebut:program): actype arg must be a bound symbol (not a string): %S" actype)
-		 (error "(ebut:program): %S" err)))))))
+	       (error "(ebut:program): %S" err))))))
 
 (defun    ebut:search (string out-buf &optional match-part)
   "Write explicit button lines matching STRING to OUT-BUF.
@@ -1638,6 +1636,9 @@ to include {} only.  For use with implicit button activations."
   ;; Treat angle brackets and braces as opening and closing delimiters
   ;; for ease of matching.
   (mapc (lambda (syntax-table)
+          ;; Treat # as a symbol constituent to support company-mode completion.
+          (modify-syntax-entry ?# "_" syntax-table)
+          ;; Treat angle brackets as opening and closing delimiters for ease of matching.
 	  (modify-syntax-entry ?\< "(>" syntax-table)
 	  (modify-syntax-entry ?\> ")<" syntax-table)
 	  ;; Treat braces as opening and closing delimiters for ease of matching.
@@ -2720,7 +2721,12 @@ Summary of operations based on inputs (name arg from \\='hbut:current attrs):
 	 (if (string-prefix-p "<" arg1)
 	     (insert arg1)
 	   (insert "<" arg1 ">"))))
-      ('actypes::link-to-org-id (insert (format "\"id:%s\"" arg1)))
+      ;; Insert an Org-style link here so can include the Org title linked
+      ;; to for clarity.
+      ('actypes::link-to-org-id
+       (insert (if arg2
+                   (format "[[id:%s][%s]]" arg1 arg2)
+                 (format "[[id:%s]]" arg1))))
       ('actypes::link-to-rfc (insert (format "rfc%d" arg1)))
       ('actypes::link-to-wikiword (insert (if (and (stringp arg1)
                                                    (string-match-p "\\s-" arg1))
@@ -2729,13 +2735,13 @@ Summary of operations based on inputs (name arg from \\='hbut:current attrs):
                                             arg1)))
       ('man (insert arg1))
       ('actypes::man-show (insert arg1))
-      ('actypes::link-to-file-line (insert (format "\"%s:%d\""
+      ('actypes::link-to-file-line (insert (format "\"%s:L%d\""
 						   (hpath:shorten arg1) arg2)))
       ('actypes::link-to-file-line-and-column
        (insert
 	(if (eq arg3 0)
-	    (format "\"%s:%d\"" (hpath:shorten arg1) arg2)
-	  (format "\"%s:%d:%d\"" (hpath:shorten arg1) arg2 arg3))))
+	    (format "\"%s:L%d\"" (hpath:shorten arg1) arg2)
+	  (format "\"%s:L%d:C%d\"" (hpath:shorten arg1) arg2 arg3))))
       ('actypes::link-to-file
        ;; arg2 when given is a buffer position
        (insert "\""

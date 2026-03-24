@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     2-Jul-16 at 14:54:14
-;; Last-Mod:     14-Feb-26 at 23:40:17 by Bob Weiner
+;; Last-Mod:     14-Mar-26 at 18:38:59 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -30,6 +30,7 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
+(require 'package) ;; Always keep this first
 (eval-when-compile (require 'hmouse-drv))
 (require 'hargs) ;; for `hargs:delimited-p'
 (require 'hproperty) ;; requires 'hbut
@@ -39,7 +40,6 @@
 (require 'org-element)
 (require 'org-fold nil t)
 (require 'org-macs)
-(require 'package)
 (require 'warnings)
 (require 'find-func)
 ;; Avoid any potential library name conflict by giving the load directory.
@@ -59,6 +59,7 @@
 (defvar org--inhibit-version-check)     ; "org-macs.el"
 (defvar hywiki-org-link-type-required)  ; "hywiki.el"
 (defvar org-agenda-buffer-tmp-name)     ; "org-agenda.el"
+(defvar org-uuid-regexp)                ; "org-macs.el"
 
 (declare-function hycontrol-windows-grid "hycontrol")
 (declare-function hyrolo-tags-view "hyrolo")
@@ -508,14 +509,14 @@ Match to all todos if `keyword' is nil or the empty string."
       (looking-at org-babel-src-block-regexp))))
 
 (defun hsys-org-link-at-p ()
-  "Return (start . end) iff point is on an Org mode link, else nil.
+  "Return (start . end) iff point is on a delimited Org mode link, else nil.
 Start and end are the buffer positions of the label of the link.  This
 is either the optional description or if none, then the referent, i.e.
-either [[referent][description]] or [[referent]].
+either [[referent][description]] or [[referent]], sans the outer brackets.
 
-If point is on a HyWikiWord within an Org link and HyWikiWords are
-recognized in the current buffer, ignore the Org link and return nil
-\(handle these elsewhere as implicit buttons).
+If the link referent is to a HyWikiWord, e.g. [[hy:WikiWord]], or point
+is on a HyWikiWord in the link description, then ignore this as an Org
+link (return nil); instead activate it as HyWikiWord reference.
 
 Assume caller has already checked that the current buffer is in
 `org-mode' or is looking for an Org link in a non-Org buffer type."
@@ -538,10 +539,7 @@ Assume caller has already checked that the current buffer is in
 	  (when (and (not (and (fboundp 'hywiki-word-at) (hywiki-word-at)))
 		     (setq label-start-end (hargs:delimited "[[" "]]" nil nil t)))
 	    (let* ((start (nth 1 label-start-end))
-		   (end (nth 2 label-start-end))
-		   (label (buffer-substring-no-properties start end)))
-	      (when (string-match "\\]\\[" label)
-		(setq start (match-end 0)))
+		   (end (nth 2 label-start-end)))
 	      (cons start end))))))))
 
 (defun hsys-org-link-label-start-end ()
@@ -750,6 +748,13 @@ TARGET must be a string."
       (if (hsys-org-radio-target-link-at-p)
 	  (goto-char (or (previous-single-property-change (point) 'face) (point-min)))
 	(goto-char opoint)))))
+
+(defun hsys-org-uuid-is-p (id)
+  "Return non-nil if ID is a uuid."
+  (and (stringp id)
+       (if (fboundp 'org-uuidgen-p)
+	   (org-uuidgen-p id)
+	 (string-match org-uuid-regexp (downcase id)))))
 
 ;;; ************************************************************************
 ;;; Private functions

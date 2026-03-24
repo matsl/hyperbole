@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 20:45:31
-;; Last-Mod:     19-Feb-26 at 21:16:16 by Bob Weiner
+;; Last-Mod:     22-Mar-26 at 18:18:45 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -37,10 +37,11 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
-(require 'cl-lib) ;; for cl-count
+(require 'cl-lib) ;; for cl-count and cl-find
 (require 'find-func) ;; used by grep-msg ibtype
 (eval-when-compile (require 'hversion))
 (require 'hactypes)
+(require 'hsys-org)
 (require 'hypb)
 (require 'org-macs) ;; for org-uuid-regexp
 (require 'subr-x) ;; for string-trim
@@ -67,9 +68,11 @@
 (declare-function hyperb:stack-frame "hversion")
 (declare-function hyrolo-get-file-list "hyrolo")
 (declare-function hywiki-active-in-current-buffer-p "hywiki")
+(declare-function hywiki-get-existing-page-file "hywiki")
 (declare-function hywiki-get-singular-wikiword "hywiki")
 (declare-function hywiki-highlight-word-get-range "hywiki")
 (declare-function hywiki-referent-exists-p "hywiki")
+(declare-function hywiki-word-from-reference "hywiki")
 (declare-function markdown-footnote-goto-text "ext:markdown")
 (declare-function markdown-footnote-marker-positions "ext:markdown")
 (declare-function markdown-footnote-return "ext:markdown")
@@ -175,17 +178,19 @@ only to prevent false matches."
 	   (start (when bounds (car bounds)))
 	   (end   (when bounds (cdr bounds)))
 	   m)
+      ;; Remove any "ID:" or "id:" prefix
+      (when (and id (string-prefix-p "id:" id t))
+        (setq id (substring id 3)
+              start (+ start 3)))
       ;; Ignore ID definitions or when not on a possible ID
-      (when (and id (if (fboundp 'org-uuidgen-p)
-			(org-uuidgen-p id)
-		      (string-match org-uuid-regexp (downcase id))))
+      (when (hsys-org-uuid-is-p id)
 	(when (and start end)
 	  (ibut:label-set id start end))
 	(if (and (not assist-flag)
 		 (save-excursion (beginning-of-line)
 				 (re-search-forward ":\\(CUSTOM_\\)?ID:[ \t]+"
 						    (line-end-position) t)))
-	    (hact 'message "On ID definition; use {C-u M-RET} to copy a link to an ID.")
+	    (hact 'message "On Org ID definition; use {C-u M-RET} to copy a link to an ID.")
 	  (when (let ((inhibit-message t) ;; Inhibit org-id-find status msgs
 		      (obuf (current-buffer))
 		      (omode major-mode))
@@ -208,6 +213,9 @@ If the referenced location is found, return non-nil."
     (let ((id (thing-at-point 'symbol t)) ;; Could be a uuid or some other form of id
 	  m
 	  mpos)
+      ;; Remove any "ID:" or "id:" prefix
+      (when (and id (string-prefix-p "id:" id t))
+        (setq id (substring id 3)))
       ;; Ignore ID definitions or when not on a possible ID
       (when (and id
 		 (let ((inhibit-message t)) ;; Inhibit org-id-find status msgs
@@ -350,7 +358,10 @@ display options."
           ;; Match PATH-related Environment and Lisp variable names and
 	  ;; Emacs Lisp and Info files without any directory component.
           (when (setq path orig-path)
-            (cond ((and (string-match hpath:path-variable-regexp path)
+            (cond ((string-match "\\`#[^#]+" path)
+                   (apply #'ibut:label-set path (hpath:start-end path))
+		   (hact 'link-to-file path))
+                  ((and (string-match hpath:path-variable-regexp path)
 			(setq path (match-string-no-properties 1 path))
 			(hpath:is-path-variable-p path))
 		   (setq path (if (or assist-flag (hyperb:stack-frame '(hkey-help)))
@@ -490,7 +501,6 @@ handle any links they recognize first."
 	     ;; Prevent infinite recursion, e.g. if called via
 	     ;; `org-metareturn-hook' from `org-meta-return' invocation.
 	     (not (hyperb:stack-frame '(ibtypes::debugger-source org-meta-return))))
-    (require 'hsys-org)
     (declare-function hsys-org-link-at-p      "hsys-org" ())
     (declare-function hsys-org-set-ibut-label "hsys-org" (start-end))
     (let ((start-end (hsys-org-link-at-p)))
@@ -835,22 +845,29 @@ Requires the Emacs builtin Tramp library for ftp file retrievals."
 ;;; ========================================================================
 
 (defib man-apropos ()
-  "Make man apropos entries display associated man pages when selected."
+  "Make man apropos entries display associated man pages when selected.
+No longer used within man pages since Emacs adds pushbuttons to man page
+cross-references itself.  But this will fire for such cross-references in
+other buffers."
   (save-excursion
-    (beginning-of-line)
+    ;; Move to the start of the potential man page name; point must be
+    ;; within the name, not the parenthesized section
+    (skip-syntax-backward "w")
     (let ((nm "[^ \t\n\r!@,:;(){}][^ \t\n\r,(){}]*[^ \t\n\r@.,:;(){}]")
+          start
+          end
           topic)
-      (and (looking-at
-            (concat
-             "^\\(\\*[ \t]+[!@]\\)?\\(" nm "[ \t]*,[ \t]*\\)*\\(" nm "\\)[ \t]*"
-             "\\(([-0-9a-zA-z]+)\\)\\(::\\)?[ \t]+-[ \t]+[^ \t\n\r]"))
-           (setq topic (concat (match-string-no-properties 3)
-                               (match-string-no-properties 4)))
-           (ibut:label-set topic (match-beginning 3) (match-end 4))
-	   ;; Use 'man' instead of 'actypes::man-show' in next line so
-	   ;; can follow cross-references within the same window when
-	   ;; Hyperbole is set to display other referents in another window.
-           (hact 'man topic)))))
+      (when (looking-at (concat "\\(" nm "\\)[ \t]*\\(([-0-9a-zA-z]+)\\)"))
+        (setq start (match-beginning 0)
+              end   (match-end 0))
+        (require 'man)
+        (when (and (fboundp 'Man-default-man-entry)
+                   (setq topic (Man-default-man-entry)))
+          (ibut:label-set topic start end)
+	  ;; Use 'man' instead of 'actypes::man-show' in next line so
+	  ;; can follow cross-references within the same window when
+	  ;; Hyperbole is set to display other referents in another window.
+          (hact 'man topic))))))
 
 ;;; ========================================================================
 ;;; Follows links to Hyperbole Koutliner cells.
@@ -978,9 +995,10 @@ See `hpath:find' function documentation for special file display options."
              (col-num (when (match-end 4)
 			(string-to-number (match-string-no-properties 5 path-line-and-col))))
 	     (label (match-string-no-properties 1 path-line-and-col))
-	     ;; Next variable must come last as it can overwrite the match-data
-	     (file (hpath:expand label)))
-        (when (setq file (hpath:is-p file))
+	     ;; Next variable should come last as it can overwrite the match-data
+	     file)
+        (when (setq file (or (hpath:is-p (hpath:expand label))
+                             (hywiki-get-existing-page-file label)))
           (ibut:label-set label start (+ start (length label)))
           (if col-num
               (hact 'link-to-file-line-and-column file line-num col-num)
@@ -995,14 +1013,20 @@ See `hpath:find' function documentation for special file display options."
   "Expand FILE and jump to its LINE-NUM in Hyperbole specified window.
 The variable `hpath:display-where' determines where to display the file.
 LINE-NUM may be an integer or string."
-  ;; RSW 12-05-2021 - Added hpath:expand in next line to
-  ;; resolve any variables in the path before checking if absolute.
-  (let ((source-loc (unless (file-name-absolute-p (hpath:expand file))
-                      (hbut:to-key-src t)))
-	ext)
-    (if (stringp source-loc)
-        (setq file (expand-file-name file (file-name-directory source-loc)))
-      (setq file (or (hpath:prepend-shell-directory file)
+  ;; RSW 12-05-2021 - Add hpath:expand in next line to resolve any variables
+  ;; in the path before checking if absolute.
+  ;; RSW 03-22-2026 - Save expanded-file and use if absolute in order to
+  ;; prefer files found in current directory over those in a `load-path' dir.
+  (let ((expanded-file (hpath:expand file))
+        source-loc)
+    (unless (and (stringp expanded-file) (file-name-absolute-p expanded-file))
+      (setq expanded-file nil))
+    (setq source-loc (unless expanded-file (hbut:to-key-src t)))
+    (cond (expanded-file
+           (setq file expanded-file))
+          ((stringp source-loc)
+           (setq file (expand-file-name file (file-name-directory source-loc))))
+          (t (setq file (or (hpath:prepend-shell-directory file)
 		     ;; find-library-name will strip file
 		     ;; suffixes, so use it only when the file
 		     ;; either doesn't have a suffix or has a
@@ -1010,8 +1034,9 @@ LINE-NUM may be an integer or string."
 		     (and (or (null (setq ext (file-name-extension file)))
 			      (member (concat "." ext) (get-load-suffixes)))
 			  (ignore-errors (find-library-name file)))
-		     (expand-file-name file))))
-    (when (file-exists-p file)
+                     (hpath:is-p (expand-file-name file))
+                     (hywiki-get-existing-page-file file)))))
+    (when (file-exists-p (hpath:normalize file))
       (actypes::link-to-file-line file line-num))))
 
 (defib ipython-stack-frame ()
@@ -1048,6 +1073,22 @@ than a helm completion buffer)."
                            (string-empty-p (string-trim file))))
 	    (ibut:label-set (concat file ":" line-num))
 	    (hact 'hib-link-to-file-line file line-num)))))))
+
+(defib grep-single-file ()
+  "Jump to the source line from a single file, line-numbered grep msg.
+Such grep msgs start with the line number followed by a colon.  The buffer
+may contain the file searched prior to any such line or it may not,
+e.g. {M-!} in which case `hpath:get-grep-filename' will extract a best
+guess from the `command-history'.
+
+Avoid this situation and force prefixing each line with the filename by
+including the -H option."
+  (let ((file-and-line (hpath:get-grep-filename)))
+    (when file-and-line
+      (ibut:label-set (concat (file-name-nondirectory (nth 0 file-and-line))
+			      ":" (nth 1 file-and-line))
+                      (line-beginning-position) (line-end-position))
+      (apply #'hact 'hib-link-to-file-line file-and-line))))
 
 (defib ripgrep-msg ()
   "Jump to the line associated with a ripgrep (rg) line numbered msg.
@@ -1100,11 +1141,12 @@ buffer)."
                (but-label (concat buffer-name ":P" pos)))
 	  (when (buffer-live-p (get-buffer buffer-name))
             (setq pos (string-to-number pos))
-            (ibut:label-set but-label)
+            (ibut:label-set but-label
+                            (line-beginning-position) (line-end-position))
             (hact 'link-to-buffer-tmp buffer-name pos)))))))
 
 (defib grep-msg ()
-  "Jump to the line associated with line numbered grep or compilation error msgs.
+  "Jump to the source line from a line-numbered grep or compilation msg.
 Messages are recognized in any buffer (other than a helm completion
 buffer) except for grep -A<num> context lines which are matched only
 in grep and shell buffers."
@@ -1155,7 +1197,8 @@ in grep and shell buffers."
                   (looking-at "\\([^ \t\n\r:\"'`]+\\)-\\([1-9][0-9]*\\)-")))
         (let* ((file (match-string-no-properties 1))
                (line-num  (or (match-string-no-properties 2) "1")))
-	  (ibut:label-set (concat file ":" line-num))
+	  (ibut:label-set (concat file ":" line-num)
+                          (line-beginning-position) (line-end-position))
 	  (hact 'hib-link-to-file-line file line-num))))))
 
 ;;; ========================================================================
@@ -1171,7 +1214,8 @@ in grep and shell buffers."
            (line-num (match-string-no-properties 3))
            (but-label (concat file ":" line-num)))
       (setq line-num (string-to-number line-num))
-      (ibut:label-set but-label (match-beginning 2) (match-end 2))
+      (ibut:label-set but-label
+                      (line-beginning-position) (line-end-position))
       (hact 'link-to-file-line file line-num))))
 
 (defib debugger-source ()
@@ -1202,7 +1246,8 @@ xdb.  Such lines are recognized in any buffer."
 
         (setq but-label (concat file ":" line-num)
               line-num (string-to-number line-num))
-        (ibut:label-set but-label)
+        (ibut:label-set but-label
+                        (line-beginning-position) (line-end-position))
         (hact 'link-to-file-line file line-num)))
 
      ;; GDB or WDB
@@ -1224,7 +1269,8 @@ xdb.  Such lines are recognized in any buffer."
         ;; guess.
         (when gdb-last-file
           (setq file (expand-file-name file (file-name-directory gdb-last-file))))
-        (ibut:label-set but-label)
+        (ibut:label-set but-label
+                        (line-beginning-position) (line-end-position))
         (hact 'link-to-file-line file line-num)))
 
      ;; XEmacs assertion failure
@@ -1233,7 +1279,8 @@ xdb.  Such lines are recognized in any buffer."
              (line-num (match-string-no-properties 2))
              (but-label (concat file ":" line-num)))
         (setq line-num (string-to-number line-num))
-        (ibut:label-set but-label)
+        (ibut:label-set but-label
+                        (line-beginning-position) (line-end-position))
         (hact 'link-to-file-line file line-num)))
 
      ;; New DBX
@@ -1242,7 +1289,8 @@ xdb.  Such lines are recognized in any buffer."
              (line-num (match-string-no-properties 1))
              (but-label (concat file ":" line-num)))
         (setq line-num (string-to-number line-num))
-        (ibut:label-set but-label)
+        (ibut:label-set but-label
+                        (line-beginning-position) (line-end-position))
         (hact 'link-to-file-line file line-num)))
 
      ;; Old DBX and HP-UX xdb
@@ -1252,7 +1300,8 @@ xdb.  Such lines are recognized in any buffer."
              (line-num (match-string-no-properties 2))
              (but-label (concat file ":" line-num)))
         (setq line-num (string-to-number line-num))
-        (ibut:label-set but-label)
+        (ibut:label-set but-label
+                        (line-beginning-position) (line-end-position))
         (hact 'link-to-file-line file line-num))))))
 
 ;;; ========================================================================
@@ -1617,7 +1666,7 @@ action type, function symbol to call or test to execute, i.e.
       (let ((hbut:max-len 0)
 	    (name (hattr:get 'hbut:current 'name))
 	    (testing-flag (when (bound-and-true-p ert--running-tests) t))
-            actype actype-sym action args lbl var-flag)
+            actname actype actype-sym action args is-var lbl sep var-flag)
 
         ;; Continue only if there if there is one of:
         ;;  1. `ert--running-tests' is non-nil
@@ -1633,15 +1682,18 @@ action type, function symbol to call or test to execute, i.e.
           (when (string-match "\\`\\$" lbl)
             (setq var-flag t
 	          lbl (substring lbl 1)))
-          (setq actype (if (string-match-p " " lbl) (car (split-string lbl)) lbl)
-                actype-sym (or (actype:elisp-symbol actype) (intern-soft actype))
+          (setq actname (if (setq sep (cl-position ?\  lbl)) (substring lbl 0 sep) lbl)
+                actype-sym (or (actype:elisp-symbol actname) (intern-soft actname))
 	        ;; Must ignore that (boundp nil) would be t here.
                 actype (and actype-sym
-			    (or (fboundp actype-sym) (boundp actype-sym)
+			    (or (fboundp actype-sym)
+                                (setq is-var (boundp actype-sym))
 			        (special-form-p actype-sym)
 			        (ert-test-boundp actype-sym))
 			    actype-sym))
-          (when actype
+          (when (and actype (or (null is-var)
+                                ;; is a variable so can't have arguments
+                                (equal actname lbl)))
 	    ;; For <hynote> buttons, need to double quote each argument so
 	    ;; 'read' does not change the idstamp 02 to 2.
 	    (when (and (memq actype '(hy hynote))
@@ -1649,7 +1701,7 @@ action type, function symbol to call or test to execute, i.e.
 	      (setq lbl (replace-regexp-in-string "\"\\(.*\\)\\'" "\\1\""
 					          (combine-and-quote-strings
 					           (split-string lbl) "\" \""))))
-            (setq action (read (concat "(" lbl ")"))
+            (setq action (ignore-errors (read (concat "(" lbl ")")))
 	          args (cdr action))
 	    ;; Ensure action uses an fboundp symbol if executing a
 	    ;; Hyperbole actype.
@@ -1755,12 +1807,11 @@ not yet existing HyWikiWords."
     (cl-destructuring-bind (wikiword start end)
 	(hywiki-referent-exists-p :range)
       (when wikiword
-	(unless (or (ibtypes::pathname-line-and-column)
-		    (ibtypes::pathname))
+	(unless (file-exists-p (hywiki-word-from-reference wikiword))
 	  (if (and start end)
 	      (ibut:label-set wikiword start end)
 	    (ibut:label-set wikiword))
-	  (hact 'hywiki-find-referent wikiword))))))
+	  (hact 'link-to-wikiword wikiword))))))
 
 ;;; ========================================================================
 ;;; Inserts completion into minibuffer or other window.
@@ -1777,7 +1828,7 @@ not yet existing HyWikiWords."
 ;;; Follows Org mode links and radio targets and cycles Org heading views
 ;;; ========================================================================
 
-;; See `smart-org' in "hui-mouse.el"; this is higher priority than all ibtypes.
+;;; See `smart-org' in "hui-mouse.el"; this is higher priority than all ibtypes.
 
 ;; If you want to to disable ALL Hyperbole support within Org major
 ;; and minor modes, set the custom option `hsys-org-enable-smart-keys' to nil.

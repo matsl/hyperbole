@@ -1,4 +1,642 @@
+2026-03-23  Bob Weiner  <rsw@gnu.org>
+
+* hui-mouse.el (hkey-alist): Add 'profiler-report-mode' support for jumping
+    to call tree items or expanding/collapsing their call trees.
+    (smart-profiler-report, smart-profiler-report-assist): Add.
+  man/hyperbole.texi (Smart Key - Profiler Report Mode): Add doc.
+
+2026-03-22  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el (ibtypes-tests--grep-msg):
+    (ibtypes-tests--hib-link-to-file-line): Add tests.
+
+2026-03-22  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (HyWiki Menu): Move ModeSet/ menu description here.
+
+* hui-menu.el (hui-menu-hywiki): Change item from 'Backlink-To' to
+    'Backlink-Consult'.
+  hui-mini.el (hui:menu-hywiki): Change item from 'BacklinkTo' to
+    'BacklinkConsult'.
+  man/hyperbole.texi (HyWiki Menu): Add BacklinkConsult entry.
+
+* hibtypes.el (grep-single-file): Add to handle grep -n on a single file
+    where the lines do not show the filename.
+  man/hyperbole.texi (Implicit Button Types): Add 'grep-single-file'.
+  hpath.el (hpath:get-grep-filename): Add, used by 'grep-single-file'.
+
+* hibtypes.el (hib-python-traceback, debugger-source, grep-msg,
+               hyrolo-stuck-msg): Flash whole line as the button label.
+
+* hibtypes.el (hib-link-to-file-line): Fix that a filename both in the current
+    dir and in the 'load-path' variable is expanded into a 'load-path' dir
+    first rather than the current directory, which should be preferred.
+
+* hpath.el (hpath:find): Fix (let ((buf))) when (string-empty-p path) to
+    return the current buffer when 'hpath:display-buffer' is called.  Fixes
+    bug where that function returned a window instead.
+
+* hywiki.el (hywiki-get-referent-hasht): Remove rebuild of referent-hasht
+    when empty.  This was causing a problem in the
+    'hywiki-tests--save-referent-org-id'.
+
+2026-03-21  Bob Weiner  <rsw@gnu.org>
+
+* hypb.el (hypb:grep-has-pcre-p, hypb:ripgrep-has-pcre-p): Add.
+  hywiki.el (hywiki-consult-backlink): Add and use call
+    above functions.
+            (hywiki-word-grep): Call above function instead of
+    obsolete 'hywiki-word-consult-grep'.
+            (hywiki-word-consult-grep): Remove. Replaced by backlink
+    function.
+  hui-mini.el (hui:menu-hywiki):
+  hui-menu.el (hui-menu-hywiki): Add Backlinks menu item and remove
+   WikiWordConsult / HyWiki-Word-Consult menu items since Backlinks
+   replaces them.
+
+* test/hywiki-tests.el (hywiki-tests--referent-test): Remove these
+    lines for testing the cache every time this is called.  Test
+    that in a single test instead.
+                       (hywiki-tests--referent-cache-test): Add to
+    test saving and reloading a bookmark referent from cache.
+                       (hywiki-tests--save-referent-org-id): Fix to
+    call 'hywiki-add-referent' around 'hywiki-add-org-id' since
+    interactive runs of this test without that wrapper return nil
+    for comparison to the expected (cons 'org-id "generated-org-id".
+
+2026-03-21  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (HYPB_BYTE_COMP_ELN_LOAD_PATH): Add users eln-cache last in
+    native-comp-eln-load-path so that batch-byte+native-compile uses that
+    for storing the en-files.
+    (%.elc): Use HYPB_BYTE_COMP_ELN_LOAD_PATH.
+
+2026-03-18  Mats Lidell  <matsl@gnu.org>
+
+* hactypes.el (link-to-org-id): Fix quote in docstring.
+
+* hibtypes.el (hywiki-get-existing-page-file):
+    (hywiki-word-from-reference): Declare functions.
+
+* hpath.el (hywiki-get-existing-page-file):
+    (hywiki-get-referent):
+    (hywiki-org-to-heading-instance):
+    (org-element-property): Declare functions.
+    (hywiki-directory): Defvar.
+    (hpath:org-normalize-title):
+    (hpath:org-normalize-titles): Rephrase long docstrings to fit in 80 chars.
+
+* hsys-org.el (org-uuid-regexp): Defvar.
+    (hsys-org-link-at-p): Remove unused var: label.
+
+* hui.el (hywiki-mode): Defvar
+    (hywiki-get-buffer-page-name):
+    (hywiki-in-page-p):
+    (hywiki-org-format-heading):
+    (hywiki-org-get-heading-match-regexp): Declare functions.
+
+* hypb.el (hypb:in-string-p): Remove unused var: close-match-string. Mark
+    close-regexp as unused.
+
+* hywiki.el (hywiki-org-format-heading):
+    (org-fold-core-remove-optimisation):
+    (org-fold-core-update-optimisation):
+    (org-fold-show-entry): Declare functions.
+    (hywiki-add-org-id): Fix quote in docstring.
+
+2026-03-17  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:validate): 'suffix-start' can be nil, so replace
+    (zerop suffix-start) with (equal suffix-start 0).
+
+* hibtypes.el (pathname): Add a clause to handle "#section" links by
+    themselves as some change had broken this capability.
+
+* test/hibtypes-tests.el (ibtypes:org-id-test): Fix by adding missing
+    'Org' in front of 'ID' in the string match.
+
+* hpath.el (hpath:validate): Fix path and suffix handling edge cases.
+
+2026-03-16  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (action): Ensure if action name is bound only as a variable
+    that there are no arguments within the angle brackets.  If there are,
+    then it is not an action button.
+
+* test/hywiki-tests.el (hywiki-tests--save-referent-org-id): Fix to mock
+    'org-id-get' instead of 'org-id-get-create' and add call to
+    `hywiki-get-referent' to ensure referent is created and read back properly.
+
+* hywiki.el (hywiki-get-page-file): The page file may have previously been
+    resolved and sent as input here.  If it exists, simply use it.
+
+* hpath.el (hpath:is-p): Remove 'file-exists-p' call because 'hpath:normalize'
+    handles that while accounting for path #suffixes which the 'file-exists-p'
+    call mistakenly nullifies.
+           (hpath:validate): Fix that 'suffix' was set to the whole path string
+    when 'suffix-start' was null.  Now it is set properly to nil.
+    Also fix so if a file named "myfile#name", validate accepts it without
+    treating the #name as a suffic/section to be stripped.
+
+2026-03-15  Bob Weiner  <rsw@gnu.org>
+
+* test/demo-tests.el (fast-demo-display-kotl-starting-from-cell,
+                      demo-implicit-button-hash-link-test)
+                      demo-implicit-button-line-and-column-rtest):
+    Update these to remove 'hy-test-helpers:kill-buffer' since 'with-temp-buffer'
+    cleans it up.  This eliminates a null buffer error.
+
+* hpath.el (hpath:normalize): Handle directory paths and avoid reading in the
+    file to handle it.
+           (hpath:validate): Fix to strip #suffix before validation and add
+    it back on return.
+* hibtypes.el (hywiki-existing-word): Simplify pathname check without calling
+    other ibtypes.
+
+* hpath.el (hpath:suffixes): Remove ".org" as it triggers pathname ibtype when
+    it shouldn't and overrides `hywiki-existing-word'.
+
+* hywiki.el (hywiki-add-org-id): Remove (hmouse-choose-link-and-referent-windows)
+    as this is not what inserts a link but just creates the wikiword referent.
+            (hywiki-word-regexp): Add optional .org suffix so "WikiWord.org#section"
+    works.
+
+* hywiki.el (hywiki-referent-menu): Change from inserting a string link
+    to an Org link that includes the associated Org heading title.  Change
+    format from "ID: uuid" to [[id:uuid][title]].
+    (hywiki-add-org-id):
+  test/hywiki-tests.el (hywiki-tests--add-org-id):
+                       (hywiki-tests--save-referent-org-id):
+                       (hywiki-tests--add-org-id): Add reading back the org-id
+    referent.
+                       (hywiki-tests--save-referent-org-id): Delete this test;
+    covered better by 'hywiki-tests--add-org-id'.
+  hui.el (hui:link-possible-types): Update id handling in all of these.
+
+* hywiki.el (hywiki-get-page-file, hywiki-get-existing-page-file): Add
+    second function and check that 'file-stem-name' does not contain
+    a directory, so it is not returned with the wrong dir attached.
+  hpath.el (hpath:at-p, hpath:find-line):
+  hibtypes.el (pathname-line-and-column, hib-link-to-file-line): Call
+    the new fuction in these four functions.
+
+* hywiki.el (hywiki-org-get-heading-match-regexp,
+             hywiki--org-set-heading-regexp): Make whitespace before
+    optional components optional and allow for tabs.
+
+* hywiki.el (hywiki-referent-menu): Change all "ID: " to "id:" to match
+    how Org works with the id: link type prefix when specifying ids.
+
+* hpath.el (hpath:find, hpath:expand): Fix to properly expand HyWiki
+    page references.
+
+* test/hywiki-tests.el (hywiki-tests--save-referent-global-button-use-menu):
+    Rewrite to not use mocking.  Fixes this to work with latest
+    'hpath:find' as well.
+
+* hbut.el (ibut:insert-text): Ensure line and col nums are prefixed with :L
+    and :C.
+* hywiki.el (hywiki-org-get-heading-match-regexp): Handle both HyWiki dir
+    custom todo keywords when in a page and Org standard todo keywords, otherwise.
+* hibtypes.el (pathname-line-and-column, hib-link-to-file-line): Expand HyWiki
+    page name using 'hywiki-get-page-file' before try to expand in current
+    directory
+              (pathname-line-and-column, hib-link-to-file-line): Call
+    'hywiki-get-page-file' only if 'label' has no directory attached.  This fixes
+    a problem where ".org" is attached improperly to the filename.
+* hpath.el (hpath:at-p, hpath:find-line): Handle pathname expansion of HyWiki
+    page names.
+
+2026-03-15  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el: Prefix all tests with hyrolo-tests. Use
+    execute-kbd-macro instead of calling hact.
+    (hyrolo-tests--add-items-interactive):
+    (hyrolo-tests--hyrolo-grep-interactive): Add new separate test for
+    interactive call.
+    (hyrolo-tests--sort-test, hyrolo-tests--fgrep-find-all-types-of-files):
+    Modify test to do both interactive and non-interactive call.
+    (hyrolo-tests--fgrep-find-all-types-of-files): Use hy-delete-files-and-buffers.
+    (hyrolo-tests--get-file-list): Use hy-delete-file-and-buffer.
+    (hyrolo-tests--hyrolo-reveal-mode): Remove non-interactive guard.
+    (hyrolo-tests--sort): Remove name suffix tests.
+
+2026-03-14  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (coverage): enable-local-variables :all so test suite can execute
+    with no user interaction.
+
+* test/hycontrol-tests.el (hycontrol-tests--move-frame): Use stub since
+    frame-position is called differenty in headless and native environment.
+
+2026-03-14  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:call): (file-exists-p "") returns t, so fix to check for empty
+    string before calling that.
+  hibtypes.el (hpath:is-p): Unless 'non-exist' arg is sent or path is a remote file,
+    return path only if it exists.
+
+* hui.el (require 'hsys-org): Add.
+  hibtypes.el (require 'hsys-org): Add.
+  hsys-org.el (hsys-org-uuid-is-p): Add and use in "hibtypes.el" and "hui.el".
+
+* hui.el (hui:link-possible-types): For Org/Org-Roam ids, send 2nd arg
+    of current heading string to 'link-to-org-id' call.
+         (hui:link-possible-types): If in a HyWiki page but not on a heading line,
+    use a 'link-to-wikiword' with the page name and line number.
+  hactypes.el (link-to-org-id): Add optional heading 'title' arg for use in
+    'hbut:insert-text' where ibut links are created.
+
+*  hbut.el (ibut:insert-text): For 'actypes::link-to-org-id', change from
+    a double-quoted link to a double square bracketed Org link.  This allows
+    including the title from the Org heading linked to which is stored in
+    the current Hyperbole button attribute, 'lbl-key'.
+
+* hui.el (hui:link-possible-types): For HyWiki links, wrap a call of
+    'hpath:org-normalize-title' around 'hywiki-org-format-heading' to ensure
+    everything but the title is removed.
+
+* hsys-org.el (hsys-org-link-at-p): Don't shrink label region down to just
+   the description part of the Org link, leave it as the entire space inside
+   the Org open and close brackets.  Remove this code:
+	      (when (string-match "\\]\\[" label)
+                (setq start (match-end 0)))
+   This makes link activation work better.
+
+* hibtypes.el (org-id, org-id:help): Fix to remove "id:" prefix so
+    that uuid check predicates succeed properly.
+
+* Makefile (HYPB_BIN_WARN): Fix preceding commentary on example use.
+           (test-all TERM=xterm-256color): Add #(LET_VARIABLES).
+
+* hywiki.el (hywiki--org-todo-regexp): Add to cache regular and custom Org
+    todo keywords for 'hywiki-directory'.
+            (hywiki--org-set-heading-regexp): Add set of above variable.
+            (hywiki-org-get-heading-match-regexp): Add and call in "hui.el"
+    and "hpath.el".
+            (hywiki-org-set-heading-regexp): Add and call when
+    load this library.
+            (hywiki-org-to-heading-instance): Update to use exact title matching
+    and fail if can't find exact instance specified without reporting how
+    many instances were found.
+
+* hui.el (hui:link-possible-types): If on a HyWiki Org heading, provide
+    a 'link-to-wikiword'.
+
+* hibtypes.el (hywiki-existing-word): Change actype to 'link-to-wikiword'
+    so this is picked up by `hbut:insert-text' when determining
+    the type of link to insert into a buffer.
+
+* hsys-org.el (hsys-org-format-heading): Move and rename to
+    'hywiki-org-format-heading' so can include 'hywiki-directory'
+    custom TODO keywords, if any.
+
+2026-03-13  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-format-grep-to-reference): Make line match to
+    .+ rather than .* since is required.
+            (hywiki-completion-at-point): Fix to return nil when
+    get a no match to any HyWiki page.
+            (hywiki-org-heading-regexp,
+             hywiki-org-get-titles-from-headings,
+             hywiki-org-directory-todo-regexp): Add.
+            (hywiki-org-to-heading-instance): Fix to initialize n when
+    not given or not a natural number.
+
+* hpath.el (hpath:org-normalize-title): Strip leading priority, e.g. [#22].
+
+2026-03-12  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:org-normalize-title, hpath:org-normalize-titles,
+            hpath:org-to-heading-instance): Add to extract the static
+    title from a heading with dynamic info like a todo keyword, priority,
+    statistics and tags.
+           (hpath:to-markup-anchor): When given an Org mode section, use
+    the above functions to limit match to a specific heading instance
+    with all the above fields.
+
+2026-03-11  Bob Weiner  <rsw@gnu.org>
+
+* hsys-org.el (hsys-org-link-at-p): Clarify doc string with regard to
+    HyWikiWord handling within Org links.
+
+* test/hywiki-tests.el (hywiki-tests--org-in-buffer-completion): Simplify,
+    remove 'Sole completion' check which is not always reliable.
+    (hywiki-tests--org-link-with-wikiword-in-description): Bug fixed, so
+    remove :expected-fail.  Rewrite to test when WikiWord is in description,
+    (hywiki-tests--org-link-with-wikiword-in-filename): Test that Action Key
+    treats it as an Org link if WikiWord is in the filename part of the link
+    since WikiWord's in filenames should always ignored.
+
+* hyrolo.el (hyrolo-grep-input): Fix bug gh#897 (Wrong type argument: listp,
+    "banana"' when try to search with hyrolo).  Always return a list, not
+    a string.  Update doc string to reflect this.
+
+2026-03-11  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--org-link-with-wikiword-in-description):
+    Add test.
+* test/hywiki-tests.el (hywiki-tests--org-in-buffer-completion): Add test.
+
+2026-03-09  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-add-completion-at-point):
+            (hywiki-word-remove-completion-at-point): Remove the setting and
+    unsetting of 'completion-cycle-threshold' to t.  Will solve basic Emacs
+    completion with spaces another way that does not affect this basic Emacs
+    behavior.  This fixes Emacs bug#80579: HyWiki globally overwrites
+    completion-cycle-threshold.
+
+2026-03-08  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-get-buttonize-characters): Optimize this costly function
+    with a cache.
+    (hywiki--buttonize-characters-cache): Cache to use.
+    (hywiki--clear-buttonize-characters-cache): Clear the cache.
+    (global-map, hywiki--org-mode-syntax-table): Add variable watchers on these
+       and clear the cache when these change.
+    (hywiki-consult-page-and-headline): Add '--search-zip' to decompress .gz and
+      .zip files for searching.
+* hsys-org.el (org-version): Fix to test if version< "9.6" not "6".
+  hywiki.el (hywiki-maybe-highlight-region): Add for rehighlighting in a region
+    after edits are made to a buffer.
+            (hywiki-word-add-completion-at-point): Make 'indent-for-tab-command'
+    by default bound to {TAB} complete HyWiki references by setting
+    'tab-always-complete' to 'complete.
+            (hywiki-word-remove-completion-at-point): Restore user's customized
+    setting of 'tab-always-complete'.
+
+2026-03-07  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (HyWikiWords): Fix key binding for Org None option for
+    the Action Key.
+
+* hsys-org-roam.el (require 'package):
+  hyrolo.el (require 'package):
+  hui-treemacs.el (require 'package):
+  hsys-org.el (require 'package): Ensure this is always the first require
+    to avoid the need to add a (package-activate) call.
+
+* hywiki.el (hywiki-mode-disable): Move global hook disables to this new
+    function from 'hywiki-word-dehighlight-buffers'.  Call only when
+    'hywiki-mode' is set to nil.  This fixes an issue where new HyWiki pages
+    would not get WikiWord highlighting when in :pages mode.
+  test/hywiki-tests.el (hywiki-tests--verify-hook-functions): Add this test
+    from Mats to verify the above.
+
+* hsys-org.el (hsys-org-format-heading): Emacs 28.2 includes Org 9.5.5 which
+    lacks the 'org-fold-core-remove-optimisation' function, so add a separate
+    version of this function for backward compatibility.
+
+* hywiki.el (hywiki-completion-exit-function): Leave point on the closing delimiter
+    or after the HyWiki reference so can cycle completions in-buffer, notably
+    when using Emacs default completion.
+            (hywiki-word-add-completion-at-point): With default Emacs completion,
+       add: (setq completion-cycle-threshold t)
+            (hywiki-word-remove-completion-at-point): Restore customized setting of
+       'completion-cycle-threshold'.
+
+* test/hywiki-tests.el (hywiki-tests--edit):
+  test/hpath-tests.el (ert): Add (require 'cl-lib) for 'cl-incf'.
+
+* test/demo-tests.el (fast-demo-key-series-shell-cd-hyperb-dir,
+                     (fast-demo-key-series-shell-cd-hyperb-dir-view-mode):
+    Add 0.3 second delay to allow shell to start up.
+
+* test/hpath-tests.el (hpath--hpath:delimited-possible-path): Extend tests
+    to verify at the start and end of strings as well, to catch edge cases.
+
+* hui-select.el (hui-select-string-p): Change from 'or' to 'if' to ensure
+    else clause is not hit when delims are double quotes.
+                (hui-select-string): Support Python triple quotes.
+
+* hypb.el (hypb:in-string-modes-regexps): Change format to a list of lists
+    of (open-regexp close-regexp) since 're-search-backward' is not greedy,
+    have to search for longer regexp matches before search for shorter ones
+    or may find one of the shorter ones that is a part of a longer one, e.g.
+    in Python where a single or a triple double quote is allowed.
+          (hypb:in-string-p): Fix to skip past backslash quoted matches
+    when searching for open and close delimiters.
+          (hypb:in-string-modes-regexps): Rename to 'hypb:in-string-mode-regexps'
+    and update doc string as the format has changed, this will help avoid
+    improper customized usage.
+
+2026-03-06  Bob Weiner  <rsw@gnu.org>
+
+* hypb.el (hypb:in-string-p): Fix so search for closing quote matches only
+    to the type of quote given by 'open-match-string' match.
+
+* hui-select.el (hui-select-rgrep): Fix to use --exclude-dir when possible
+    since --exclude does not match dir names.
+
+2026-03-05  Mats Lidell  <matsl@gnu.org>
+
+* hycontrol.el (hycontrol-move-frame): Ensure move past left and upper
+    border is not possible.
+* test/hycontrol-tests.el (hycontrol-tests--move-frame): Test case.
+
+2026-03-04  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (.PHONY): Set the .PHONY declarations at each phony target.
+    (HYPB_BYTE_COMP_INFO, HYPB_BYTE_COMP_FUNC): Use macros so %.elc rule
+    can de defined once.
+    (new-bin): Remove not needed dependency on autoloads.
+    (eln): Remove not needed dependency on src and echo.
+    (kotl/kotl-autoloads.el, hyperbole-autoloads.el): Use
+    hload-path--make-directory-autoloads in both rules and make them
+    consistent. Touch target after rebuild to ensure new timestamp.
+    (bin): Run remove-elc before src target.
+    (TOUCH): Add touch(1) for setting new timestamp.
+
+* test/hargs-tests.el (hargs-get-verify-extension-characters): Make test run
+    in batch.
+
+* Makefile (docker): Remove all elc files in the docker container.
+
+2026-03-03  Mats Lidell  <matsl@gnu.org>
+
+* hload-path.el (hload-path--make-directory-autoloads): Use Emacs provided
+    byte compilation functions.
+  (hload-path--internal-make-directory-autoloads): Removed, not required from
+    Emacs 28.
+
+2026-03-02  Mats Lidell  <matsl@gnu.org>
+
+* hywiki.el (consult--async-command):
+  (consult--lookup-member):
+  (consult--read): Declare functions.
+
+2026-03-02  Bob Weiner  <rsw@gnu.org>
+
+* hsys-org.el (hsys-org-format-heading): Remove any Org '#+TITLE:'.
+
+2026-03-01  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-maybe-highlight-references): Fix to include #section
+    spaces only if the delimiter is at the start of the WikiWord ref.
+            (hywiki--end-pos): Add and set in 'hywiki-completion-at-point'
+    to pass to 'hywiki-completion-exit-function'.  This handles when point
+    is moved to before the completion prefix, it is cancelled and the exit
+    function should not insert anything or move point any further.
+            (hywiki-completion-at-point): Fix completion after # suffix by
+    stripping the suffix off the WikiWord ref when used as the page name
+    in the grep 'cmd'.
+            (hywiki-word-at): Make char after # optional so when doing
+    completion and # is followed by a closing delimiter, it does not stop
+    completing because of failure to recognize the WikiWord reference.
+            (hywiki-completion-at-point): Rewrite to limit candidates to those
+    that start with a match to the WikiWord prefix at point; allowing for
+    matches anywhere within the WikiWord made it harder to find the references
+    desired.
+* test/hywiki-tests.el (hywiki-tests--completion-at-point): Fix to newest
+    HyWiki completion policies.
+            (hywiki--start-pos): Add and use in 'hywiki-completion-exit-function'.
+	    (hywiki--delimiter-hasht): Rename to 'hywiki--open-close-hasht'.
+    Add 'hywiki--close-open-hasht'.
+            (hywiki-completion-exit-function): When no delimiters, add double quotes
+    around WikiWord ref after completion.
+
+2026-02-28  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-mode): Make the match buffer's 'hyrolo-mode' a special
+    mode.  HyWiki buttons will never be active therein since every name
+    would trigger as a new, potential HyWiki word.
+
+2026-02-28  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--get-page-headings):
+    (hywiki-tests--get-references-at-al):
+    (hywiki-tests--completion-at-point): New tests.
+    (hywiki-tests--remove-keyword-args): Helper to ease comparision of
+    completion candidates.
+
+2026-02-28  Bob Weiner  <rsw@gnu.org>
+
+* test/hmouse-drv-tests.el (hbut-man-apropos-test):
+  test/hibtypes-tests.el (ibtypes::man-apropos-test):
+  test/demo-tests.el (demo-man-apropos-test): (require 'man) to prevent
+    any batch run failure.
+
+* hibtypes.el (man-apropos): Rewrite to simplify and target modern Emacs.
+  hbut.el (ibut:label-separator-regexp): Remove newlines from this regexp
+    to fix bug where when creating a new ibut will insert <[name]> and then
+    could move forward several lines past the end of this match, e.g. a line
+    of dashes, before it inserts the implicit button, making the button fail.
+
+    The above two updates fix Emacs bug#80498 - Hyperbole 9.0.1: Ibut/Create
+    with man-show produces non-actionable button.
+
+* hywiki.el (hywiki--char-before): Add to communicate between
+    'hywiki-completion-at-point' and its :exit-function.
+            (hywiki-delimiter-hasht): Add to lookup matching ending delimiters.
+	    (hywiki-completion-exit-function): Expand to add any needed closing
+    delimiter and to leave point on the last character of the ref so can activate
+    with {M-RET} if desired.
+            (hywiki-word-set-auto-highlighting): Reverse order of 'set:difference'
+    args when going from :pages to :all, as the bigger set, :all, must come
+    first or the difference will always be nil.
+  hsys-consult.el (hsys-consult-require-version): Add to make 'hsys-consult-flag'
+    and this version check callable from other libraries.
+            (hsys-consult-grep, hsys-consult--grep-paths): Call above
+    new function.
+
+* hywiki.el (hywiki-consult-page-and-headline): Call above new function.
+            (hywiki-page-read-reference): Fix to always return a string or nil,
+    not a list.
+            (hywiki-format-reference-to-grep): Remove, unused.
+	    (hywiki-get-page-headings): Remove 'shell-quote-argument' around
+    'page' name.  Not used in other grep calls.
+            (hywiki-insert-link): Fix transposition typo quoting double quote.
+            (hywiki-completion-at-point): Remove 'hywiki-get-singular-wikiword'
+    call because it can be wrong.
+            (hywiki-completion-exit-function): Allow completion function to
+    send any number of arguments (unused right now).
+
+2026-02-27  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:outline-section-pattern): Add support for Org '#+TITLE:'
+    lines.  Also, allow leading spaces
+  hywiki.el (hywiki-completion-at-point): Add support for Org '#+TITLE:'
+    lines as section headers.
+            (hywiki-completion-at-point): Remove grep -r arg since don't
+    need to recurse in 'hywiki-directory'.
+
+2026-02-27  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-yki-tests.el (hywiki-test--insert-with-point): Remove. Reuse
+    similar function from hywiki-tests.el instead.
+    (hywiki-test--get-buffer-text-with-point-and-highlight): Change to a
+    more lifelike test that behaves the same in batch as interactively to
+    solve the issue with the failing test for now. Use
+    hywiki-tests--insert-by-char and remove not needed hywiki-mode calls.
+
+2026-02-26  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-strip-suffix): Fix to strip any leading or trailing #
+    and whitespace chars.
+    (hywiki-format-grep-to-reference): Don't add double quotes so when used
+    with completions, don't fail because the double quote is not included in
+    the matched prefix.
+    (hywiki-insert-link): Add double-quotes if link contains a space.
+    (hywiki-completion-exit-function): Add.
+    (hywiki-word-add-completion-at-point): Add call to above function in
+    completion exit hooks that support normal completion, company and corfu.
+    (hywiki-maybe-at-wikiword-beginning): Change when non-nil return value to
+    be the preceding char or if at bol, then 0.
+    (hywiki-word-add-completion-at-point, hywiki-completion-at-point):
+    Add support for Corfu with :exit-function.
+
+2026-02-25  Mats Lidell  <matsl@gnu.org>
+
+* .github/workflows/docs.yml: New workflow
+
+* Makefile (TEXICMD): Fail build on errors
+    (doc-clean): Use make foreach for removing doc build artifacts. (Avoid
+    bash brace expansion.) Remove README.md.html and README.toc.md.
+
+2026-02-25  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (hbut:modify-syntax): Treat # as a symbol constituent to support
+    'company-mode' completion in for 'hbut:syntax-table' and
+    'help-mode-syntax-table'.
+
+2026-02-22  Bob Weiner  <rsw@gnu.org>
+
+* README.md: Add "The Emacs Hyperbole" great article by Mike Hostetler.
+
+* hywiki.el (hywiki-format-reference): Rename to 'hywiki-format-grep-to-reference';
+    remove autoload.
+            (hywiki-format-reference-to-grep): Add.
+	    (hywiki-completion-at-point): Rewrite and simplify.
+	    (hywiki-word-highlight-in-buffers): Add call to
+   'hywiki-word-add-completion-at-point' to ensure has completion hook independent
+   of whether the buffer's major mode changes.
+            (hywiki-word-remove-completion-at-point): Add and call in
+   'hywiki-word-dehighlight-in-buffers'.
+            (hywiki-display-referent): Interactively, call 'hywiki-word-read'
+   rather than 'hwyiki-page-read-reference'.
+            (hywiki-read-page-reference): Rename to 'hywiki-page-read-reference'
+     and return a HyWiki completion alist of pages when completing to pages only.
+            (hywiki-format-reference-to-consult-grep): Add.
+
+2026-02-21  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-consult-page-and-line): Change output from a list to the
+    unparsed string returned as the selection by 'consult-grep'.
+            (hywiki-consult-page-and-line): Rename to
+    'hywiki-consult-page-and-headline)'.
+            (hywiki-format-reference): Change arg 'page-and-line' to be
+    an unparsed string returned from the above function.
+    (hywiki-consult-page-and-headline, hywiki-read-page-reference,
+     hywiki-word-read, hywiki-word-read-new, hywiki-page-read,
+     hywiki-page-read-new): Add 'prompt' and 'initial' input arguments.
+
 2026-02-19  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-insert-link): Add optional prefix arg to link to a
+    an existing wikiword only.
+            (hywiki-insert-reference): Remove and merge capability into
+    above function when called with a prefix arg.
 
 * hui.el (hui:link-possible-types): Fix to include link-to-wikiword only if
     an existing referent is found.
@@ -1336,7 +1974,7 @@
   hyrolo.el (hyrolo-match-regexp)
   hhist.el (*hhist*): Use defvar for const variables that are set later
     than at their definition.
-    
+
 2025-08-10  Bob Weiner  <rsw@gnu.org>
 
 * test/hywiki-tests.el (hywiki-tests--with-face-test): Make default value be

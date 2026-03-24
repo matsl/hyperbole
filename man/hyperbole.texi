@@ -7,7 +7,7 @@
 @c Author:       Bob Weiner
 @c
 @c Orig-Date:     6-Nov-91 at 11:18:03
-@c Last-Mod:     18-Feb-26 at 23:43:55 by Bob Weiner
+@c Last-Mod:     23-Mar-26 at 19:00:37 by Bob Weiner
 
 @c %**start of header (This is for running Texinfo on a region.)
 @setfilename hyperbole.info
@@ -30,8 +30,8 @@
 @set txicodequoteundirected
 @set txicodequotebacktick
 
-@set UPDATED February 18, 2026
-@set UPDATED-MONTH February 2026
+@set UPDATED March 23, 2026
+@set UPDATED-MONTH March 2026
 @set EDITION 9.0.2pre
 @set VERSION 9.0.2pre
 
@@ -171,7 +171,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</P>
 
 <PRE>
 Edition 9.0.2pre
-Printed February 18, 2026.
+Printed March 23, 2026.
 
   Published by the Free Software Foundation, Inc.
   Author:    Bob Weiner
@@ -213,7 +213,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 @example
 Edition 9.0.2pre
-February 18, 2026 @c AUTO-REPLACE-ON-SAVE
+March 23, 2026 @c AUTO-REPLACE-ON-SAVE
 
 
   Published by the Free Software Foundation, Inc.
@@ -491,14 +491,16 @@ Smart Keyboard Keys
 * Smart Key - Smart Scrolling::
 * Smart Key - Smart Menus::
 * Smart Key - Dired Mode::
+* Smart Key - Magit Mode::
+* Smart Key - Delimited Things::
 * Smart Key - Hyperbole Buttons::
 * Smart Key - View Mode::
 * Smart Key - Helm Mode::
 * Smart Key - ERT Results Mode::
-* Smart Key - Delimited Things::
 * Smart Key - Occurrence Matches::
 * Smart Key - The Koutliner::
 * Smart Key - Flymake Mode::
+* Smart Key - Profiler Report Mode::
 * Smart Key - RDB Mode::
 * Smart Key - Help Buffers::
 * Smart Key - Custom Mode::
@@ -527,7 +529,6 @@ Smart Keyboard Keys
 * Smart Key - HyRolo Match Buffers::
 * Smart Key - Image Thumbnails::
 * Smart Key - Gomoku Game::
-* Smart Key - Magit Mode::
 * Smart Key - The OO-Browser::
 * Smart Key - Todotxt Mode::
 * Smart Key - Default Context::
@@ -2663,6 +2664,20 @@ Ripgrep outputs each pathname once, followed by all matching lines in
 that pathname.  Messages are recognized in any buffer (other than a
 helm completion buffer).
 
+@findex ibtypes grep-single-file
+@cindex grep
+@cindex match lines
+@cindex command history
+@findex hpath:get-grep-filename
+@vindex command-history
+@anchor{grep-single-file}
+@item grep-single-file
+Jump to the source line from a single file, line-numbered grep msg.
+Such grep msgs start with the line number followed by a colon.  The
+buffer may contain the file searched prior to any such line or it may
+not, e.g. @bkbd{M-!} in which case @code{hpath:get-grep-filename} will
+extract a best guess from the @code{command-history}.
+
 @findex ibtypes ipython-stack-frame
 @cindex ipython
 @cindex stack frame
@@ -3887,8 +3902,8 @@ upon the referent context in which the Action Key is released.
 @example
 Referent Context         Link Type
 ----------------------------------------------------
-HyWikiWord Reference     link-to-wikiword
 Org Roam or Org Id       link-to-org-id
+HyWikiWord Reference     link-to-wikiword
 Global Button            link-to-gbut
 Explicit Button          link-to-ebut
 Implicit Button          link-to-ibut
@@ -3898,10 +3913,14 @@ Info Node                link-to-Info-node
 Texinfo Node             link-to-texinfo-node
 Mail Reader Message      link-to-mail
 Directory Name           link-to-directory
-Filename                 link-to-file
+File Name                link-to-file
 Koutline Cell            link-to-kcell
+Single-line Region       link-to-string-match
+HyWiki Page              link-to-wikiword
+Org Heading              link-to-file
 Outline Heading          link-to-file
 Buffer attached to File  link-to-file
+EOL in Dired Buffer      link-to-directory (Dired dir)
 Buffer without File      link-to-buffer-tmp
 @end example
 @end format
@@ -4552,13 +4571,13 @@ that key in all Action and Assist Key contexts with the
 @cindex activate HyWiki link
 @cindex link, HyWikiWord
 @kindex C-h h h a
-@kindex C-h h h o i
+@kindex C-h h h o n
 @cindex menu item, HyWiki/Org-M-RET/None
 To jump to a HyWiki page, simply move point onto any highlighted
 HyWikiWord and press the Action Key @bkbd{M-@key{RET}}.  This also
 highlights any other instances of HyWikiWords across all visible Emacs
 windows.  If you have set the Org @bkbd{M-@key{RET}} option to
-@samp{None} with @bkbd{C-h h h o i}, then you will have to
+@samp{None} with @bkbd{C-h h h o n}, then you will have to
 use the HyWiki Act menu command @bkbd{C-h h h a} instead to jump to HyWiki
 pages.
 
@@ -4599,24 +4618,10 @@ Action Key does the right thing in this context.
 Once Hyperbole has been loaded and activated, HyWikiWords (with or
 without delimiters) are automatically highlighted and active based
 on the setting of @code{hywiki-mode}.  Set it with @bkbd{C-h h h m}
-ModeToggle into one of these three states:
+ModeSet/.  @xref{ModeSet/}, for the three settings.
 
-@table @kbd
-@item All-Editable-Buffers
-This is the default setting.  Highlight HyWikiWord references within
-HyWiki page buffers only.  The @code{hywiki-mode} variable is set to
-@samp{:pages}.
+Modeinto one of these three states:
 
-@vindex hywiki-exclude-major-modes
-@item HyWiki-Pages-Only
-Highlight HyWikiWord references within all editable buffers except
-those with major modes in @code{hywiki-exclude-major-modes}.  The
-@code{hywiki-mode} variable is set to @samp{:all}.
-
-@item Nowhere
-Disable highlighting HyWikiWord references everywhere.  The
-@code{hywiki-mode} variable is set to @samp{nil}.
-@end table
 
 @cindex toggle hywiki-mode
 @noindent
@@ -4721,11 +4726,11 @@ It looks like this:
 
 @smallexample
 @noindent
-HyWiki>  Act Create DiredHyWiki EditPage FindReferent GrepConsult Help Info Link ModeToggle Org-M-RET/ Publish TagFind WikiWordConsult
+HyWiki>  Act BacklinkConsult Create DiredHyWiki EditPage FindReferent GrepConsult Help Info Link ModeSet/ Org-M-RET/ Publish TagFind
 @end smallexample
 
 @noindent
-The GrepConsult and WikiWordConsult items appear only when the Consult
+The BacklinkConsult and GrepConsult and items appear only when the Consult
 package is installed prior to loading Hyperbole.  These commands are
 especially useful as they allow for fast line-level searching across
 many files with interactive search pattern narrowing.
@@ -4739,6 +4744,12 @@ Below are descriptions of each menu item.
 @cindex HyWiki activate link 
 @item Act
 Activate HyWikiWord link at point.
+
+@cindex HyWikiWord interactive backlink grep
+@findex hywiki-consult-backlink
+@item BacklinkConsult
+Use @code{hywiki-consult-backlink} to prompt for a HyWikiWord and then
+consult grep over its HyWiki backlink references, selecting one.
 
 @cindex HyWiki create a page
 @item Create
@@ -4788,11 +4799,27 @@ Display Hyperbole manual section on HyWiki.
 Prompt for and add a link at point to a HyWiki page.
 
 @findex hywiki-mode
-@cindex HyWiki mode
+@cindex hywiki-mode
 @cindex HyWikiWords outside hywiki-directory
-@item ModeToggle
-Toggle global minor mode @code{hywiki-mode} that enables HyWikiWord hyperlinks
-in buffers outside of @code{hywiki-directory}.
+@anchor{ModeSet/}
+@item ModeSet/
+Select from three states for the global minor mode, @code{hywiki-mode}.
+@table @kbd
+@item All-Editable-Buffers
+This is the default setting.  Highlight HyWikiWord references within
+HyWiki page buffers only.  The @code{hywiki-mode} variable is set to
+@samp{:pages}.
+
+@vindex hywiki-exclude-major-modes
+@item HyWiki-Pages-Only
+Highlight HyWikiWord references within all editable buffers except
+those with major modes in @code{hywiki-exclude-major-modes}.  The
+@code{hywiki-mode} variable is set to @samp{:all}.
+
+@item Nowhere
+Disable highlighting HyWikiWord references everywhere.  The
+@code{hywiki-mode} variable is set to @samp{nil}.
+@end table
 
 @kindex C-h h h o
 @kindex HyWiki, C-h h h o
@@ -4821,12 +4848,6 @@ Publish modified pages in the HyWiki to HTML; prefix arg to publish all pages.
 @cindex search, HyWiki tag
 @item TagFind
 Find a matching Org tag across all HyWiki pages.
-
-@cindex HyWikiWord interactive grep
-@findex hywiki-consult-grep
-@item WikiWordConsult
-Use @code{hywiki-consult-grep} to prompt for a HyWikiWord and then
-consult grep for and select an occurrence within the HyWiki.
 @end table
 
 
@@ -10534,14 +10555,16 @@ If dragged from an Emacs window to outside of Emacs:
 * Smart Key - Smart Scrolling::
 * Smart Key - Smart Menus::
 * Smart Key - Dired Mode::
+* Smart Key - Magit Mode::
+* Smart Key - Delimited Things::
 * Smart Key - Hyperbole Buttons::
 * Smart Key - View Mode::
 * Smart Key - Helm Mode::
 * Smart Key - ERT Results Mode::
-* Smart Key - Delimited Things::
 * Smart Key - Occurrence Matches::
 * Smart Key - The Koutliner::
 * Smart Key - Flymake Mode::
+* Smart Key - Profiler Report Mode::
 * Smart Key - RDB Mode::
 * Smart Key - Help Buffers::
 * Smart Key - Custom Mode::
@@ -10570,7 +10593,6 @@ If dragged from an Emacs window to outside of Emacs:
 * Smart Key - HyRolo Match Buffers::
 * Smart Key - Image Thumbnails::
 * Smart Key - Gomoku Game::
-* Smart Key - Magit Mode::
 * Smart Key - The OO-Browser::
 * Smart Key - Todotxt Mode::
 * Smart Key - Default Context::
@@ -10872,7 +10894,7 @@ If the Smart Menu package (part of InfoDock) has been loaded and
 @end group
 @end format
 
-@node Smart Key - Dired Mode, Smart Key - Hyperbole Buttons, Smart Key - Smart Menus, Smart Keyboard Keys
+@node Smart Key - Dired Mode, Smart Key - Magit Mode, Smart Key - Smart Menus, Smart Keyboard Keys
 @subsection Smart Key - Dired Mode
 @cindex click, dired
 @cindex drag, dired
@@ -10909,7 +10931,7 @@ If pressed within a dired-mode (directory editor) buffer:
 @end group
 @end format
 
-@node Smart Key - Magit Mode, Smart Key - The OO-Browser, Smart Key - Gomoku Game, Smart Keyboard Keys
+@node Smart Key - Magit Mode, Smart Key - Delimited Things, Smart Key - Dired Mode, Smart Keyboard Keys
 @subsection Smart Key - Magit Mode
 @cindex git
 @cindex magit
@@ -10940,7 +10962,7 @@ If pressed within a Magit buffer and not on a button:
 @end group
 @end format
 
-@node Smart Key - Delimited Things, Smart Key - Occurrence Matches, Smart Key - ERT Results Mode, Smart Keyboard Keys
+@node Smart Key - Delimited Things, Smart Key - Hyperbole Buttons, Smart Key - Magit Mode, Smart Keyboard Keys
 @subsection Smart Key - Delimited Things
 
 @cindex thing
@@ -10967,7 +10989,7 @@ the thing.
 @end group
 @end format
 
-@node Smart Key - Hyperbole Buttons, Smart Key - View Mode, Smart Key - Dired Mode, Smart Keyboard Keys
+@node Smart Key - Hyperbole Buttons, Smart Key - View Mode, Smart Key - Delimited Things, Smart Keyboard Keys
 @subsection Smart Key - Hyperbole Buttons
 
 @cindex click, button
@@ -11040,7 +11062,7 @@ If pressed within a buffer in helm major mode:
 @end group
 @end format
 
-@node Smart Key - ERT Results Mode, Smart Key - Delimited Things, Smart Key - Helm Mode, Smart Keyboard Keys
+@node Smart Key - ERT Results Mode, Smart Key - Occurrence Matches, Smart Key - Helm Mode, Smart Keyboard Keys
 @subsection Smart Key - ERT Results Mode
 
 @cindex ert-results-mode
@@ -11086,7 +11108,7 @@ original location and yanks it at the new location.
 @end group
 @end format
 
-@node Smart Key - Occurrence Matches, Smart Key - The Koutliner, Smart Key - Delimited Things, Smart Keyboard Keys
+@node Smart Key - Occurrence Matches, Smart Key - The Koutliner, Smart Key - ERT Results Mode, Smart Keyboard Keys
 @subsection Smart Key - Occurrence Matches
 
 @format
@@ -11130,7 +11152,7 @@ When pressed within a Hyperbole Koutliner buffer (kotl-mode):
 @end group
 @end format
 
-@node Smart Key - Flymake Mode, Smart Key - RDB Mode, Smart Key - The Koutliner, Smart Keyboard Keys
+@node Smart Key - Flymake Mode, Smart Key - Profiler Report Mode, Smart Key - The Koutliner, Smart Keyboard Keys
 @subsection Smart Key - Flymake Mode
 
 @cindex linter
@@ -11219,7 +11241,32 @@ current buffer.
 wrap around at the end and beginning of the buffer.  Repeat with @bkbd{w}.
 @end table
 
-@node Smart Key - RDB Mode, Smart Key - Help Buffers, Smart Key - Flymake Mode, Smart Keyboard Keys
+@node Smart Key - Profiler Report Mode, Smart Key - RDB Mode, Smart Key - Flymake Mode, Smart Keyboard Keys
+@subsection Smart Key - Profiler Report Mode
+@cindex profiling
+@cindex code profiling
+@cindex report, profiler
+@format
+@group
+If pressed within a profiler-report buffer which displays Emacs Lisp
+percentage CPU time and memory usage across a recorded period:
+  ACTION KEY
+    (1) on the text of a linked call tree item, jumps to the definition
+        of the item;
+    (2) on or after the last line in the buffer, quits from the profiler
+        report.
+@end group
+@end format
+@format
+@group
+  ASSIST KEY
+    (1) on an item line, toggles exposure of the item's call tree.
+    (2) on or after the last line in the buffer, quits from the profiler
+        report.
+@end group
+@end format
+
+@node Smart Key - RDB Mode, Smart Key - Help Buffers, Smart Key - Profiler Report Mode, Smart Keyboard Keys
 @subsection Smart Key - RDB Mode
 @cindex rdb-mode
 @cindex database
@@ -11994,7 +12041,7 @@ If pressed within a Dired Image Thumbnail buffer:
 @end group
 @end format
 
-@node Smart Key - Gomoku Game, Smart Key - Magit Mode, Smart Key - Image Thumbnails, Smart Keyboard Keys
+@node Smart Key - Gomoku Game, Smart Key - The OO-Browser, Smart Key - Image Thumbnails, Smart Keyboard Keys
 @subsection Smart Key - Gomoku Game
 @cindex game, gomoku
 @cindex gomoku
@@ -12008,7 +12055,7 @@ If pressed within a Gomoku game buffer:
 @end group
 @end format
 
-@node Smart Key - The OO-Browser, Smart Key - Todotxt Mode, Smart Key - Magit Mode, Smart Keyboard Keys
+@node Smart Key - The OO-Browser, Smart Key - Todotxt Mode, Smart Key - Gomoku Game, Smart Keyboard Keys
 @subsection Smart Key - The OO-Browser
 
 @cindex OO-Browser

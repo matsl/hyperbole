@@ -3,11 +3,11 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     7-Jun-89 at 22:08:29
-;; Last-Mod:     30-Dec-25 at 14:42:32 by Mats Lidell
+;; Last-Mod:     14-Mar-26 at 19:38:41 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 1991-2025  Free Software Foundation, Inc.
+;; Copyright (C) 1991-2026  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -32,6 +32,7 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
+(require 'package) ;; Always keep this first
 (require 'hversion)
 (require 'hmail)
 (require 'hsys-consult)
@@ -40,7 +41,6 @@
 (eval-when-compile
   `(hyrolo-install-markdown-mode))
 (require 'outline)
-(require 'package)
 (require 'reveal)
 ;; Avoid any potential library name conflict by giving the load directory.
 (require 'set (expand-file-name "set" hyperb:dir))
@@ -582,12 +582,8 @@ after the display."
     (error "(hyrolo-display-matches): Search the rolo first"))
   ;; Save current window configuration if rolo match buffer is not
   ;; displayed in one of the windows already.
-  (or
-   ;; Handle both Emacs V18 and V19 versions of get-buffer-window.
-   (condition-case ()
-       (get-buffer-window display-buf (selected-frame))
-     (error (get-buffer-window display-buf)))
-   (setq hyrolo--wconfig (current-window-configuration)))
+  (unless (get-buffer-window display-buf (selected-frame))
+    (setq hyrolo--wconfig (current-window-configuration)))
   (hyrolo-to-buffer display-buf)
   (when (fboundp 'hproperty:but-create)
     (hproperty:but-create))
@@ -2253,6 +2249,8 @@ Calls the functions given by `hyrolo-mode-hook'.
 \\{hyrolo-mode-map}"
   (interactive)
   (unless (eq major-mode 'hyrolo-mode)
+    ;; The mode controls the data in its buffers and it is non-editable
+    (put 'hyrolo-mode 'mode-class 'special)
     (push (cons (substring hyrolo-hdr-regexp 1) 1) outline-heading-alist)
     (push (cons (if (boundp 'hbut:source-prefix)
 		    hbut:source-prefix
@@ -3005,9 +3003,12 @@ a default of MM/DD/YYYY."
 
 (defun hyrolo-grep-input (read-function prompt &optional path-list)
   "Use `consult-grep' if available or READ-FUNCTION with PROMPT.
-Grep over optional `path-list' or `hyrolo-file-list', which may
-contain wildcards.  Return the input read, to be fed to a HyRolo
-grep call."
+Grep over optional `path-list' or `hyrolo-file-list', which may contain
+wildcards.  When using the `consult' package, return the input read which is
+a list of (string-or-regexp-to-match (files-to-search)) to be fed to a
+HyRolo grep call. When not using `consult', return a list of
+\(string-or-regexp-to-match) and `hyrolo-file-list' provides the list of
+files to search."
   (if (and (hsys-consult-active-p)
 	   (bound-and-true-p vertico-mode))
       (hsys-consult-get-exit-value
@@ -3017,7 +3018,10 @@ grep call."
 	 #'hyrolo-consult-grep)
        nil nil path-list
        prompt)
-    (funcall read-function (concat prompt ": "))))
+    (let ((result (funcall read-function (concat prompt ": "))))
+      (if (listp result)
+          result
+        (list result)))))
 
 (defun hyrolo-highlight-matches (regexp start end)
   "Highlight matches for REGEXP in region from START to END."

@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell
 ;;
 ;; Orig-Date:    18-May-24 at 23:59:48
-;; Last-Mod:      9-Feb-26 at 00:26:10 by Bob Weiner
+;; Last-Mod:     21-Mar-26 at 13:55:18 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -17,6 +17,7 @@
 
 ;;; Code:
 
+(require 'cl-lib) ;; for cl-incf
 (require 'ert)
 (require 'el-mock)
 (require 'ert-x)
@@ -25,6 +26,27 @@
 (require 'hsys-org)
 (require 'ox-publish)
 (require 'seq) ;; for `seq-take-while' and `seq-uniq'
+
+(defmacro hywiki-tests--referent-test (expected-referent &rest prepare)
+  "Template macro for generating a non-page HyWikiWord referent.
+EXPECTED-REFERENT is the result expected from `hywiki-get-referent'.
+The template runs the PREPARE body, and that must add the HyWikiWord
+named WikiReferent with a non-page referent type."
+  (declare (indent 0) (debug t))
+  `(let* ((hsys-consult-flag nil)
+	  (vertico-mode 0)
+	  (hywiki-directory (make-temp-file "hywiki" t))
+	  (wiki-word-non-page "WikiReferent")
+          (mode-require-final-newline nil))
+     (unwind-protect
+         (save-excursion
+           (should (equal '() (hywiki-get-wikiword-list)))
+
+           ,@prepare
+
+           (should (equal ,expected-referent (hywiki-get-referent wiki-word-non-page))))
+       (hy-delete-files-and-buffers (list (hywiki-cache-default-file)))
+       (hywiki-tests--delete-hywiki-dir-and-buffer hywiki-directory))))
 
 (defconst hywiki-tests--edit-string-pairs
    [
@@ -1185,15 +1207,15 @@ Note special meaning of `hywiki-allow-plurals-flag'."
 		     (hywiki-get-referent wikiword))))))
 
 (ert-deftest hywiki-tests--add-org-id ()
-  "Verify `hywiki-add-org-id'."
+  "Verify `hywiki-add-org-id' and read back with `hywiki-get-referent'."
   ;; Error case - Non org-mode buffer
   (hywiki-tests--preserve-hywiki-mode
     (let ((wikiword "WikiWord")
           (filea (make-temp-file "hypb" nil ".txt")))
       (unwind-protect
           (with-current-buffer (find-file filea)
-            (mocklet (((hmouse-choose-link-and-referent-windows) => (list nil (get-buffer-window))))
-              (should-error (hywiki-add-org-id wikiword) :type '(error))))
+            ;; Error because not in Org mode
+            (should-error (hywiki-add-org-id wikiword) :type '(error)))
 	(hy-delete-file-and-buffer filea))
 
       (let ((filea (make-temp-file "hypb" nil ".org")))
@@ -1203,17 +1225,18 @@ Note special meaning of `hywiki-allow-plurals-flag'."
 
               ;; Error-case - No Org ID and read only
               (setq buffer-read-only t)
-              (mocklet (((hmouse-choose-link-and-referent-windows) => (list nil (get-buffer-window))))
-	        (should-error (hywiki-add-org-id wikiword) :type '(error))
+	      (should-error (hywiki-add-org-id wikiword) :type '(error))
 
-                ;; Normal case - Org-mode with Org ID
-                (goto-char (point-max))
-                (setq buffer-read-only nil)
-	        (let ((referent-value (cdr (hywiki-add-org-id wikiword))))
-		  (if (stringp referent-value)
-		      (should (string-prefix-p "ID: " referent-value))
-		    (error "(hywiki-tests--add-org-id): referent value is a non-string: %s" referent-value)))))
-	  (hy-delete-file-and-buffer filea))))))
+              ;; Normal case - Org-mode with Org ID
+              (goto-char (point-max))
+              (setq buffer-read-only nil)
+              (hywiki-add-org-id wikiword)
+	      (let* ((referent (hywiki-get-referent wikiword))
+                     (referent-type (car referent))
+                     (referent-value (cdr referent)))
+                (should (eq referent-type 'org-id))
+		(should (and (stringp referent-value) (not (string-empty-p referent-value))))))
+	(hy-delete-file-and-buffer filea))))))
 
 (ert-deftest hywiki-tests--add-org-roam-node ()
   "Verify `hywiki-add-org-roam-node'."
@@ -1227,37 +1250,35 @@ Note special meaning of `hywiki-allow-plurals-flag'."
         (should (equal '(org-roam-node . "node-title")
 		       (hywiki-get-referent wikiword)))))))
 
-(defmacro hywiki-tests--referent-test (expected-referent &rest prepare)
-  "Template macro for generating a non-page HyWikiWord referent.
-EXPECTED-REFERENT is the result expected from `hywiki-get-referent'.
-The template runs the PREPARE body, and that must add the HyWikiWord
-named WikiReferent with a non-page referent type."
-  (declare (indent 0) (debug t))
-  `(let* ((hsys-consult-flag nil)
-	  (vertico-mode 0)
-	  (hywiki-directory (make-temp-file "hywiki" t))
-	  (wiki-word-non-page "WikiReferent")
-          (mode-require-final-newline nil))
-     (unwind-protect
-         (save-excursion
-           (should (equal '() (hywiki-get-wikiword-list)))
+(ert-deftest hywiki-tests--referent-cache-test ()
+  "Test to check that a HyWiki referent read back from cache is as expected."
+  (let* ((hsys-consult-flag nil)
+	 (vertico-mode 0)
+	 (hywiki-directory (make-temp-file "hywiki" t))
+         (file (make-temp-file "hypb"))
+	 (wiki-word-non-page "WikiReferent")
+         (mode-require-final-newline nil))
+    (unwind-protect
+        (progn
+          (find-file file)
+          (hy-test-helpers:ert-simulate-keys (concat wiki-word-non-page "\r")
+            (hywiki-add-bookmark wiki-word-non-page))
+          (should (equal (cons 'bookmark wiki-word-non-page)
+                         (hywiki-get-referent wiki-word-non-page)))
 
-           ,@prepare
+	  ;; Stop checking existence of cache file since there may be
+	  ;; a race condition that makes it not exist yet.
+          ;; (should (file-exists-p (hywiki-cache-default-file)))
 
-	   ;; Stop checking existence of cache file since there may be
-	   ;; a race condition that makes it not exist yet.
-           ;; (should (file-exists-p (hywiki-cache-default-file)))
+          ;; Simulate reload from cache
+          (hywiki-cache-save)
+          (setq hywiki--referent-hasht nil)
+          (hywiki-make-referent-hasht)
 
-           (should (equal ,expected-referent (hywiki-get-referent wiki-word-non-page)))
-
-           ;; Simulate reload from cache
-           (hywiki-cache-save)
-           (setq hywiki--referent-hasht nil)
-           (hywiki-make-referent-hasht)
-
-           (should (equal ,expected-referent (hywiki-get-referent wiki-word-non-page))))
-       (hy-delete-files-and-buffers (list (hywiki-cache-default-file)))
-       (hywiki-tests--delete-hywiki-dir-and-buffer hywiki-directory))))
+          (should (equal (cons 'bookmark wiki-word-non-page)
+                         (hywiki-get-referent wiki-word-non-page))))
+      (hy-delete-files-and-buffers (list file (hywiki-cache-default-file)))
+      (hywiki-tests--delete-hywiki-dir-and-buffer hywiki-directory))))
 
 (ert-deftest hywiki-tests--save-referent-keyseries ()
   "Verify saving and loading a referent keyseries works ."
@@ -1364,21 +1385,19 @@ named WikiReferent with a non-page referent type."
   "Verify saving and loading a referent global-button works using Hyperbole's menu."
   (skip-unless (not noninteractive))
   (hywiki-tests--referent-test
-    (progn
-      (sit-for 0.2)
-      (cons 'global-button "global"))
-    (defvar test-buffer)
-    (let* ((test-file (make-temp-file "gbut" nil ".txt"))
-           (test-buffer (find-file-noselect test-file)))
+    (cons 'global-button "global")
+    (let* ((gbut-file (make-temp-file hbmap:filename nil nil))
+	   (hbmap:filename (file-name-nondirectory gbut-file))
+	   (hbmap:dir-user (file-name-directory gbut-file))
+	   (hbmap:dir-filename (expand-file-name  "HBMAP" hbmap:dir-user))
+           (gbut-buffer (find-file-noselect gbut-file)))
       (unwind-protect
-          (with-mock
-            (mock (hpath:find-noselect (expand-file-name hbmap:filename hbmap:dir-user)) => test-buffer)
-            (stub gbut:label-list => (list "global"))
-            (mock (gbut:act "global") => t)
-            (gbut:ebut-program "global" 'link-to-file test-file)
+	  (progn
+            (gbut:ebut-program "global" 'link-to-file gbut-file)
             (should (hact 'kbd-key "C-u C-h hhc WikiReferent RET g global RET"))
             (hy-test-helpers:consume-input-events))
-        (hy-delete-file-and-buffer test-file)))))
+        (hy-delete-files-and-buffers (list gbut-file hbmap:filename hbmap:dir-filename))))))
+
 
 ;; HyRolo
 (ert-deftest hywiki-tests--save-referent-hyrolo ()
@@ -1447,14 +1466,13 @@ named WikiReferent with a non-page referent type."
 (ert-deftest hywiki-tests--save-referent-org-id ()
   "Verify saving and loading a referent org id works."
   (hywiki-tests--referent-test
-    (cons 'org-id "ID: generated-org-id")
+    (cons 'org-id "generated-org-id")
     (save-excursion
       (let ((filea (make-temp-file "hypb" nil ".org")))
         (unwind-protect
             (with-current-buffer (find-file filea)
               (hywiki-tests--insert "* header\n")
-              (mocklet (((hmouse-choose-link-and-referent-windows) => (list nil (get-buffer-window)))
-                        ((org-id-get-create) => "generated-org-id"))
+              (mocklet (((org-id-get) => "generated-org-id"))
                 (goto-char (point-max))
 	        (hywiki-add-org-id wiki-word-non-page)))
 	  (hy-delete-file-and-buffer filea))))))
@@ -2116,7 +2134,7 @@ expected result."
 
 (ert-deftest hywiki-tests--get-buttonize-characters ()
   "Verify `hywiki-get-buttonize-characters'."
-  (should (string= "!&+,./;=?@\\^`|~" (hywiki-get-buttonize-characters))))
+  (should (string= "!&'+,./;=?@\\^`|~" (hywiki-get-buttonize-characters))))
 
 (ert-deftest hywiki-tests--non-hook-context-p ()
   "Verify `hywiki-non-hook-context-p'."
@@ -2174,6 +2192,134 @@ expected result."
             ((hywiki-create-page "WikiWord" t) => 'page))
     (let (hywiki-referent-prompt-flag)
       (should (equal 'page (hywiki-word-create "WikiWord"))))))
+
+(ert-deftest hywiki-tests--get-page-headings ()
+  "Verify headings are found."
+  (hywiki-tests--preserve-hywiki-mode
+    (with-current-buffer (find-file wiki-page)
+      (insert "\
+* Header
+** SubHeader
+*** SubSubHeader
+")
+      (save-buffer))
+    (should (set:equal '("Header" "SubHeader" "SubSubHeader")
+                       (hywiki-get-page-headings wiki-page)))))
+
+(ert-deftest hywiki-tests--get-references-at-al ()
+  "Verify `hywiki-get-references' and `hywiki-get-reference-positions'."
+  (hywiki-tests--preserve-hywiki-mode
+    (hywiki-tests--insert "WikiWord")
+    (should (hywiki-get-references))
+    (should (hywiki-get-references (point-min) (point-max)))
+    (should (equal (list (cons 1 9))
+                   (hywiki-get-reference-positions)))
+    (should (equal (list (cons 1 9))
+                   (hywiki-get-reference-positions (point-min) (point-max))))))
+
+(defun hywiki-tests--remove-keyword-args (lst)
+  "Return LST with keyworded args removed."
+  (let ((result nil)
+        (skip nil))
+    (dolist (item lst result)
+      (cond
+       (skip (setq skip nil))
+       ((keywordp item) (setq skip t))
+       (t (push item result))))
+    (nreverse result)))
+
+(ert-deftest hywiki-tests--completion-at-point ()
+  "Verify `hywiki-completion-at-point' returns proper completion candidates."
+  (hywiki-tests--preserve-hywiki-mode
+    (ert-info ("Nothing to complete")
+      (should-not (hywiki-completion-at-point)))
+    (ert-info ("String 'ab' can't be completed")
+      (insert "ab")
+      (should-not (hywiki-completion-at-point)))
+    (ert-info ("Word 'Wi' can be completed")
+      (erase-buffer)
+      (insert "Wi")
+      (should (equal (list 1 3 '(("WikiWord")))
+                     (hywiki-tests--remove-keyword-args (hywiki-completion-at-point)))))
+    (ert-info ("Word is extended to 'Wixx' so it can't be completed")
+      (insert "xx")
+      (should-not (hywiki-completion-at-point)))
+    (save-excursion
+      (with-current-buffer (find-file wiki-page)
+        (insert "\
+* Header
+** SubHeader
+*** SubSubHeader
+")
+        (save-buffer)))
+    (ert-info ("Word 'Wixx' can't be completed, no headers are returned")
+      (should-not (hywiki-completion-at-point)))
+    (ert-info ("Word 'Wiki' can be completed so headers are returned")
+      (erase-buffer)
+      (insert "Wiki")
+      (should (equal (list 1 5 '(("WikiWord") ("WikiWord#Header") ("WikiWord#SubHeader") ("WikiWord#SubSubHeader")))
+                     (hywiki-tests--remove-keyword-args (hywiki-completion-at-point)))))))
+
+(ert-deftest hywiki-tests--verify-hook-functions ()
+  "Verify that the hook functions are set and torn down."
+  (cl-flet* ((hooks-exists: (info)
+               (ert-info ((format "Hywiki-mode %s - %s" hywiki-mode info))
+                 (should (memq 'hywiki-word-store-around-point pre-command-hook))
+                 (should (memq 'hywiki-word-highlight-post-self-insert post-self-insert-hook))
+                 (should (memq 'hywiki-word-highlight-post-command post-command-hook))))
+             (hooks-removed: (info)
+               (ert-info ((format "Hywiki-mode %s - %s" hywiki-mode info))
+                 (should-not (memq 'hywiki-word-store-around-point pre-command-hook))
+                 (should-not (memq 'hywiki-word-highlight-post-self-insert post-self-insert-hook))
+                 (should-not (memq 'hywiki-word-highlight-post-command post-command-hook)))))
+    (hywiki-tests--preserve-hywiki-mode
+      (hooks-exists: "In temp buffer")
+      (save-excursion
+        (with-current-buffer (find-file-noselect wiki-page)
+          (hooks-exists: "In wiki-page")))
+      (hywiki-mode :pages)
+      (hooks-removed: "In temp buffer")
+      (save-excursion
+        (with-current-buffer (find-file-noselect wiki-page)
+          (hooks-exists: "In wiki-page")))
+      (hywiki-mode nil)
+      (hooks-removed: "In temp buffer")
+      (save-excursion
+        (with-current-buffer (find-file-noselect wiki-page)
+          (hooks-removed: "In wiki-page"))))))
+
+(ert-deftest hywiki-tests--org-link-with-wikiword-in-filename ()
+  "Verify Action Key on an Org link HyWikiWord filename activates org-link."
+  (hywiki-tests--preserve-hywiki-mode
+    (let ((hsys-org-enable-smart-keys t))
+      (org-mode)
+      (hywiki-tests--insert "[[file:WikiWord.org][Description]]")
+      (font-lock-ensure)
+      (search-backward "WikiWord")
+      (should (eq (org-element-type (org-element-context)) 'link))
+      (should (eq (caar (hkey-actions)) 'smart-org)))))
+
+(ert-deftest hywiki-tests--org-link-with-wikiword-in-description ()
+  "Verify Action Key on an Org link descrip. HyWikiWord activates the wikiword."
+  (hywiki-tests--preserve-hywiki-mode
+    (let ((hsys-org-enable-smart-keys t))
+      (org-mode)
+      (hywiki-tests--insert "[[file:WikiWord.org][WikiWord Description]]")
+      ;; (font-lock-ensure)
+      (search-backward "WikiWord")
+      (should (eq (org-element-type (org-element-context)) 'link))
+      (should (ibtype:test-p 'hywiki-existing-word)))))
+
+(ert-deftest hywiki-tests--org-in-buffer-completion ()
+  "Verify org in buffer completion works with `hywiki-mode'."
+  (hywiki-tests--preserve-hywiki-mode
+    (let ((hsys-org-enable-smart-keys t))
+      (org-mode)
+      (hywiki-tests--insert "* Header\n\n[[*")
+      (execute-kbd-macro (kbd "TAB"))
+      (save-excursion
+        (beginning-of-line)
+        (should (looking-at-p (regexp-quote "[[*Header")))))))
 
 (provide 'hywiki-tests)
 

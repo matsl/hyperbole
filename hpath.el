@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Nov-91 at 00:44:23
-;; Last-Mod:      1-Jan-26 at 18:17:35 by Mats Lidell
+;; Last-Mod:     22-Mar-26 at 18:26:12 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -132,6 +132,8 @@ The format is ${variable}.  Match grouping 1 is the name of the variable.")
 ;;; Public Declarations
 ;;; ************************************************************************
 
+(defvar hywiki-directory)
+
 (declare-function Info-find-node "info")
 (declare-function br-in-browser "ext:br")
 (declare-function br-quit "ext:br")
@@ -143,10 +145,14 @@ The format is ${variable}.  Match grouping 1 is the name of the variable.")
 (declare-function hmail:editor-p "hmail")
 (declare-function hypb:decode-url "hypb")
 (declare-function hypb:object-p "hypb")
+(declare-function hywiki-get-existing-page-file "hywiki")
+(declare-function hywiki-get-referent "hywiki")
+(declare-function hywiki-org-to-heading-instance "hywiki")
 (declare-function kbd-key:key-series-to-events "hib-kbd")
 (declare-function kcell-view:indent "kcell-view")
 (declare-function klink:act "klink")
 (declare-function mm-mailcap-command "mm-decode")
+(declare-function org-element-property "org-element-ast")
 
 ;;; ************************************************************************
 ;;; MS WINDOWS PATH CONVERSIONS
@@ -691,9 +697,10 @@ Contains a %s for replacement of a specific section name.")
 (defconst hpath:markdown-suffix-regexp "\\.[mM][dD]"
   "Regexp that matches to a Markdown file suffix.")
 
-(defconst hpath:outline-section-pattern "^\\*+[ \t]+%s[ \t]*\\([\[<\({[:punct:]]+\\|$\\)"
+(defconst hpath:outline-section-pattern "^\\(\\*+\\|#\\+TITLE:\\)[ \t]+%s[ \t]*\\([\[<\({[:punct:]]+\\|$\\)"
   "Bol-anchored, no leading spaces regexp matching an Emacs outline section header.
-Contains a %s for replacement of a specific section name.")
+Also supports Org '#+TITLE:' lines and headings as sections.  Contains a %s
+for replacement of a specific section name.")
 
 (defvar hpath:prefix-regexp "\\`[-!&][ ]*"
   "Regexp matching command characters which may precede a pathname.
@@ -904,7 +911,7 @@ if (hpath:remote-available-p) returns nil."
 		     (string-match hpath:string-url-regexp3 path))
 		 (if (string-match-p "\\`s?ftp\\'"
 				     (match-string-no-properties hpath:hostname-grpn path))
-		     
+
 		     (concat
 		      "/" user "@"
 		      ;; site
@@ -993,7 +1000,8 @@ or `~'."
 				     ;; Could be a shell command from a semicolon separated
 				     ;; list; ignore if so
 				     nil)
-				    (t (expand-file-name subpath)))
+				    (t (or (hywiki-get-existing-page-file subpath)
+                                           (expand-file-name subpath))))
 			    ;; Only default to current path if know are within a PATH value
 			    (when (string-match-p hpath:path-variable-value-regexp path)
 			      ".")))
@@ -1098,7 +1106,8 @@ Make any existing path within a file buffer absolute before returning."
 			   (file-name-absolute-p expanded-path) ;; absolute path
 			   (string-match-p hpath:variable-regexp expanded-path) ;; path with var
 			   (string-match-p "\\`([^\):]+)" expanded-path)))) ;; Info node
-	  (when (or non-exist (file-exists-p expanded-path)
+	  (when (or non-exist (and (not (string-empty-p expanded-path))
+                                   (file-exists-p expanded-path))
 		    (string-match-p ".+\\.info\\([.#]\\|\\'\\)" expanded-path))
 	    (if (string-empty-p expanded-path)
 		(concat prefix expanded-path suffix)
@@ -1275,6 +1284,11 @@ only if it exists, otherwise, return nil."
 		  (string-match-p "[\\/~]" substituted-path))
 	      ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
 	      substituted-path)
+             ((and (null (file-name-directory substituted-path))
+                   ;; Could be an existing HyWikiWord
+                   (let ((page-file (cdr (hywiki-get-referent substituted-path))))
+                     (when page-file
+                       (setq substituted-path (expand-file-name page-file hywiki-directory))))))
 	     (t (expand-file-name substituted-path))))
       (if (and (stringp expanded-path)
 	       (or (file-exists-p expanded-path)
@@ -1322,7 +1336,7 @@ ${variable} per path."
     paths))
 
 (defun hpath:prepend-shell-directory (&optional filename)
-  "Prepend subdir to a filename in an \\='ls'-file listing.
+  "Prepend subdir to an optional FILENAME in an \\='ls'-file listing.
 When in a shell buffer and on a filename result of an \\='ls *' or
 recursive \\='ls -R' or \\='dir' command, prepend the subdir to the
 filename at point, or optional FILENAME, when needed and return
@@ -1399,6 +1413,53 @@ If PATH is absolute, return it unchanged."
 		(setq path (format "${%s}/%s" variable path)))
 	      (setq auto-variable-alist nil)))))
       (concat path compression-suffix))))
+
+(defun hpath:get-grep-filename ()
+  "Return a list of (filename-with-path line-number) for grep line without file.
+If grep is run over a single file, it omits the filename from each line
+unless the -H option is given.
+
+This function extracts both the filename searched and the line number
+selected.  For the filename, first it checks if the grep command precedes
+the numbered lines.  If not, it finds the most recent grep command in the
+`command-history' and uses the last argument if it is an existing filename."
+  (let ((grep-process (apply #'derived-mode-p '(grep-mode shell-mode)))
+	;; for shell command output buffers
+	(grep-output  (and (not buffer-file-name) (not (get-buffer-process (current-buffer))))))
+    (when (or grep-process grep-output)
+      (save-excursion
+	(forward-line 0)
+	(when (looking-at "\\([1-9][0-9]*\\):.+")
+	  (let ((line-num (match-string 1))
+		cmd
+		file)
+	    ;; Skip over lines starting with line numbers
+	    (while (re-search-backward "^[1-9][0-9]*:.+" nil t))
+	    (cond (grep-process
+		   ;; If there is a prior line, move to its end
+		   (unless (or (= (point) (point-min)) (not (bolp)))
+		     (skip-chars-backward "\n\r\t \"'`")
+		     ;; If last item can be expanded as a filename, return a
+		     ;; list of the filename and the line number from the
+		     ;; original line
+		     (setq file (thing-at-point 'existing-filename))
+		     (when file
+		       (list file line-num))))
+		  (grep-output
+		   ;; Command line is not in output buffer; have to get
+		   ;; it from the command history
+		   (setq cmd (cadr (seq-find (lambda (item)
+					       (when (eq (car item) 'eval-expression)
+						 (setq item (cadr item)))
+					       (memq (car item) '(grep rgrep zrgrep hui-select-rgrep hypb:rgrep shell-command async-shell-command)))
+					     command-history)))
+		   (when cmd
+		     (setq file (expand-file-name
+				 (string-trim (car (last (split-string cmd)))
+					      "[\"'`]" "[\"'`]")))
+		     (when (and (file-readable-p file)
+				(not (file-directory-p file)))
+		       (list file line-num)))))))))))
 
 (defun hpath:file-line-and-column (path-line-and-col)
   "Return list of parts from PATH-LINE-AND-COL string of format path:line:col.
@@ -1492,6 +1553,7 @@ buffer but don't display it.  Any modifier prefix is ignored in such cases
 but locational suffixes within the file are utilized."
   (interactive "FFind file: ")
   (unless (stringp pathname)
+    ;; (debug) ;; Enable debugging if nil is ever sent to `hpath:find'
     (error "(hpath:find): pathname arg must be a string, not, %S" pathname))
   ;; `pathname' ends as the whole argument sent in except for any
   ;; initial modifier character.
@@ -1543,15 +1605,20 @@ but locational suffixes within the file are utilized."
     (if (string-empty-p path)
 	(setq path ""
 	      pathname "")
-      ;; Never expand pathnames with modifier prepended.
-      (if modifier
-	  (setq path (hpath:resolve path))
-	(setq path (hpath:expand path)
-	      pathname (hpath:absolute-to path default-directory))
-	;; Remove http file:// url prefix that`hpath:absolute-to' may have
-	;; added and decode the url
-	(when (string-match "\\`file://" pathname)
-	  (setq pathname (hypb:decode-url (substring pathname (match-end 0)))))))
+      ;; Never expand pathnames with modifier prepended
+      (let ((referent (hywiki-get-referent path)))
+        (when (eq (car referent) 'page)
+          ;; This replaces the page name with name.org, so can be expanded
+          ;; down below.
+          (setq path (cdr referent))))
+      (cond (modifier
+	     (setq path (hpath:resolve path)))
+	    (t (setq path (hpath:expand path)
+	             pathname (hpath:absolute-to path default-directory))
+	       ;; Remove http file:// url prefix that`hpath:absolute-to' may have
+	       ;; added and decode the url
+	       (when (string-match "\\`file://" pathname)
+	         (setq pathname (hypb:decode-url (substring pathname (match-end 0))))))))
     (let ((remote-pathname (hpath:remote-p path)))
       (or modifier remote-pathname
 	  (file-exists-p pathname)
@@ -1605,9 +1672,9 @@ but locational suffixes within the file are utilized."
 				    ;; If no path, e.g. just an anchor link in a non-file buffer,
 				    ;; then must display within Emacs, ignoring any external programs.
 				    ((string-empty-p path)
-				     (if noselect
-					 (current-buffer)
-				       (hpath:display-buffer (current-buffer) display-where)))
+				     (unless noselect
+				       (hpath:display-buffer (current-buffer) display-where))
+                                     (current-buffer))
 				    (noselect
 				     (find-file-noselect path))
 				    (t (funcall (hpath:display-path-function display-where) path)))))
@@ -1715,16 +1782,21 @@ of the buffer."
 						(= (aref referent-regexp 0) ?^))
 				       (concat "^[ \t]*" (substring referent-regexp 1)))))
 			       (goto-char (point-min))
-			       (if (or (re-search-forward referent-regexp nil t instance-num)
-				       (and referent-leading-spaces-regexp
-					    (re-search-forward referent-leading-spaces-regexp nil t instance-num)))
-				   (progn (goto-char (match-beginning 0))
-					  (when (eq (current-buffer) (window-buffer))
-					    (recenter 0)))
-				 (goto-char opoint)
-				 (error "(hpath:to-markup-anchor): %s - Section `%s' not found in the visible buffer portion"
-					(buffer-name)
-					anchor-name))))))
+			       (cond ((and (derived-mode-p 'org-mode)
+                                            (hywiki-org-to-heading-instance
+                                             anchor-name instance-num))
+				      (when (eq (current-buffer) (window-buffer))
+					(recenter 0)))
+				     ((or (re-search-forward referent-regexp nil t instance-num)
+                                          (and referent-leading-spaces-regexp
+					       (re-search-forward referent-leading-spaces-regexp nil t instance-num)))
+				      (goto-char (match-beginning 0))
+				      (when (eq (current-buffer) (window-buffer))
+					(recenter 0)))
+				     (t
+                                      (goto-char opoint)
+				      (error "(hpath:to-markup-anchor): %s - Section `%s' not found in the visible buffer portion"
+					     (buffer-name) anchor-name)))))))
 		     (hash (goto-char omin))))
       (when (and (<= omin (point)) (>= omax (point)))
 	(narrow-to-region omin omax)))))
@@ -1760,7 +1832,7 @@ frame.  Always return t."
     (setq filename (substring filename (match-end 0))))
   (hpath:find
    (concat
-    filename
+    (or (hywiki-get-existing-page-file filename) filename)
     (cond ((integerp line-num)
 	   (concat ":" (int-to-string line-num)))
 	  ((stringp line-num)
@@ -1914,17 +1986,44 @@ form is what is returned for PATH."
 					    (concat modifier (format rtn-path suffix)))
 					(concat modifier (format rtn-path ""))))))))))
 		  path non-exist)))
-     (unless (or (null path)
-		 (string-empty-p path)
-		 (string-equal "-" path)
-		 (string-match-p "#['`\"]" path)
-		 ;; If a single character in length, must be a word or
-		 ;; symbol character other than [.~ /].
-		 (and (= (length path) 1)
-		      (not (string-match-p "\\`[.~/]\\'" path))
-		      (or (not (string-match-p "\\sw\\|\\s_" path))
-			  (string-match-p "[@#&!*]" path))))
-       path)))
+    (unless (or (null path)
+		(string-empty-p path)
+		(string-equal "-" path)
+		(string-match-p "#['`\"]" path)
+		;; If a single character in length, must be a word or
+		;; symbol character other than [.~ /].
+		(and (= (length path) 1)
+		     (not (string-match-p "\\`[.~/]\\'" path))
+		     (or (not (string-match-p "\\sw\\|\\s_" path))
+			 (string-match-p "[@#&!*]" path))))
+      (when (or non-exist (file-remote-p path)
+                (hpath:normalize path))
+        path))))
+
+(defun hpath:org-normalize-title (title)
+  "Return title in normalized form.
+Strip all priority, leading ':' or '-' separators, and stats from TITLE."
+  (when title
+    (let ((clean (copy-sequence title)))
+      ;; Strip leading priority: [#B] or [#2} followed by ':' or '-' surrounded by any whitespace
+      (setq clean (replace-regexp-in-string "\\`\\[#\\([0-9]+\\|[A-Za-z]\\)\\]\\([ \t]*[-:][ \t]+\\)?" "" clean))
+      ;; Strip leading ':' or '-' if surrounded by spaces/start of string
+      ;; Matches: "- Title", ": Title", " - Title"
+      (setq clean (string-trim (replace-regexp-in-string "\\`[ \t]*[-:][ \t]+" "" clean)))
+       ;; Strip trailing statistics cookies [1/2] or [50%]
+      (setq clean (replace-regexp-in-string "\\(?: +\\[[0-9%+/]+\\]\\)+\\'" "" clean)))))
+
+(defun hpath:org-normalize-titles ()
+  "Get all buffer Org titles in normalized form.
+Titles are stripped from priorities, stats and leading ':' or '-' separators."
+  (let (title
+        titles)
+    (org-with-wide-buffer
+     (goto-char (point-min))
+     (while (re-search-forward org-heading-regexp nil t)
+       (setq title (org-element-property :raw-value (org-element-at-point)))
+       (push (hpath:org-normalize-title title) titles)))
+    (nreverse titles)))
 
 (defun hpath:push-tag-mark ()
   "Add a tag return marker at point if within a programming language file buffer.
@@ -2275,15 +2374,13 @@ point ends within the narrowed region."
     (setq path (string-trim path "\"" "\"")))
   path)
 
-(defun hpath:normalize (filename)
-  "Normalize and return an existing, readable FILENAME, else signal an error.
+(defun hpath:normalize (path)
+  "Normalize and return an existing, readable PATH, else signal an error.
 Replace Emacs Lisp variables and environment variables (format of
-${var}) with their values in FILENAME's path.  The first matching
+${var}) with their values in PATH's path.  The first matching
 value for variables like `${PATH}' is used."
-  (let ((buf (hpath:find-noselect filename)))
-    (if buf
-	(hpath:validate (hpath:substitute-value (hypb:buffer-file-name buf)))
-      (error "(hpath:normalize): '\"%s\" is not a readable filename" filename))))
+  ;; `hpath:validate' ensures the path is readable or triggers an error
+  (hpath:validate (hpath:substitute-value path)))
 
 (defun hpath:validate (path)
   "Validate PATH is readable and return it in Posix format.
@@ -2297,15 +2394,23 @@ to it."
   (unless (stringp path)
     (error "(hpath:validate): \"%s\" is not a pathname" path))
   (setq path (hpath:mswindows-to-posix path))
-  (cond ((or (string-match "[()]" path) (hpath:remote-p path))
-	 ;; info or remote path, so don't validate
-	 path)
-	((if (not (hpath:www-p path))
-	     ;; Otherwise, must not be a WWW link ref and must be a readable path.
-	     (let ((return-path (hpath:exists-p path)))
-	       (and return-path (file-readable-p return-path)
-		    return-path))))
-	(t (error "(hpath:validate): \"%s\" is not readable" path))))
+  (if (file-readable-p path)
+      path
+    (let* ((suffix-start (cl-position ?# path))
+           (path-only (substring path 0 suffix-start))
+           (suffix (when suffix-start (substring path suffix-start))))
+      ;; `suffix-start' may be nil, so don't use `zerop' or `=' in next line
+      (cond ((equal suffix-start 0) ;; all suffix, nothing to validate
+             path)
+            ((or (string-match "[()]" path-only) (hpath:remote-p path-only))
+	     ;; info or remote path, so don't validate
+	     path)
+	    ((unless (hpath:www-p path-only)
+	       ;; Otherwise, must not be a WWW link ref and must be a readable path.
+	       (let ((return-path (hpath:exists-p path-only)))
+	         (and return-path (file-readable-p return-path)
+		      (concat return-path suffix)))))
+	    (t (error "(hpath:validate): \"%s\" is not a readable path" path))))))
 
 ;;; URL Handling
 (defun hpath:find-file-urls-p ()
@@ -2626,6 +2731,10 @@ Otherwise return nil."
 	   ;; (error "(hpath:get-single-string-variable-value): Value of var-name, \"%s\", must be a string or list" var-name)
 	   (setq val nil)))
     val))
+
+(defun hpath:strip-suffix (path)
+  "Strip any suffix including and after '#' and return the remaining path."
+  (when (stringp path) (substring path 0 (cl-position ?# path))))
 
 (defun hpath:substitute-dir (path-prefix var-name rest-of-path trailing-dir-sep-flag &optional return-path-flag)
   "Return directory after substitutions.

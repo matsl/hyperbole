@@ -11,6 +11,7 @@
 
 @c %**start of header (This is for running Texinfo on a region.)
 
+
 @setfilename hyperbole.info
 @ifnothtml
 @settitle GNU Hyperbole Manual
@@ -31,7 +32,7 @@
 @set txicodequoteundirected
 @set txicodequotebacktick
 
-@set UPDATED April 8, 2026
+@set UPDATED April 9, 2026
 @set UPDATED-MONTH April 2026
 @set EDITION 9.0.2pre
 @set VERSION 9.0.2pre
@@ -172,7 +173,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</P>
 
 <PRE>
 Edition 9.0.2pre
-Printed April 8, 2026.
+Printed April 9, 2026.
 
   Published by the Free Software Foundation, Inc.
   Author:    Bob Weiner
@@ -214,7 +215,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 @example
 Edition 9.0.2pre
-April 8, 2026 @c AUTO-REPLACE-ON-SAVE
+April 9, 2026 @c AUTO-REPLACE-ON-SAVE
 
 
   Published by the Free Software Foundation, Inc.

@@ -1,0 +1,35 @@
+name: Build Docs Image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/docs-image/**"
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .github/docs-image
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/docs-builder:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

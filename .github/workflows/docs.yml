@@ -12,23 +12,12 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
+
     container:
-      image: ubuntu:24.04
+      image: ghcr.io/${{ github.repository }}/docs-builder:latest
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y \
-            make \
-            pandoc \
-            python3-pip \
-            texinfo \
-            texlive-plain-generic
-          pip3 install md-toc --break-system-packages
-
       - name: Build docs
-        run: |
-          make doc-regenerate
+        run: make doc-regenerate

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     2-Jul-16 at 14:54:14
-;; Last-Mod:     14-Mar-26 at 18:38:59 by Bob Weiner
+;; Last-Mod:     29-Mar-26 at 22:57:14 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -70,6 +70,7 @@
 
 (declare-function org-babel-get-src-block-info "org-babel")
 (declare-function org-fold-show-context "org-fold")
+(declare-function org-id-find "org-id")
 (declare-function org-link-open-from-string "ol")
 (declare-function outline-on-heading-p "outline")
 
@@ -214,6 +215,19 @@ If on a colon, match to sections with all tags around point;
 otherwise, just match to the single tag around point."
   (interactive)
   (hsys-org-get-agenda-tags #'hywiki-tags-view))
+
+(defun hsys-org-id-find-advice (&rest _)
+  "Remove the `org-roam' advice from `org-id-find' if present.
+If `org-roam' is loaded and has advised `org-id-find' with the function
+`org-roam-id-find' but Emacs does not have the `sqlite' module, then any
+call to `org-id-find' will fail.  This :before advice function fixes this by
+removing the `org-roam' advice from `org-id-find'."
+  (when (and (fboundp 'org-roam-id-find)
+             (not (hypb:sqlite-p))
+             (hypb:advised-p 'org-id-find 'org-roam-id-find))
+    (advice-remove #'org-id-find #'org-roam-id-find)))
+
+(advice-add 'org-id-find :before #'hsys-org-id-find-advice)
 
 (defun hsys-org-agenda-tags ()
   "On an `org-directory' tag, use `hsys-org-tags-view' to list dir tag matches.

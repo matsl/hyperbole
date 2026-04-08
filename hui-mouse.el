@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:     23-Mar-26 at 18:49:48 by Bob Weiner
+;; Last-Mod:      4-Apr-26 at 23:19:29 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -98,13 +98,15 @@
 (declare-function kotl-mode:eolp "kotl-mode")
 
 ;; Emacs functions
+(declare-function Custom-buffer-done "cus-edit")
+(declare-function Custom-newline "cus-edit")
+(declare-function outline-invisible-in-p "hyperbole")
+(declare-function profiler-report-find-entry "profiler")
+(declare-function profiler-report-toggle-entry "profiler")
+(declare-function tar-expunge "tar")
+(declare-function tar-extract-other-window "tar")
 (declare-function tar-flag-deleted "tar")
 (declare-function tar-unflag "tar")
-(declare-function tar-extract-other-window "tar")
-(declare-function tar-expunge "tar")
-(declare-function outline-invisible-in-p "hyperbole")
-(declare-function Custom-newline "cus-edit")
-(declare-function Custom-buffer-done "cus-edit")
 
 ;;; ************************************************************************
 ;;; Public variables
@@ -254,7 +256,7 @@ The button's attributes are stored in the symbol, `hbut:current'.")
      . ((smart-dired-sidebar) . (smart-dired-sidebar)))
     ;;
     ;; Handle Emacs push buttons in buffers
-    ((and (fboundp 'button-at) (button-at (point)))
+    ((button-at (point))
      . ((smart-push-button nil (mouse-event-p last-command-event))
 	. (smart-push-button-help nil (mouse-event-p last-command-event))))
     ;;
@@ -997,12 +999,7 @@ If key is pressed:
 		(if (save-excursion
 		      (goto-char (point-min))
 		      (re-search-forward "^D" nil t))
-		    (cond ;; For Tree-dired compatibility
-		     ((fboundp 'dired-do-flagged-delete)
-		      (dired-do-flagged-delete))
-		     ((fboundp 'dired-do-deletions)
-		      (dired-do-deletions))
-		     (t (error "(smart-dired): No Dired expunge function")))))
+		    (dired-do-flagged-delete)))
 	       (t (hpath:find (smart-dired-pathname-up-to-point)))))
 	((last-line-p) (quit-window))
 	(t (hpath:find (or (dired-get-filename nil t) "")))))
@@ -1478,7 +1475,8 @@ If assist key is pressed within:
 
 (defun smart-hyrolo ()
   "In hyrolo match buffer, edit current entry.
-If on a file header, edit the file.  Uses one key or mouse key.
+If on a file header, edit the file at current point.  Uses one key or mouse
+key.
 
 Invoked via a key press when in the `hyrolo-display-buffer'.  Assume that
 its caller has already checked that the key was pressed in an appropriate
@@ -1486,8 +1484,8 @@ buffer and has moved the cursor to the selected buffer."
   (interactive)
   (if (hyrolo-hdr-in-p)
       (hact 'hyp-source (save-excursion
-			  (when (and (hyrolo-hdr-to-first-line-p)
-				     (search-forward hbut:source-prefix nil t))
+                          (hyrolo-hdr-to-first-line-p)
+			  (when (search-forward hbut:source-prefix nil t)
 			    (hbut:source t))))
     (hyrolo-edit-entry)))
 
@@ -2212,7 +2210,7 @@ caller has already checked that the key was pressed in an appropriate buffer
 and has moved the cursor there.
 
 If key is pressed:
- (1) on the text of a linked call tree item, jumps to the definition of the item;
+ (1) on the text of a linked call tree item, jumps to the items definition;
  (2) on or after the last line in the buffer, quits from the profiler report."
   (interactive)
   (cond
@@ -2221,13 +2219,12 @@ If key is pressed:
     (quit-window))
    ;; If on the text of an entry, jump to its definition if is a link
    ((text-property-any (point) (1+ (point)) 'face 'link)
-    (let* ((curr-buffer)
-	   (find-function-after-hook '((lambda ()
-					 (setq curr-buffer (current-buffer))))))
-      (hpath:display-buffer (save-window-excursion
-			      (profiler-report-find-entry)
-			      curr-buffer)))
-    t)))
+    (let* ((dbuf)
+           (obuf (current-buffer)))
+      (profiler-report-find-entry)
+      (setq dbuf (window-buffer (selected-window)))
+      (switch-to-buffer obuf)
+      (hpath:display-buffer dbuf)))))
 
 (defun smart-profiler-report-assist ()
   "Use a single assist key or mouse assist key to toggle profiler call trees.

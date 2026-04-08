@@ -8,13 +8,22 @@ on:
     paths:
       - 'man/**'
       - '**.md'
+      - '.github/docs-image/**'
 
 jobs:
   build-docs:
     runs-on: ubuntu-latest
 
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          echo "TAG=${{ hashFiles('.github/docs-image/**') }}" >> $GITHUB_OUTPUT
+
     container:
-      image: ghcr.io/${{ github.repository }}/docs-builder:latest
+      image: ghcr.io/${{ github.repository }}/docs-builder:${{ steps.meta.outputs.TAG }}
 
     steps:
       - uses: actions/checkout@v5

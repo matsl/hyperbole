@@ -1186,6 +1186,19 @@ If `hypb:ask-to-install-package-flag' is non-nil query user if package should
 be installed."
   (when (or (not hypb:ask-to-install-package-flag)
             (y-or-n-p (format "Install `%s' to enable this feature? " package)))
+    (let ((retries 3) (delay 2) (attempt 0) done)
+      (while (not done)
+    	(setq attempt (1+ attempt))
+    	(condition-case err
+            (progn
+              (package-install package)
+              (setq done t))
+      	  (error
+       	   (if (>= attempt retries)
+               (signal (car err) (cdr err))
+             (message "package-install failed (attempt %d/%d): %s — retrying in %ss"
+                      attempt retries (error-message-string err) delay)
+             (sleep-for delay))))))
     (package-install package)
     (require package)))
 

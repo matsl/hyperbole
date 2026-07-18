@@ -20,6 +20,33 @@
 
 (require 'package)
 
+;; Advice with retry for package-install
+(defun hypb:package-install-advice-for-retry (pkg-install &rest args)
+  "Add a retry layer on top of package-install."
+  (let ((retries 3)
+        (attempt 0)
+        done
+        result)
+    (while (not done)
+      (setq attempt (1+ attempt))
+      (condition-case err
+          (progn
+            (setq result (apply pkg-install args))
+            (setq done t))
+      	(wrong-type-argument
+         (unless (equal (cdr err) '(stringp nil))
+           ;; Not what we are worried about, don't retry
+           (signal (car err) (cdr err)))
+         (if (>= attempt retries)
+             (signal (car err) (cdr err))
+           (message "package-install failed (attempt %d/%d): %s"
+                    attempt retries (error-message-string err))))))
+    result))
+
+;; Apply advice only for Emacs master branch version used in CI
+(unless (version< emacs-version "32.0.50")
+  (advice-add 'package-install :around #'hypb:package-install-advice-for-retry))
+
 (declare-function markdown-ts-mode "ext:markdown-ts-mode")
 
 ;; Force markdown-mode to be selected first to avoid markdown-ts-mode

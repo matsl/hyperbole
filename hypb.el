@@ -1180,35 +1180,13 @@ Current supported package managers are `straight', `elpaca', and `package'."
         ((featurep 'elpaca) 'elpaca)
         (t 'package)))
 
-(defun hypb:package-install-with-retry (package)
-  "Add a retry layer on top of package-install."
-  (if (version< emacs-version "32.0.50")
-      (package-install package)
-    (let ((retries 3)
-          (attempt 0)
-          done)
-      (while (not done)
-        (setq attempt (1+ attempt))
-        (condition-case err
-            (progn
-              (package-install package)
-              (setq done t))
-      	  (wrong-type-argument
-           (unless (equal (cdr err) '(stringp nil))
-             ;; Not what we are worried about, don't retry
-             (signal (car err) (cdr err)))
-           (if (>= attempt retries)
-               (signal (car err) (cdr err))
-             (message "package-install failed (attempt %d/%d): %s"
-                      attempt retries (error-message-string err)))))))))
-
 (defun hypb:package-el-install (package)
   "Install PACKAGE using the default package manager `package.el'.
 If `hypb:ask-to-install-package-flag' is non-nil query user if package should
 be installed."
   (when (or (not hypb:ask-to-install-package-flag)
             (y-or-n-p (format "Install `%s' to enable this feature? " package)))
-    (hypb:package-install-with-retry package)
+    (package-install package)
     (require package)))
 
 (defun hypb:notify-manual-install-needed (package manager)

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Jun-16 at 15:35:36
-;; Last-Mod:     31-Dec-25 at 16:02:19 by Mats Lidell
+;; Last-Mod:      4-Jul-26 at 21:39:44 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -91,7 +91,7 @@
 ;;   perpendicular to that edge by 50% while keeping the original edge
 ;;   fixed in place.  Try them and you will quickly see how they can
 ;;   help.
-;;   
+;;
 ;;   ----
 ;;
 ;;   When HyControl creates a new frame, it automatically sizes it to the
@@ -476,21 +476,26 @@ for it to be omitted by `list-buffers'."
 ;;; ************************************************************************
 
 (defvar hycontrol--frames-prompt-format
- (concat "FRAMES: (h=heighten, s=shorten, w=widen, n=narrow, %%/H/W=screen %%age, arrow=move frame) by %d unit%s, .=clear units\n"
-	 ;; d/^/D=delete/iconify frame/others - iconify left out due to some bug on macOS (see comment near ^ below)
-	 "a/A=cycle adjust width/height, d/D=delete frame/others, o/O=other win/frame, I/J/K/M=to frame, [/]=create frame, (/)=save/restore fconfig\n"
-	 "@=grid of wins, f/F=clone/move win to new frame, -/+=minimize/maximize frame, ==frames same size, u/b/~=un/bury/swap bufs\n"
-	 "Frame to edges: c=cycle, i/j/k/m=expand/contract, p/num-keypad=move; z/Z/X=zoom out/in/reset, t=to WINDOWS mode, Q=quit")
+  (concat "FRAMES:        (h=heighten, s=shorten, w=widen,  n=narrow, %%/H/W=screen %%age, arrow=move frame) by %d unit%s\n"
+          "                .=clear units,                   a/A=cycle frame width/height\n"
+          ;; d/^/D=delete/iconify frame/others - iconify left out due to some bug on macOS (see comment near ^ below)
+          "                d/D=delete frame/others,         o/O=other win/frame,         I/J/K/M=to frame\n"
+          "                [/]=create frame,                (/)=save/restore fconfig,    @=grid of wins\n"
+          "                f/F=clone/move win to new frame, -/+=minimize/maximize frame, ==frames same size\n"
+          "                u/b/~=un/bury/swap bufs,         z/Z/X=zoom txt out/in/reset, t=to WINDOWS mode, Q=quit\n"
+          "Frame to edges: c=cycle,                         i/j/k/m=expand/contract,     p/num-keypad=move")
  "HyControl frames-mode minibuffer prompt string to pass to format.
 Format it with 2 arguments: `prefix-arg' and a plural string indicating if
 `prefix-arg' is not equal to 1.")
 
 (defvar hycontrol--windows-prompt-format
-  (concat
-   "WINDOWS: (h=heighten, s=shorten, w=widen, n=narrow, arrow=move frame) by %d unit%s, .=clear units\n"
-   "a/A=cycle adjust frame width/height, d/D=delete win/others, o/O=other win/frame, I/J/K/M=to window, [/]=split win atop/sideways, (/)=save/restore wconfig\n"
-   "@=grid of wins, f/F=clone/move win to new frame, -/+=minimize/maximize win, ==wins same size, u/b/~=un/bury/swap bufs\n"
-   "Frame to edges: c=cycle, i/j/k/m=expand/contract, p/num-keypad=move; z/Z/X=zoom out/in/reset, t=to FRAMES mode, Q=quit")
+  (concat "WINDOWS:       (h=heighten, s=shorten, w=widen,  n=narrow, arrow=move frame) by %d unit%s\n"
+          "                .=clear units,                   a/A=cycle frame width/height\n"
+          "                d/D=delete win/others,           o/O=other win/frame,         I/J/K/M=to window\n"
+          "                [/]=split win atop/sideways,     (/)=save/restore wconfig,    @=grid of wins\n"
+          "                f/F=clone/move win to new frame, -/+=minimize/maximize win,   ==wins same size\n"
+          "                u/b/~=un/bury/swap bufs,         z/Z/X=zoom out/in/reset,     t=to FRAMES mode, Q=quit\n"
+          "Frame to edges: c=cycle,                         i/j/k/m=expand/contract,     p/num-keypad=move")
   "HyControl windows-mode minibuffer prompt string to pass to format.
 Format it with 2 arguments: `prefix-arg' and a plural string indicating if
 `prefix-arg' is not equal to 1.")
@@ -531,6 +536,48 @@ The cycle is in clockwise order from the upper left corner.")
 (defvar hycontrol--initial-which-key-inhibit nil
   "Store value of `which-key-inhibit' flag from \"which-key\" package, if any.
 Used on entry to HyControl.")
+
+;; This just sets the keymap locally and shows the minor mode
+;; indicator in the buffer's mode-line; the separate global minor mode
+;; turns things on and off.
+;;;###autoload
+(define-minor-mode hycontrol-local-frames-mode
+  "Toggle Hyperbole Frames control minor mode in the current buffer."
+  :lighter " HyFrm"
+  :group 'hyperbole-screen)
+
+;;;###autoload
+(define-globalized-minor-mode hycontrol-frames-mode hycontrol-local-frames-mode
+  (lambda () (hycontrol-local-frames-mode 1))
+  :group 'hyperbole-screen)
+
+;; These hooks run by the generated `hycontrol-frames-mode' function
+;; do the global work of turning on and off the mode.
+(add-hook 'hycontrol-frames-mode-on-hook
+	  (lambda () (hycontrol-frames current-prefix-arg)))
+
+(add-hook 'hycontrol-frames-mode-off-hook 'hycontrol-end-mode)
+
+;; This just sets the keymap locally and shows the minor mode
+;; indicator in the buffer's mode-line; the separate global minor mode
+;; turns things on and off.
+;;;###autoload
+(define-minor-mode hycontrol-local-windows-mode
+  "Toggle Hyperbole Windows control minor mode in the current buffer."
+  :lighter " HyWin"
+  :group 'hyperbole-screen)
+
+;;;###autoload
+(define-globalized-minor-mode hycontrol-windows-mode hycontrol-local-windows-mode
+  (lambda () (hycontrol-local-windows-mode 1))
+  :group 'hyperbole-screen)
+
+;; These hooks run by the generated `hycontrol-windows-mode' function
+;; do the global work of turning on and off the mode.
+(add-hook 'hycontrol-windows-mode-on-hook
+	  (lambda () (hycontrol-windows current-prefix-arg)))
+
+(add-hook 'hycontrol-windows-mode-off-hook 'hycontrol-end-mode)
 
 ;;; ************************************************************************
 ;;; Private functions
@@ -860,7 +907,11 @@ that function, use \"zoom-frm.el\" if available."
       (hycontrol-user-error hycontrol-debug "(HyControl): Zooming requires separate \"zoom-frm.el\" Emacs Lisp library installation"))
     (require 'zoom-frm)
     (dolist (fr (visible-frame-list))
-      (zoom-frm-unzoom fr))))
+      (condition-case nil
+          (zoom-frm-unzoom fr)
+        (error
+         (message "Frame is not zoomed")
+         (sit-for 2))))))
 
 (defun hycontrol-make-frame ()
   "Create a new frame with the same size and selected buffer as the selected frame.
@@ -1100,48 +1151,6 @@ instead of quitting HyControl."
     (when hycontrol-frames-mode
       (message "Hyperbole finished controlling frames"))
     (hycontrol-disable-modes)))
-
-;; This just sets the keymap locally and shows the minor mode
-;; indicator in the buffer's mode-line; the separate global minor mode
-;; turns things on and off.
-;;;###autoload
-(define-minor-mode hycontrol-local-frames-mode
-  "Toggle Hyperbole Frames control minor mode in the current buffer."
-  :lighter " HyFrm"
-  :group 'hyperbole-screen)
-
-;;;###autoload
-(define-globalized-minor-mode hycontrol-frames-mode hycontrol-local-frames-mode
-  (lambda () (hycontrol-local-frames-mode 1))
-  :group 'hyperbole-screen)
-
-;; These hooks run by the generated `hycontrol-frames-mode' function
-;; do the global work of turning on and off the mode.
-(add-hook 'hycontrol-frames-mode-on-hook
-	  (lambda () (hycontrol-frames current-prefix-arg)))
-
-(add-hook 'hycontrol-frames-mode-off-hook 'hycontrol-end-mode)
-
-;; This just sets the keymap locally and shows the minor mode
-;; indicator in the buffer's mode-line; the separate global minor mode
-;; turns things on and off.
-;;;###autoload
-(define-minor-mode hycontrol-local-windows-mode
-  "Toggle Hyperbole Windows control minor mode in the current buffer."
-  :lighter " HyWin"
-  :group 'hyperbole-screen)
-
-;;;###autoload
-(define-globalized-minor-mode hycontrol-windows-mode hycontrol-local-windows-mode
-  (lambda () (hycontrol-local-windows-mode 1))
-  :group 'hyperbole-screen)
-
-;; These hooks run by the generated `hycontrol-windows-mode' function
-;; do the global work of turning on and off the mode.
-(add-hook 'hycontrol-windows-mode-on-hook
-	  (lambda () (hycontrol-windows current-prefix-arg)))
-
-(add-hook 'hycontrol-windows-mode-off-hook 'hycontrol-end-mode)
 
 ;;; Frame Display Commands
 (defun hycontrol-delete-other-frames ()

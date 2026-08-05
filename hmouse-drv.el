@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-90
-;; Last-Mod:     28-Sep-25 at 12:22:16 by Bob Weiner
+;; Last-Mod:     25-Jul-26 at 23:02:11 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -55,23 +55,28 @@
 (defvar hmouse-set-point-command)       ; "hui-mouse.el"
 
 (defvar hyperbole-mode-map)             ; "hyperbole.el"
+(defvar hyperbole-mode)                 ; "hyperbole.el"
 
 (defvar action-key-default-function)    ; defcustom hui-mouse
 (defvar assist-key-default-function)    ; defcustom hui-mouse
 
-(declare-function mouse-drag-frame "mouse") ;; Obsolete from Emacs 28
-
-(declare-function hkey-quit-window "hmouse-drv") ; Alias defined in this file.
-
 (declare-function br-in-browser "hpath")
 (declare-function hattr:clear "hbut")
+(declare-function hattr:copy "hbut")
 (declare-function hattr:get "hbut")
 (declare-function hattr:list "hbut")
 (declare-function hattr:report "hbut")
+(declare-function hattr:set "hbut")
 (declare-function hbut:label "hbut")
+(declare-function hkey-quit-window "hmouse-drv") ; Alias defined in this file.
 (declare-function hkey-set-key "hyperbole")
+(declare-function hpath:display-buffer "hpath")
 (declare-function hui:ebut-link-directly "hui")
 (declare-function hui:ibut-link-directly "hui")
+(declare-function hywiki-get-definition "hywiki")
+(declare-function hywiki-get-referent "hywiki")
+(declare-function ibut:key-to-label "hbut")
+(declare-function mouse-drag-frame "mouse") ;; Obsolete from Emacs 28
 (declare-function org-todo "org")
 
 ;;; ************************************************************************
@@ -1109,18 +1114,22 @@ documentation is found."
 	 (hrule:action #'actype:identity)
 	 (assist-flag assisting)
 	 (pred-point (point-marker))
-	 hkey-form pred pred-value call calls cmd-sym doc)
-      (unwind-protect
-	  (while (and (null pred-value) (setq hkey-form (car hkey-forms)))
-	    (or (setq pred (car hkey-form)
-		      pred-value (hypb:eval-debug pred))
-		(setq hkey-forms (cdr hkey-forms)))
-	    ;; Any Smart Key predicate should leave point unchanged.
-	    ;; Trigger an error if not.
-	    (unless (equal (point-marker) pred-point)
-	      (hypb:error "(Hyperbole): `%s' predicate left point at %s and failed to restore it to %s" pred (point) pred-point)))
-	(set-marker pred-point nil))
-      (if pred-value
+         (saved-but nil)
+	 hkey-form pred pred-value call calls cmd-sym def doc)
+    ;; Next line suppresses warning since var is referenced only as a quoted
+    ;; symbol
+    (ignore saved-but)
+    (unwind-protect
+	(while (and (null pred-value) (setq hkey-form (car hkey-forms)))
+	  (or (setq pred (car hkey-form)
+		    pred-value (hypb:eval-debug pred))
+	      (setq hkey-forms (cdr hkey-forms)))
+	  ;; Any Smart Key predicate should leave point unchanged.
+	  ;; Trigger an error if not.
+	  (unless (equal (point-marker) pred-point)
+	    (hypb:error "(Hyperbole): `%s' predicate left point at %s and failed to restore it to %s" pred (point) pred-point)))
+      (set-marker pred-point nil))
+    (if pred-value
 	(setq call (if assisting
 		       (cddr hkey-form)
 		     (cadr hkey-form))
@@ -1146,7 +1155,15 @@ documentation is found."
     (setq hkey-help-msg
 	  (if (and cmd-sym (symbolp cmd-sym))
 	      (progn
-		(let* ((condition (car hkey-form))
+		(let* ((actype (or (actype:elisp-symbol
+                                    (hattr:get 'hbut:current 'actype))
+				   (hattr:get 'hbut:current 'actype)))
+		       (actype-doc-flag (and (symbolp actype)
+					     (fboundp actype)
+				             (documentation actype)))
+                       (assist-function-flag (and assisting
+						  actype-doc-flag))
+                       (condition (car hkey-form))
 		       (temp-buffer-show-hook
 			(lambda (buf)
 			  (set-buffer buf)
@@ -1171,13 +1188,21 @@ documentation is found."
 
 		    ;; Print Hyperbole button attributes
 		    (when (memq cmd-sym '(hui:hbut-act hui:hbut-help))
-		      (let* ((actype (or (actype:elisp-symbol (hattr:get 'hbut:current 'actype))
-					 (hattr:get 'hbut:current 'actype)))
-			     ;; (lbl-key (hattr:get 'hbut:current 'lbl-key))
+		      (let* ((lbl-key (hattr:get 'hbut:current 'lbl-key))
 			     (categ (hattr:get 'hbut:current 'categ))
 			     (attributes (nthcdr 2 (hattr:list 'hbut:current)))
 			     (but-def-symbol (htype:def-symbol
-					      (if (eq categ 'explicit) actype categ))))
+					      (if (eq categ 'explicit) actype categ)))
+                             (wikiword-referent
+                              (when (eq (htype:def-symbol actype) 'link-to-wikiword)
+                                (hywiki-get-referent
+                                 (hattr:get 'hbut:current 'lbl-key)))))
+
+                        (when wikiword-referent
+                          (hattr:set 'hbut:current 'referent-type
+                                     (car wikiword-referent))
+                          (hattr:set 'hbut:current 'referent-value
+                                     (cdr wikiword-referent)))
 
 			(princ (format "%s %s SPECIFICS:\n"
 				       (or but-def-symbol
@@ -1187,43 +1212,74 @@ documentation is found."
 					     (categ
 					      "IMPLICIT BUTTON")
 					     (t "ACTION TYPE"))))
-			(when (and assisting
-				   (or (plist-member attributes 'actype)
-				       (plist-member attributes 'action)))
-			  (setq attributes (copy-sequence attributes))
-			  (hypb:remove-from-plist attributes 'actype)
-			  (hypb:remove-from-plist attributes 'action))
+
+			;; (when (and assisting
+			;;            (not (eq categ (ibtype:elisp-symbol 'action)))
+			;; 	   (or (plist-member attributes 'actype)
+			;; 	       (plist-member attributes 'action)))
+			;;   (setq attributes (copy-sequence attributes))
+			;;   (hypb:remove-from-plist attributes 'actype)
+			;;   (hypb:remove-from-plist attributes 'action))
 			(hattr:report attributes)
+
+                        (when lbl-key
+                          (unwind-protect
+                              ;; Need to save and restore 'hbut:current here
+                              ;; since hywiki-get-definition overwrites it
+                              (progn (hattr:copy 'hbut:current 'saved-but)
+                                     (setq def (hywiki-get-definition
+			                        (ibut:key-to-label lbl-key)))
+                                     (when (stringp def)
+                                       (terpri)
+                                       (princ def)))
+                            (hattr:copy 'saved-but 'hbut:current)))
+
 			(unless (or assisting
 				    (eq categ 'explicit)
 				    (null categ)
 				    (not (fboundp categ))
 				    (null (documentation categ)))
 			  ;; Include implicit button's ibtype doc
-			  (princ (format "\n%s\n"
+			  (princ (format "\n%s ACTION KEY SPECIFICS:\n"
+					 (htype:names 'ibtypes categ)))
+			  (princ (format "%s\n"
 					 (replace-regexp-in-string "^" "  " (documentation categ)
 								   nil t))))
-			(if assisting
-			    (let* ((ibtype-name (htype:names 'ibtypes categ))
-				   (custom-help-func (when (stringp ibtype-name)
-						       (intern-soft
-							(concat ibtype-name ":help"))))
-				   (type-help-func (or (and custom-help-func
-							    (fboundp custom-help-func)
-							    custom-help-func)
-						      'hbut:report)))
-			      (princ (format "\n%s ASSIST KEY SPECIFICS:\n%s\n"
-					     type-help-func
-					     (replace-regexp-in-string
-					      "^" "  " (documentation type-help-func)
-					      nil t))))
-			  (when (and (symbolp actype)
-				     (fboundp actype)
-				     (documentation actype))
-			    (princ (format "\n%s ACTION KEY SPECIFICS:\n%s\n"
-					   (or (actype:def-symbol actype) actype)
-					   (replace-regexp-in-string "^" "  " (documentation actype)
-								     nil t)))))
+			(when assisting
+			  (let* ((ibtype-name (htype:names 'ibtypes categ))
+				 (custom-help-func (when (stringp ibtype-name)
+						     (intern-soft
+						      (concat ibtype-name ":help"))))
+				 (type-help-func (or (and custom-help-func
+							  (fboundp custom-help-func)
+							  custom-help-func)
+						     'hbut:report)))
+			    (princ (format "\n%s ASSIST KEY SPECIFICS:\n%s\n"
+					   type-help-func
+					   (replace-regexp-in-string
+					    "^" "  " (documentation type-help-func)
+					    nil t)))))
+
+			;; Display possibly custom actype :help documentation for
+			;; an Action button
+			(when (or (not assisting)
+				  (eq (htype:def-symbol categ) 'action))
+			  (let* ((actype-name (or (htype:names 'actypes actype)
+						  (symbol-name actype)))
+				 (custom-help-func (when (stringp actype-name)
+						     (intern-soft
+						      (concat actype-name ":help"))))
+				 (type-help-func (or (and custom-help-func
+							  (fboundp custom-help-func)
+							  custom-help-func)
+						     actype)))
+			    (princ (format "\n%s ACTYPE SPECIFICS:\n%s\n"
+					   (or (htype:names 'actypes type-help-func)
+					       (symbol-name type-help-func))
+					   (replace-regexp-in-string
+					    "^" "  " (documentation type-help-func)
+					    nil t)))))
+
 			(terpri)))
 
 		    ;; Print Emacs push-button attributes
@@ -1242,34 +1298,35 @@ documentation is found."
 								     nil t))))
 			  (terpri))))
 
-		    (princ (format "A %s of the %s %sKey"
-				   (if mouse-flag
-				       (if mouse-drag-flag "drag" "click")
-				     "press")
-				   (if assisting "Assist" "Action")
-				   (if mouse-flag "Mouse " "")))
-		    (terpri)
-		    (princ "WHEN  ")
-		    (princ
-		     (or condition
-			 "there is no matching context"))
-		    (terpri)
+                    (unless assist-function-flag
+		      (princ (format "A %s of the %s %sKey"
+				     (if mouse-flag
+				         (if mouse-drag-flag "DRAG" "CLICK")
+				       "PRESS")
+				     (if assisting "Assist" "Action")
+				     (if mouse-flag "Mouse " "")))
+		      (terpri)
+		      (princ "WHEN  ")
+		      (princ
+		       (or condition
+			   "there is no matching context"))
+		      (terpri)
 
-		    (mapc (lambda (c)
-			    (when (and (> (length calls) 1)
-				       (not (eq (car calls) c)))
-			      ;; Is an 'or' set of calls
-			      (princ "OR "))
-			    (princ "CALLS ") (princ (if (consp c) c (list c)))
-			    (when (and (fboundp (setq call (if (consp c) (car c) c)))
-				       (setq doc (documentation call)))
-			      (princ " WHICH")
-			      (princ (if (string-match "\\`[a-zA-Z]*[a-rt-zA-RT-Z]+s[ [:punct:]]" doc)
-					 ":" " WILL:"))
-			      (terpri) (terpri)
-			      (princ (replace-regexp-in-string "^" "  " doc nil t))
-			      (terpri) (terpri)))
-			  calls)))
+		      (mapc (lambda (c)
+			      (when (and (> (length calls) 1)
+				         (not (eq (car calls) c)))
+			        ;; Is an 'or' set of calls
+			        (princ "OR "))
+			      (princ "CALLS ") (princ (if (consp c) c (list c)))
+			      (when (and (fboundp (setq call (if (consp c) (car c) c)))
+				         (setq doc (documentation call)))
+			        (princ " WHICH")
+			        (princ (if (string-match "\\`[a-zA-Z]*[a-rt-zA-RT-Z]+s[ [:punct:]]" doc)
+					   ":" " WILL:"))
+			        (terpri) (terpri)
+			        (princ (replace-regexp-in-string "^" "  " doc nil t))
+			        (terpri) (terpri)))
+			    calls))))
 		"")
 	    (message "No %s Key command for current context."
 		     (if assisting "Assist" "Action"))))

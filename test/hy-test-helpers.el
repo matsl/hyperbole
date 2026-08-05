@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     15-Mar-26 at 23:21:21 by Bob Weiner
+;; Last-Mod:     15-Jul-26 at 22:00:22 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -19,8 +19,8 @@
 ;;; Code:
 
 (require 'ert)
-(require 'hmouse-drv)                   ; For `action-key'
-(require 'hywiki)                       ; For `hywiki-word-face-at-p'
+(require 'hmouse-drv) ;; For `action-key'
+(require 'hywiki)     ;; For `hywiki-word-face-at-p' and (require 'hypb)
 (eval-when-compile (require 'cl-lib))
 
 (defun hy-test-helpers:consume-input-events ()
@@ -30,7 +30,7 @@
 
 (defun hy-test-helpers:ensure-link-possible-type (type)
   "At point, ensure `hui:link-possible-types' returns a single TYPE."
-  (let* ((possible-types (hui:link-possible-types))
+  (let* ((possible-types (hui:link-possible-types default-directory))
 	 (first-type (caar possible-types)))
     (should (= (length possible-types) 1))
     (should (equal first-type type))))
@@ -93,11 +93,15 @@ Checks ACTYPE, ARGS, LOC, LBL-KEY and NAME."
 
 (defun hy-delete-file-and-buffer (file)
   "Delete FILE and buffer visiting file."
-  (let ((buf (find-buffer-visiting file)))
+  (let ((buf (find-buffer-visiting file))
+        ;; Prevents output to the echo area / stdout
+        (inhibit-message t)
+        ;; Prevents writing to the *Messages* buffer
+        (message-log-max nil))
     (when buf
       (with-current-buffer buf
 	(when (buffer-modified-p)
-	  (save-buffer)
+          (hypb:save-buffer-silently)
 	  ;; If the save failed, ensure it shows non-modified before
 	  ;; trying to kill it.
           (set-buffer-modified-p nil))
@@ -145,6 +149,17 @@ and the default WORD-LENGTH is 4."
         (setq no-face t))
       (setq beg (1+ beg)))
     (not no-face)))
+
+(defmacro hy-test-mocked-feature (feature &rest body)
+  "Mock FEATURE as being present."
+  (declare (indent 1))
+  `(let ((orig-featurep (symbol-function 'featurep)))
+     (cl-letf (((symbol-function 'featurep)
+                (lambda (f &optional subfeature)
+                  (if (eq f ,feature)
+                      t
+                    (funcall orig-featurep f subfeature)))))
+       ,@body)))
 
 (provide 'hy-test-helpers)
 ;;; hy-test-helpers.el ends here

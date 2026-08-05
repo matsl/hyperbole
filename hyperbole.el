@@ -2,16 +2,15 @@
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 1992-2025  Free Software Foundation, Inc.
+;; Copyright (C) 1992-2026  Free Software Foundation, Inc.
 
 ;; Author:       Robert Weiner <rsw@gnu.org>
-;; Authors:      Robert Weiner <rsw@gnu.org>, Mats Lidell <matsl@gnu.org>
 ;; Maintainer:   Robert Weiner <rsw@gnu.org>
-;; Maintainers:  Robert Weiner <rsw@gnu.org>, Mats Lidell <matsl@gnu.org>
+;;               Mats Lidell <matsl@gnu.org>
 ;; Created:      06-Oct-92 at 11:52:51
-;; Last-Mod:     28-Mar-26 at 14:44:14 by Bob Weiner
-;; Released:     10-Mar-24
-;; Version:      9.0.2pre
+;; Last-Mod:     27-Jul-26 at 19:22:04 by Bob Weiner
+;; Released:     27-Jul-26
+;; Version:      9.1.0
 ;; Keywords:     comm, convenience, files, frames, hypermedia, languages, mail, matching, mouse, multimedia, outlines, tools, wp
 ;; Package:      hyperbole
 ;; Package-Requires: ((emacs "28"))
@@ -285,14 +284,12 @@ of the commands."
     ;; Provide a site standard way of emulating most Hyperbole mouse drag
     ;; commands from the keyboard.  This is most useful for rapidly creating
     ;; Hyperbole link buttons from the keyboard without invoking the Hyperbole
-    ;; menu.  Works only if Hyperbole is run under a window system.
-    (when (hyperb:window-system)
-      (if (eq (global-key-binding "\M-o") #'facemenu-keymap)
-	  ;; Override facemenu package that adds a keymap on M-o,
-	  ;; since this binding is more important to Hyperbole
-	  ;; users.
-	  (hkey-set-key "\M-o" #'hkey-operate)
-	(hkey-maybe-set-key "\M-o" #'hkey-operate)))
+    ;; menu.  Works only if Hyperbole is run under a window system.  Less
+    ;; important to bind now that {C-h h i l} exists to create implicit
+    ;; links between two windows, so we only bind {M-o} here if it has no
+    ;; global binding prior to Hyperbole being loaded.
+    (when (and (hyperb:window-system) (not (key-binding "\M-o")))
+      (hkey-maybe-set-key "\M-o" #'hkey-operate))
     ;;
     ;; Explicit button renames without invoking the Hyperbole menu.
     ;; No binding by default.
@@ -356,20 +353,21 @@ of the commands."
 ;;    f = SELECTED_FRAME ();
 ;;    XSETFRAME (lispy_dummy, f);
 ;;
-;;  It seems like the XSETFRAME macro is not properly copying the value of f on initial frame selection under the macOS window system.
-;;  The problem occurs on other systems as well, e.g. Emacs 25.2 under Windows 7.
+;;  It seems like the XSETFRAME macro is not properly copying the value of f
+;;  on initial frame selection under the macOS window system.  The problem
+;;  occurs on other systems as well, e.g. Emacs 25.2 under Windows 7.
 ;;
 ;;  Hyperbole resolves this problem by setting the
 ;;  `mouse-position-function' variable below to properly set the
 ;;  newly selected frame.
-(if (boundp 'mouse-position-function)
-    (setq mouse-position-function
-	  (lambda (frame-x-dot-y)
-	    "Make `mouse-position' and `mouse-pixel-position' return the selected frame.
+(when (boundp 'mouse-position-function)
+  (setq mouse-position-function
+	(lambda (frame-x-dot-y)
+	  "Make `mouse-position' and `mouse-pixel-position' return the selected frame.
 Under macOS and Windows 7 at least, upon initial selection of a new
 frame, those functions by default still return the prior frame."
-	    (if (consp frame-x-dot-y) (setcar frame-x-dot-y (selected-frame)))
-	    frame-x-dot-y)))
+	  (if (consp frame-x-dot-y) (setcar frame-x-dot-y (selected-frame)))
+	  frame-x-dot-y)))
 
 ;; hmouse-drv will load hui-mouse and hmouse-key
 (mapc #'require '(hsettings hmouse-drv hmouse-sh))
@@ -510,13 +508,22 @@ frame, those functions by default still return the prior frame."
   (when (fboundp #'vertico-mouse-mode)
     (add-hook 'vertico-mode-hook (lambda () (vertico-mouse-mode 1))))
   ;;
-  ;; Initialize HyWiki page auto-HyWikiWord highlighting and `yank-handled-properties'
-  ;; based on the `hywiki-default-mode'.
-  (hywiki-mode hywiki-default-mode)
-  ;;
   ;; Hyperbole initialization is complete.
   (message "Initializing Hyperbole...done"))
 
+
+;; Autoload this form so that when `package.el' activates Hyperbole's autoloads
+;; it also sets up Kotl's autoloads.  It must come before the (require 'hinit)
+;; call below.  -- RSW, 2026-07-14
+;;;###autoload
+(let ((us (macroexp-file-name)))
+  (when us
+    ;; Contrary to the usual ELPA autoloads files, `kotl-autoloads'
+    ;; does not add its directory to `load-path', so let's do it here
+    ;; by hand.
+    (add-to-list 'load-path
+                 (expand-file-name "kotl" (file-name-directory us)))
+    (require 'kotl-autoloads nil t)))
 
 ;; This call loads the rest of the Hyperbole system.
 (require 'hinit)
@@ -572,9 +579,9 @@ frame, those functions by default still return the prior frame."
 	       #'hattr:save))
 
 ;; This next expression initializes the Hyperbole keymap but does not
-;; activate Hyperbole.  The only user-visible change it should make is
-;; to globally bind {C-h h} to 'hyperbole' which when invoked will both
-;; activate Hyperbole and show its minibuffer menu.
+;; activate Hyperbole, (hyperbole-mode 1) does that.  The only user-visible
+;; change it should make is to globally bind {C-h h} to 'hyperbole' which
+;; when invoked will both activate Hyperbole and show its minibuffer menu.
 (if after-init-time
     ;; Initialize Hyperbole key bindings and hooks.
     (hyperb:init)
@@ -582,18 +589,6 @@ frame, those functions by default still return the prior frame."
   (add-hook 'after-init-hook #'hyperb:init t))
 
 (makunbound 'hyperbole-loading)
-
-;; Autoload this form so that when `package.el' activates Hyperbole's autoloads
-;; it also sets up Kotl's autoloads.
-;;;###autoload
-(let ((us (macroexp-file-name)))
-  (when us
-    ;; Contrary to the usual ELPA autoloads files, `kotl-autoloads'
-    ;; does not add its directory to `load-path', so let's do it here
-    ;; by hand.
-    (add-to-list 'load-path
-                 (expand-file-name "kotl" (file-name-directory us)))
-    (require 'kotl-autoloads nil t)))
 
 (provide 'hyperbole)
 

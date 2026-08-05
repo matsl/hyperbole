@@ -1,9 +1,9 @@
 ;;; demo-tests.el --- unit tests from examples in the DEMO         -*- lexical-binding: t; -*-
-
+;;
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     16-Mar-26 at 00:16:06 by Bob Weiner
+;; Last-Mod:     30-Jul-26 at 14:22:24 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -292,6 +292,7 @@
 (ert-deftest demo-mail-compose-test ()
   (unwind-protect
       (with-temp-buffer
+        (text-mode)
         (insert "receiver@mail.org")
         (goto-char 2)
         (let ((mail-user-agent 'sendmail-user-agent))
@@ -807,12 +808,19 @@ enough files with matching mode loaded."
       (insert (format "<%skotl/EXAMPLE.kotl#3b10|c2en>"
 		      default-directory))
       (goto-char 5)
-      (action-key)
-      (setq buf (current-buffer))
-      (should (string-suffix-p "EXAMPLE.kotl" buffer-file-name))
-      (should (looking-at-p "Cell Transposition:"))
-      ;; Ensure visible cell length is cutoff at 2 lines
-      (should (= 2 (hypb:string-count-matches "\n" (kcell-view:contents)))))))
+      (unwind-protect
+          (progn (action-key)
+                 (setq buf (current-buffer))
+                 (should (string-suffix-p "EXAMPLE.kotl" buffer-file-name))
+                 (should (looking-at-p "Cell Transposition:"))
+                 ;; Ensure visible cell length is cutoff at 2 lines
+                 (should (= 2 (hypb:string-count-matches
+                               "\n" (kcell-view:contents)))))
+        ;; Restore kotl/EXAMPLE.kotl to its original viewspec and kill the
+        ;; buffer so it is unchanged.
+        (kvspec:activate "ben")
+        (set-buffer-modified-p nil)
+        (kill-buffer (current-buffer))))))
 
 (provide 'demo-tests)
 

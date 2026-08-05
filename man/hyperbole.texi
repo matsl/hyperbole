@@ -7,7 +7,7 @@
 @c Author:       Bob Weiner
 @c
 @c Orig-Date:     6-Nov-91 at 11:18:03
-@c Last-Mod:     29-Mar-26 at 23:39:42 by Bob Weiner
+@c Last-Mod:     27-Jul-26 at 17:40:26 by Bob Weiner
 
 @c %**start of header (This is for running Texinfo on a region.)
 
@@ -32,10 +32,10 @@
 @set txicodequoteundirected
 @set txicodequotebacktick
 
-@set UPDATED April 9, 2026
-@set UPDATED-MONTH April 2026
-@set EDITION 9.0.2pre
-@set VERSION 9.0.2pre
+@set UPDATED July 27, 2026
+@set UPDATED-MONTH July 2026
+@set EDITION 9.1.0
+@set VERSION 9.1.0
 
 @ifnotinfo
 @macro bkbd {arg}
@@ -172,8 +172,8 @@ WITHOUT ANY WARRANTY, without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</P>
 
 <PRE>
-Edition 9.0.2pre
-Printed April 9, 2026.
+Edition 9.1.0
+Printed July 27, 2026.
 
   Published by the Free Software Foundation, Inc.
   Author:    Bob Weiner
@@ -214,8 +214,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 @sp 2
 
 @example
-Edition 9.0.2pre
-April 9, 2026 @c AUTO-REPLACE-ON-SAVE
+Edition 9.1.0
+July 27, 2026 @c AUTO-REPLACE-ON-SAVE
 
 
   Published by the Free Software Foundation, Inc.
@@ -369,8 +369,21 @@ Creation
 HyWiki
 
 * HyWikiWords::
-* Publish HyWiki::
+* HyWiki Mode::
+* Publishing a HyWiki::
 * HyWiki Menu::
+
+HyWikiWords
+
+* Creating HyWikiWords::
+* HyWikiWord Specs::
+* HyWikiWord Referent Types::
+* Using HyWikiWords::
+
+Creating HyWikiWords
+
+* HyWikiWord Specs
+* HyWikiWord Referent Types
 
 Koutliner
 
@@ -441,9 +454,8 @@ Setup
 
 Installation
 
-* Elpa Stable Package Installation::
-* Elpa In-Development Package Installation::
-* Git In-Development Package Installation::
+* Elpa Latest or Release Package Installation::
+* Git Latest Package Installation::
 * Manual Tarball Archive Installation::
 
 Customization
@@ -542,7 +554,7 @@ Smart Keyboard Keys
 @chapter Introduction
 
 This edition of the GNU Hyperbole Manual is for use with any version
-9.0.2pre or greater of GNU Hyperbole.  Hyperbole runs atop GNU Emacs
+9.1.0 or greater of GNU Hyperbole.  Hyperbole runs atop GNU Emacs
 28 or higher.  It will trigger an error if your Emacs is older.
 
 This chapter summarizes the structure of the rest of the manual,
@@ -612,12 +624,15 @@ archives, the World-Wide Web and much more.
 @cindex Hyperbole demo
 @cindex demo file
 @cindex tutorial
+@cindex videos
+@cindex articles
 This is a reference manual with extensive details about Hyperbole use.
 If you prefer a simpler, more interactive introduction to Hyperbole,
 the @file{../FAST-DEMO} file included in the Hyperbole distribution
 demonstrates many of Hyperbole's standard facilities without the need
-to read through this reference manual.  The @file{../FAST-DEMO} is a good
-way to rapidly understand some of what Hyperbole can do for you.  Once
+to read through this reference manual.  The @file{../FAST-DEMO} is a
+good way to rapidly understand some of what Hyperbole can do for you.
+It includes many links to videos and articles about Hyperbole.  Once
 Hyperbole is installed, (@pxref{Setup}), you can access the
 @file{../FAST-DEMO} with the key sequence @bkbd{C-h h d d}.
 
@@ -798,10 +813,11 @@ actions, e.g. bug#24568 displays the bug status information for that Emacs
 bug number, without the need for any additional markup.  Implicit link
 buttons can be added to documents with a simple drag between windows too.
 
-Or from the keyboard, With two windows on screen, an implicit link button
-can be created at point in the current buffer linking to the position in
-the other window's buffer by pressing @bkbd{C-h h i l}.  Use @bkbd{M-1
-C-h h i l} instead to be prompted for a name for the implicit button.
+Or from the keyboard, With two windows on screen, an implicit link
+button can be created at point in the current buffer linking to the
+position in the other window's buffer by pressing @bkbd{C-h h i l}.
+FYI, use @bkbd{C-u C-h h i l} instead to be prompted for a name for
+the implicit button when creating the link.
 
 @item Global buttons
 are buttons that are activated by name from anywhere within Emacs.  They may
@@ -1605,9 +1621,10 @@ convenient screen commands that lets you select buffers grouped by
 major mode, use HyControl, or jump to specific windows, window
 configurations or frames.
 
-Since these are customization options, they may be change permanently like so.
-Use @bkbd{M-x customize-set-variable @key{RET} assist-key-modeline-function @key{RET}}.
-Change the value to your desired command.  Then press @key{RET}.
+Since these are customization options, they may be change permanently like
+so.  Use @bkbd{M-x customize-set-variable @key{RET}
+assist-key-modeline-function @key{RET}}.  Change the value to your desired
+command.  Then press @key{RET}.
 @end itemize
 
 @node Smart Mouse Key Drags,  , Smart Mouse Key Modeline Clicks, Smart Keys
@@ -1743,12 +1760,12 @@ the Assist Mouse Key (not the Action Key) from the open area of one
 window's modeline to the text area of another.  This works across frames
 as well.
 
-If you have precisely two windows in an Emacs frame, you can swap their buffers
-from the keyboard.  Use this Hyperbole minibuffer menu key sequence
-involving the tilde key to swap the buffers and quit from the Hyperbole
-minibuffer menu: @bkbd{C-h h s w ~ Q}.  Similarly, if you have two single
-window frames, you can swap buffers between them with @bkbd{C-h h s f ~
-Q}.
+If you have precisely two windows in an Emacs frame, you can swap
+their buffers from the keyboard.  Use this Hyperbole minibuffer menu
+key sequence involving the tilde key to swap the buffers and quit from
+the Hyperbole minibuffer menu: @bkbd{C-h h s w ~ Q}.  Similarly, if
+you have two single window frames, you can swap buffers between them
+with @bkbd{C-h h s f ~ Q}.
 
 @node Displaying Buffers, Cloning Windows, Swapping Buffers, Dragging Buffers
 @subsubsection Displaying Buffers
@@ -1772,11 +1789,12 @@ displayed.
 @cindex clone window
 @cindex window, clone
 @cindex drag, clone window
-To clone a window with its buffer to a new frame, simply drag the Action Mouse
-Key from the window to outside of Emacs and release the key.  A new frame will
-be created, selected and sized according to the original window.  Do the same
-thing with the Assist Mouse Key and the original window will be deleted as well,
-unless it is the only window in that frame.
+To clone a window with its buffer to a new frame, simply drag the Action
+Mouse Key from the window to outside of Emacs and release the key.  A new
+frame will be created, selected and sized according to the original
+window.  Do the same thing with the Assist Mouse Key and the original
+window will be deleted as well, unless it is the only window in that
+frame.
 
 @node Displaying Items, Keyboard Drags, Cloning Windows, Dragging Buffers
 @subsubsection Displaying Items
@@ -1831,12 +1849,13 @@ are not supported without a window system.
 @findex ace-window
 @findex hkey-ace-window-setup
 @cindex ace-window
+@cindex Ace Window
 @cindex window by letter
 @cindex jump to window by letter
 @cindex keyboard, jump to window
 For even faster keyboard-based display of items and drag emulations,
-use the Emacs package @code{ace-window}
-(see @uref{https://elpa.gnu.org/packages/ace-window.html}).
+use the Emacs Ace Window package (see
+@uref{https://elpa.gnu.org/packages/ace-window.html}).
 
 The @dfn{ace-window} package assigns short letter IDs to each Emacs
 window and lets you jump to or operate upon a specific window by giving
@@ -1884,15 +1903,16 @@ selected window's buffer with that of another window, use @bkbd{M-o m
 @cindex create link button
 @cindex link button
 @findex hui:ibut-link-directly
-And finally, to create a new, @emph{unnamed} implicit link in the
-selected window that refers to the location in the other window, use
-@bkbd{M-o w <referent-window-id>}.  This executes @code{hui:ibut-link-directly}
-which determines the link type by using the referent context.  To create
-a @emph{named} implicit link button in the selected window, use
-@bkbd{M-1 M-o w <window>}.  It prompts for the name and then links to
-the referent window location.  If you highlight a region
-before invoking this, Hyperbole will use that as the name for the
-implicit button.
+And finally, to create a new, @emph{unnamed} implicit link in the selected
+window that refers to the location in the other window, use @bkbd{M-o w
+<referent-window-id>}.  This executes @code{hui:ibut-link-directly} which
+determines the link type by using the referent context.  To create a
+@emph{named} implicit link button in the selected window, use @bkbd{M-1
+M-o w <window>}.  It prompts for the name and then links to the referent
+window location.  If you highlight a region before invoking this,
+Hyperbole will use that as the name for the implicit button.  Also see,
+@pxref{implicit link creation}, for equivalent Hyperbole menu-based key
+sequences.
 
 @kindex C-u M-o w <window-id>
 @findex hui:ebut-link-directly
@@ -1900,8 +1920,50 @@ To create an explicit button the same way, use @bkbd{C-u M-o w
 <window-id>}.  This executes @code{hui:ebut-link-directly}, prompts for
 any needed arguments, determines the link type by using the referent
 context and then creates the explicit button.  If you highlight a region
-before invoking this, Hyperbole will use that as the name for the
-explicit button.
+before invoking this, Hyperbole will use that as the name for the explicit
+button.  Also see, @pxref{explicit link creation}, for equivalent
+Hyperbole menu-based key sequences.
+
+@cindex context, auto-selected actions
+@cindex auto-selected action types
+@cindex possible link action types
+@findex hui:link-possible-types
+Whether creating an implicit or an implicit button, the action type used
+is determined by this table of contexts and the associated action type for
+each one, in decreasing order of priority, as given by the
+@code{hui:link-possible-types} function.
+
+@anchor{possible link action types}
+@exampleindent 0
+@example
+@group
+Referent Context         Link Action Type Returned
+===================================================================
+Denote Link              link-to-denote
+Org Roam or Org Id       link-to-org-id
+HyWikiWord Reference     link-to-wikiword
+Global Button            link-to-gbut
+Explicit Button          link-to-ebut
+Implicit Button          link-to-ibut
+Bookmarks List           link-to-bookmark
+Info Index Item          link-to-Info-index-item
+Info Node                link-to-Info-node
+Texinfo Node             link-to-texinfo-node
+Mail Reader Message      link-to-mail
+Directory Name           link-to-directory
+File Name                link-to-file
+Koutline Cell            link-to-kcell
+Single-line Region       link-to-string-match
+HyWiki Page              link-to-wikiword
+Org Heading              link-to-file
+Outline Heading          link-to-file
+Buffer attached to File  link-to-file
+EOL in Dired Buffer      link-to-directory (Dired dir)
+Buffer without File      link-to-buffer-tmp"
+===================================================================
+@end group
+@end example
+
 
 @kindex M-o t <window-id>
 @cindex item throw
@@ -2266,6 +2328,7 @@ possible link types.
 @cindex implicit link creation
 @cindex menu item, Ibut/Link
 @kindex C-h h i l
+@anchor{implicit link creation}
 If you have exactly two Emacs windows in your current frame or exactly
 two windows visible across two Emacs frames, this is even easier.
 Simply use the Link menu item, @bkbd{C-h h i l}, to create a new
@@ -2470,13 +2533,13 @@ through views of the whole buffer outline.
 @cindex disable org-mode support
 @cindex inhibit org-mode support
 @cindex menu item, Cust/Org-M-RET
-@cindex customize Org M-RET
-@cindex Org M-RET customize
-@cindex Org M-RET override
-@cindex override Org M-RET
+@cindex customize Org M-@key{RET}
+@cindex Org M-@key{RET} customize
+@cindex Org M-@key{RET} override
+@cindex override Org M-@key{RET}
 @kindex C-h h c o
 To disable Hyperbole support within Org major and minor modes, set
-the custom option @code{hsys-org-enable-smart-keys} to @code{nil}.  Then in
+the custom option @code{hsys-org-enable-smart-keys} to @samp{nil}.  Then in
 Org modes, the Action Key will simply invoke @code{org-meta-return}.
 @bkbd{C-h h c o} (minibuffer menu Cust/Org-M-RET) will interactively customize
 this setting.
@@ -2495,6 +2558,28 @@ The following table summarizes the effect of this option setting.
 @end smallexample
 
 @table @code
+@cindex denote note-taking package
+@cindex denote link
+@item denote-link
+Denote is an Emacs package for note taking that uses time-stamped,
+descriptive file naming conventions to label and locate notes.  Hyperbole
+provides an expanded set of denote-specific link formats via this 
+reference types.
+
+If on a denote id with optional #section, jump to its associated note.
+The id must be prefixed with "denote:" and can be in double quotes if the
+section contains spaces (though ’-’ is preferred instead of space so that
+Org mode links are highlighted and selected properly).
+
+Two forms of denote links are accepted:
+
+  1. The hyperbole link form with syntax:
+        @samp{\\(<[Description]>\\)? "denote:<file-id>\\(#section-name-or-uuid\\)?"}
+
+  2. The org link form with syntax:
+        @samp{[[denote:<file-id>\\(::*?section-name\\)?][Description]]}
+     or @samp{[[denote:<file-id>\\(::#?section-id\\)?][Description]]}
+
 @findex ibtypes doc-id
 @cindex online library
 @cindex document identifier
@@ -2532,6 +2617,55 @@ minibuffer or the other window.
 @item hywiki-existing-word
 When on a HyWikiWord with an existing page, display its page and
 optional section.
+
+@findex ibtypes ilink
+@cindex implicit button link
+@cindex link to implicit button
+@cindex ilink
+@anchor{ilink}
+@item link-to-ibut <ilink>
+At point, activate a link to an implicit button within the current
+buffer.  This executes the linked to implicit button's action in the
+context of the current buffer.
+
+Recognizes the format '<ilink:' button_label [':' button_file_path] '>',
+where button_file_path is given only when the link is to another file,
+e.g. <ilink: my series of keys: $@{hyperb:dir@}/HYPB>.
+
+@findex ibtypes glink
+@cindex global button link
+@cindex link to global button
+@cindex glink
+@anchor{glink}
+@item link-to-gbut <glink>
+At point, activate a link to a global button.  This executes the
+linked to global button's action in the context of the current buffer.
+
+Recognizes the format '<glink:' button_label '>', e.g. <glink: open todos>.
+
+@findex ibtypes elink
+@cindex explicit button link
+@cindex link to explicit button
+@cindex elink
+@anchor{elink}
+@item link-to-ebut <elink>
+At point, activate a link to an explicit button within the current
+buffer.  This executes the linked to explicit button's action in the
+context of the current buffer.
+
+Recognizes the format '<elink:' button_label [':' button_file_path] '>',
+where : button_file_path is given only when the link is to another file,
+e.g. <elink: project-list: ~/projs>."
+
+@findex ibtypes klink
+@cindex klink
+@cindex koutline link
+@cindex kcell link
+@anchor{klink}
+@item klink
+Follow a link delimited by <> to a koutline cell.
+See the documentation for @code{actypes::link-to-kotl} for valid link
+specifiers.
 
 @findex ibtypes action
 @cindex action button
@@ -2702,55 +2836,6 @@ for remote pathnames.  May also contain hash-style link references
 with the following format: @file{<path>[#<link-anchor>]:<line-num>[:<column-num>]}.
 Line and column can also include a leading and optional character, L
 for line and C for column.
-
-@findex ibtypes ilink
-@cindex implicit button link
-@cindex link to implicit button
-@cindex ilink
-@anchor{ilink}
-@item link-to-ibut <ilink>
-At point, activate a link to an implicit button within the current
-buffer.  This executes the linked to implicit button's action in the
-context of the current buffer.
-
-Recognizes the format '<ilink:' button_label [':' button_file_path] '>',
-where button_file_path is given only when the link is to another file,
-e.g. <ilink: my series of keys: $@{hyperb:dir@}/HYPB>.
-
-@findex ibtypes glink
-@cindex global button link
-@cindex link to global button
-@cindex glink
-@anchor{glink}
-@item link-to-gbut <glink>
-At point, activate a link to a global button.  This executes the
-linked to global button's action in the context of the current buffer.
-
-Recognizes the format '<glink:' button_label '>', e.g. <glink: open todos>.
-
-@findex ibtypes elink
-@cindex explicit button link
-@cindex link to explicit button
-@cindex elink
-@anchor{elink}
-@item link-to-ebut <elink>
-At point, activate a link to an explicit button within the current
-buffer.  This executes the linked to explicit button's action in the
-context of the current buffer.
-
-Recognizes the format '<elink:' button_label [':' button_file_path] '>',
-where : button_file_path is given only when the link is to another file,
-e.g. <elink: project-list: ~/projs>."
-
-@findex ibtypes klink
-@cindex klink
-@cindex koutline link
-@cindex kcell link
-@anchor{klink}
-@item klink
-Follow a link delimited by <> to a koutline cell.
-See the documentation for @code{actypes::link-to-kotl} for valid link
-specifiers.
 
 @findex ibtypes man-apropos
 @cindex UNIX manual
@@ -3035,10 +3120,10 @@ least four paths within the variable value for this to work.
 @item mail-address
 If on an e-mail address in a specific buffer type, compose mail to that
 address in another window. Applies to any major mode descended from those
-in @code{hypb:mail-address-mode-list}, the HyRolo match buffer, any buffer
+in @code{hypb:include-major-modes}, the HyRolo match buffer, any buffer
 attached to a file included in @code{hyrolo-file-list}, or any buffer with
 @file{mail} or @file{rolo} (case-insensitive) within its name.  If
-@code{hypb:mail-address-mode-list} is set to @samp{nil}, this button type is
+@code{hypb:include-major-modes} is set to @samp{nil}, this button type is
 active in all buffers.
 
 @findex ibtypes org-id
@@ -3234,8 +3319,8 @@ other implicit button types will be tested and may activate instead.
 
 To activate a frequently used action button by name independent of
 your current buffer, simply add it to your global button file and
-precede it with a label @bkbd{C-h h i l}.  Then invoke it by label
-name with: @bkbd{C-h h g a}.
+precede it with a name using @bkbd{C-u C-h h i l}.  Then activate it
+by name with: @bkbd{C-h h g a}.
 
 
 @node Button Files, Action Types, Implicit Buttons, Buttons
@@ -3552,10 +3637,11 @@ available.  Filename may be given without the .info suffix."
 
 @findex actypes link-to-Info-node
 @item link-to-Info-node
-Display an Info NODE.  NODE must be a string of the form
-(filename)nodename.  During button creation, completion for both
-filename and nodename is available.  Filename may be given without the
-.info suffix.
+Display an Info node, anchor or index position given by STRING.
+STRING must be of the form: ``(filename)name'' or
+``filename.info#name''.  During button creation, completion for both
+filename and node names is available.  Filename may be given without
+the .info suffix.
 
 @findex actypes link-to-ibut
 @item link-to-ibut
@@ -3627,7 +3713,7 @@ Display the Texinfo node with NODENAME (a string) from the current buffer.
 @item link-to-web-search
 Search web SERVICE-NAME for SEARCH-TERM.  Uses @code{hyperbole-web-search-alist}
 to match each service to its search url or Emacs command.  Uses @code{hyperbole-web-search-browser-function}
-and the @code{browse-url} package to display search results.
+and the Browse URL package to display search results.
 
 @findex actypes man-show
 @vindex hpath:display-where
@@ -3841,6 +3927,7 @@ delimited label within a buffer as the same button.
 @cindex source point
 @cindex referent point
 @kindex C-h h e l
+@anchor{explicit link creation}
 If you have exactly two Emacs windows in your current frame or exactly
 two windows visible across two Emacs frames, you can quickly create
 explicit link buttons from your current point (source) to the point in
@@ -4190,13 +4277,13 @@ menubar.  Here is the Hyperbole Menubar Menu and its Find submenu.
 
 @float Image,image:Hyperbole Menu
 @caption{Hyperbole Menubar Menu}
-@image{im/menu-hyperbole,5in,,Hyperbole Menu}
+@image{im/menu-hyperbole,2.5in,,Hyperbole Menu}
 @end float
 @page
 
 @float Image,image:Find Menu
 @caption{Find Menubar Menu}
-@image{im/menu-find,5in,,Find Menu}
+@image{im/menu-find,2.5in,,Find Menu}
 @end float
 @sp 1
 
@@ -4235,7 +4322,8 @@ look like this:
 
 @smallexample
 @noindent
-Hy>  Act Butfile/ Cust/ Doc/ Ebut/ Find/ Gbut/ HyWiki/ Ibut/ Kotl/ Msg/ Rolo/ Screen/ Win/ historY
+Hy>  Act Butfile/ Cust/ Doc/ Ebut/ Find/ Gbut/ HyWiki/ Ibut/ Kotl/ Msg/ Rolo/ Screen/
+     Win/ historY
 @end smallexample
 
 @cindex submenus
@@ -4512,173 +4600,297 @@ Return to previous positions in the button traversal history.
 @cindex HyWiki
 @cindex wiki
 @cindex note-taking
-@kindex C-h h h p
 @vindex hywiki-directory
-HyWiki is Hyperbole's markup-free, personal Wiki system for
-note-taking and automatic HyWikiWord highlighting and hyperlinking.
-It uses Org mode for note taking and adds automatic hyperlinking and
-highlighting of HyWikiWords in Org files within
-@code{hywiki-directory} (default = @file{~/hywiki}).  With @bkbd{C-h h
-h p} you can publish any updated part of your HyWiki to an HTML
-directory for export to the web.
+@dfn{HyWiki} is Hyperbole's markup-free, personal wiki system with
+automatic WikiWord highlighting and hyperlinking.  It uses Org mode
+for note taking and adds automatic hyperlinking and highlighting of
+WikiWord references within wiki pages (can be extended to all text and
+programming files, @pxref{HyWiki Mode}).
+
+@cindex HyWiki page
+@vindex hywiki-directory
+@vindex directory, ~/hywiki
+@dfn{HyWiki Pages} are Org files within the directory specified by
+@code{hywiki-directory} (default = @file{~/hywiki}); point this at
+your @file{~/org} or @file{~/org-roam} directories if you prefer.
+
+@kindex C-h h h p
+With @bkbd{C-h h h p} you can publish any updated part of your HyWiki
+to an HTML directory for export to the web.  HyWiki is built for scale
+and has been tested to be performant with 10,000 HyWikiWords.
 
 @float Image,image:HyWiki Page
 @caption{HyWiki Page}
-@image{im/hywiki-page,3.5in,,HyWiki Page}
+@image{im/hywiki-page,6in,,HyWiki Page}
 @end float
 @sp 1
 
 @menu
 * HyWikiWords::
-* Publish HyWiki::
+* HyWiki Mode::
+* Publishing a HyWiki::
 * HyWiki Menu::
 @end menu
 
-
-@node HyWikiWords, Publish HyWiki, HyWiki, HyWiki
+@node HyWikiWords, HyWiki Mode, HyWiki, HyWiki
 @section HyWikiWords
 
 @cindex HyWikiWord
 @cindex WikiWord
 @cindex HyWiki Org link format
 @cindex Org link, HyWiki
-@cindex hy: prefix
-A @dfn{HyWikiWord} is a capitalized word that contains upper and
-lowercase letters only and has a corresponding @file{HyWikiWord.org}
-wiki page file below @code{hywiki-directory}.  HyWikiWords in HyWiki
-pages are automatically highlighted and turned into hyperlinks as soon
-as you type them, without the need for any delimiters.  However, if
-you prefer to use Org-style links, simply delimit them with double
-square brackets and the `hy:' prefix like so: [[hy:MyWikiWord]].
+A @dfn{HyWikiWord}, or just wikiword, is a PascalCase word that starts
+with a capital letter and contains upper and lowercase letters only
+and has an associated referent (a link or an action).  The default,
+most common referent type, is a @dfn{HyWiki Page}, an Org file with the
+wikiword's name and a @file{.org} suffix that lives in
+@code{hywiki-directory}.
+
+HyWikiWords are automatically highlighted and turned into hyperlinks
+to their referents as soon as you type them, without the need for any
+delimiters.  By default, this happens only in HyWiki pages so as not
+to confuse new users.  But with one setting, you can enable them in
+all text buffers and within the comments of programming language
+buffers.  @xref{HyWiki Mode}.
+
+@menu
+* Creating HyWikiWords::
+* HyWikiWord Specs::
+* HyWikiWord Referent Types::
+* Using HyWikiWords::
+@end menu
+
+@node Creating HyWikiWords, HyWikiWord Specs, HyWikiWords, HyWikiWords
+@subsection Creating HyWikiWords
 
 @cindex create a HyWikiWord
 @cindex HyWikiWord create
-To create a new HyWikiWord, insert it into a text buffer, move point
-onto the word and press @bkbd{C-h h h c} to create a new blank HyWiki
-page that you can immediately start editing.  HyWiki is built for
-scalability and has been tested to be performant with 10,000
-HyWikiWords.
-
-@cindex Org M-RET override
-@cindex override Org M-RET
-@kindex C-h h h o a
 @kindex C-h h h c
-@cindex menu item, HyWiki/Org-M-RET/All-Hyperbole-Contexts
-The Action Key can create new HyWiki pages when on an undefined
-HyWikiWord if you change the setting that controls the Org mode
-@bkbd{M-@key{RET}} binding.  Have Hyperbole override Org's control of
-that key in all Action and Assist Key contexts with the
+To create a new HyWikiWord, insert it into a buffer where wikiwords
+are active, move point to within the word and press @bkbd{C-h h h c}
+to create a new blank HyWiki page that you can immediately start
+editing.
+
+@cindex Org M-@key{RET} override
+@cindex override Org M-@key{RET}
+@kindex M-@key{RET}
+@kindex C-h h h o a
+@kindex C-h h h o n
+@vindex hsys-org-enable-smart-keys
+@cindex menu item, HyWiki/Org-M-RET
+@cindex menu item, All-Hyperbole-Contexts
+@cindex override Org M-RET
+@cindex HyWiki Action Key
+@cindex Action Key, HyWiki
+The Action Key, @bkbd{M-@key{RET}}, provides a faster way to create
+HyWikiWords to speed your note-taking, if you let HyWiki have priority
+over this key rather than having Org mode split lines and create new
+headlines when on a HyWikiWord.  Simply have Hyperbole override Org's
+control of that key in all Action and Assist Key contexts with the
 @samp{All-Hyperbole-Contexts} setting bound to @bkbd{C-h h h o a}.
+This sets the persistent customization option,
+@code{hsys-org-enable-smart-keys} to @samp{t} across all your Emacs
+sessions and prevents Org mode from splitting lines and creating new
+headlines when on a HyWikiWord.  Change the setting back to @bkbd{C-h
+h h o n} for None to disable this and return control to Org mode.
+
+@menu
+* HyWikiWord Specs
+* HyWikiWord Referent Types
+@end menu
+
+@node HyWikiWord Specs, HyWikiWord Referent Types, Creating HyWikiWords, HyWikiWords
+@subsection HyWikiWord Specs
+
+@cindex HyWikiWord spec
+@kindex M-1 M-@key{RET}
+@kindex M-0 M-@key{RET} s
+Sometimes when writing it is convenient to mark a term as a HyWikiWord
+without adding any notes for it, coming back later to add notes or
+decide its referent type.  You do this by creating a @dfn{HyWikiWord
+Spec} with @bkbd{M-1 M-@key{RET}} or @bkbd{M-0 M-@key{RET} s}.  This
+marks the word for highlighting.  When first activated with the Action
+Key, it prompts with a minibuffer menu for the referent type to use.
+Choose @bkbd{P} if you want it to link to a page.  This replaces the
+HyWikiWord Spec with a working HyWikiWord.
+
+@node HyWikiWord Referent Types, Using HyWikiWords, HyWikiWord Specs, HyWikiWords
+@subsection HyWikiWord Referent Types
+
+HyWikiWords link to HyWiki pages by default.  But there are many other
+referent types that a HyWikiWord may have.  To create a wikiword with
+a different referent type, use @bkbd{M-0 M-@key{RET}} or @bkbd{C-u C-u
+M-@key{RET}}.  This displays a minibuffer menu that prompts for a
+referent type and then creates and displays the wikiword’s referent.
+A call to @code{(hywiki-active-in-current-buffer-p)} must return
+non-nil at point or this does nothing.
+
+
+@node Using HyWikiWords,  , HyWikiWord Referent Types, HyWikiWords
+@subsection Using HyWikiWords
 
 @cindex activate HyWiki link
 @cindex link, HyWikiWord
 @kindex C-h h h a
 @kindex C-h h h o n
 @cindex menu item, HyWiki/Org-M-RET/None
-To jump to a HyWiki page, simply move point onto any highlighted
-HyWikiWord and press the Action Key @bkbd{M-@key{RET}}.  This also
-highlights any other instances of HyWikiWords across all visible Emacs
-windows.  If you have set the Org @bkbd{M-@key{RET}} option to
-@samp{None} with @bkbd{C-h h h o n}, then you will have to
-use the HyWiki Act menu command @bkbd{C-h h h a} instead to jump to HyWiki
-pages.
+To display/jump to a HyWiki referent, simply move point onto any
+highlighted HyWikiWord reference and press the Action Key
+@bkbd{M-@key{RET}}.  This also highlights any other instances of
+HyWikiWords across all visible Emacs windows if not already done.  If
+you have set the Org @bkbd{M-@key{RET}} option to @samp{None} with
+@bkbd{C-h h h o n}, then you will have to use the HyWiki Act menu
+command @bkbd{C-h h h a} instead to jump to HyWiki referents.
 
-@cindex HyWiki section link
-@cindex link, HyWiki section
-HyWikiWord links can also jump to a section headline within a page by
-following the page name with a '#' character and then the full section
-headline name (sans any leading asterisks).  For example, if your
-Emacs page has a "Major Modes" section, then either Emacs#Major-Modes
-or [[hy:Emacs#Major Modes]] will work as a link to that section.  Note
-that without the square bracket delimiters, you must convert spaces in
-section names to '-' characters.  As long as the page exists, section
-links are highlighted regardless of whether associated sections exist
-or not.  When activating a link with a section reference, you will get
-an error if the section does not exist.
+@anchor{HyWikiWord help}
+@cindex HyWikiWord help
+@cindex help, HyWikiWords
+For help on any HyWikiWord to see what it will do when activated, use
+@bkbd{C-u M-@key{RET}} or @bkbd{C-h A} with point on the word.  This
+shows its attributes and the documentation for its implicit button
+type as well as its action type.
 
+@anchor{HyWiki Org Links}
 @vindex hywiki-org-link-type-required
-@vindex hsys-org-enable-smart-keys
-@cindex override Org M-RET
-@cindex HyWiki Action Key
-@cindex Action Key, HyWiki
-If you prefer Org-style links in buffers outside of
-@code{hywiki-directory}, use the 'hy:' prefix, as in:
-[[hy:MyWikiWord]].  If you set @code{hywiki-org-link-type-required} to
-@samp{nil}, then you don't need the prefix, e.g. [[MyWikiWord]];
-existing HyWiki page names then will override Org's standard handling
-of such links.  To prevent Org mode's binding of @bkbd{M-@key{RET}}
-from splitting lines and creating new headlines when on a HyWikiWord
-whose page has not yet been created, set
-@code{hsys-org-enable-smart-keys} to @samp{t} so that Hyperbole's
-Action Key does the right thing in this context.
+@cindex HyWiki Org Links
+@cindex hy: prefix
+HyWiki is fully compatible with Org mode and if you prefer your HyWikiWord
+links to be Org-style links, then delimit them with double square
+brackets and the @samp{hy:} prefix like so: @samp{[[hy:MyWikiWord]]}.
+If you set @code{hywiki-org-link-type-required} to @samp{nil}, then
+you don't need the @samp{hy:} prefix, e.g. @samp{[[MyWikiWord]]}.
+Existing HyWiki page names then will override Org's standard handling
+of such links.
+
+@anchor{HyWiki Section Links}
+@cindex HyWiki section links
+@cindex section links, HyWiki
+@cindex links, HyWiki
+HyWikiWord links can also jump to a section headline within a page by
+following the page name with a @samp{#} character and then the section
+headline name (sans any asterisks and other markup).  For example, if
+your Emacs page has a @samp{Major Modes} section, then either
+@samp{Emacs#Major-Modes}, @samp{"Emacs#Major Modes"} or
+@samp{[[hy:Emacs#Major Modes]]} will work as a link to that section.
+In fact, any paired delimiters can be used: @samp{(), <>, [], or
+@{@}}.  Note that without delimiters, you must convert spaces in
+section names to '-' characters.  Section links are highlighted
+regardless of whether associated sections exist or not, but when
+activating a link with a section reference, HyWiki will give you an
+error if the exact section name cannot be found.
+
+@cindex HyWikiWord highlighting
+As HyWikiWord references are typed, highlighting occurs immediately
+after an existing HyWikiWord is entered when not within a delimited
+Org @samp{[[link]]}, Org @samp{<<<radio button target>>>} or a
+Hyperbole @samp{<[implicit button name]>} or @samp{<(explicit button
+text)>}.
+
+@findex ibtypes hywiki-word
+@cindex ibtype hywiki-word
+@findex ibtypes hywiki-existing-word
+@cindex ibtype hywiki-existing-word
+HyWikiWords are a form of Hyperbole implicit buttons.  HyWiki adds two
+implicit button types at low priorities to support HyWikiWords, so
+that they trigger only when other types are not recognized first.
+
+@table @code
+@item hywiki-existing-word
+On a HyWikiWord with an existing referent, display the referent.  A
+call to @code{(hywiki-active-in-current-buffer-p)} must return
+non-@samp{nil} for this to activate.
+
+@item hywiki-word
+When on a non-existing HyWikiWord, create it and display its referent.
+This is the Action Key function that activates HyWikiWords.  A call to
+@code{(hywiki-active-in-current-buffer-p)} must return non-@samp{nil}
+for this to activate.
+  
+If the associated HyWiki referent is a page, create it automatically
+unless it is the first HyWiki page to be created, in which case,
+prompt the user whether to create it, to prevent any unexpected HyWiki
+use.
+@end table
+
+@node HyWiki Mode, Publishing a HyWiki, HyWikiWords, HyWiki
+@section HyWiki Mode
 
 @cindex HyWikiWord contexts
 @cindex HyWikiWord, outside the wiki
 @cindex hywiki-mode
 @findex hywiki-mode
+HyWikiWords are automatically highlighted and active when the global
+minor mode, @code{hywiki-mode}, is enabled.  The @code{hywiki-mode}
+variable is always in one of three states:
+
+@enumerate
+@item @samp{:pages} - HyWikiWords are active only with pages within @code{hywiki-directory}.
+@item @samp{:all}   - HyWikiWords are active within all text and programming buffers
+@item @samp{nil}    - the mode is disabled, HyWikiWords are disabled.
+@end enumerate
+
 @kindex C-h h h m
-Once Hyperbole has been loaded and activated, HyWikiWords (with or
-without delimiters) are automatically highlighted and active based
-on the setting of @code{hywiki-mode}.  Set it with @bkbd{C-h h h m}
-ModeSet/.  @xref{ModeSet/}, for the three settings.
+@cindex menu, HyWiki ModeSet
+You can interactively set this mode for the current Emacs session
+using the HyWiki/ModeSet/ @bkbd{C-h h h m} menu.  Programmatically,
+you would use @code{(hywiki-mode :all)} to enable it globally.
 
-Modeinto one of these three states:
+@vindex hywiki-mode
+@vindex hywiki-default-mode
+In a new Emacs session when Hyperbole is enabled via its global minor
+mode, @code{hyperbole-mode}, @code{hywiki-mode} starts in whatever
+state has been stored in the @code{hywiki-default-mode} custom
+variable, whose default value is @samp{:pages}.  If you enable
+@code{hywiki-mode} by interactively toggling it on and
+@code{hywiki-default-mode} is either @samp{:pages} or @samp{:all},
+then @code{hywiki-mode} is set to that default value.
 
-
-@cindex toggle hywiki-mode
-@noindent
-@{M-x hywiki-mode @key{RET}@} will also toggle between disabling
-HyWikiWords everywhere and enabling them in all editable buffers.
-
----------
-  "The default, non-nil value treats HyWikiWords in HyWiki pages as hyperlinks.
-A nil value disables HyWikiWord hyperlink buttons in both HyWiki
-pages and all other buffers (since it also disables `hywiki-mode').
-
-Outside of HyWiki pages, the global minor mode `hywiki-mode' must be
-manually enabled for auto-HyWikiWord highlighting. Interactively,
-@bkbd{C-h h h m a} does this; programmatically, use `(hywiki-mode :all)'
-to enable it.
-
-Use `hywiki-active-in-current-buffer-p' to determine if HyWikiWord
-hyperlinks are currently active in a buffer or not.
-
-Regardless of this flag, HyWikiWords in Org links and targets are not
-highlighted nor treated as hyperlinks; they are handled normally by Org."
---------
-
-
-@cindex HyWikiWord highlighting
-As HyWikiWords are typed, highlighting occurs after a trailing
-whitespace or punctuation character is added, or when the HyWikiWord
-is surrounded by a matching pair of characters such as curly braces or
-single square brackets.  Since Org links use double square brackets
-and Org targets use double or triple angle brackets, HyWikiWords
-within these delimiters are ignored once the brackets are in place.
-
-@vindex hywiki-exclude-major-modes
-@cindex HyWiki exclude modes
-The custom setting, @code{hywiki-exclude-major-modes} (default =
-@samp{nil}), is a list of major modes to exclude from HyWikiWord
-auto-highlighting and recognition.
+In summary, to enable @code{hywiki-mode} globally for the current
+Emacs session, interactively use @bkbd{C-h h h m a}; programmatically,
+use @code{(hywiki-mode :all)}.  To enable it globally for all future
+Emacs sessions, add this line to your Emacs initialization file:
+@code{(customize-save-variable 'hywiki-default-mode :all)}.
 
 @cindex HyWiki programming modes
 @vindex hywiki-highlight-all-in-prog-modes
+@cindex programming modes, HyWiki
 Within programming modes, HyWikiWords are highlighted and hyperlinked
 within comments only.  For programming modes in which you want
 HyWikiWords recognized everywhere, add them to the custom setting,
 @code{hywiki-highlight-all-in-prog-modes} (default =
 @code{'(lisp-interaction-mode)}).
 
-@findex ibtypes hywiki-word
-@cindex ibtype hywiki-word
-HyWiki adds one implicit button type to Hyperbole: @code{hywiki-word},
-which creates and displays HyWikiWord pages.  This is one of the lowest
-priority implicit button types so that it triggers only when other
-types are not recognized first.
+@findex hywiki-active-in-current-buffer-p
+@cindex HyWikiWords active in buffer
+Use @code{(hywiki-active-in-current-buffer-p)} to determine if
+HyWikiWord hyperlinks are currently active in a buffer or not.
+Regardless of this flag, HyWikiWords are ignored within Org links so
+that they work normally.
 
-@node Publish HyWiki, HyWiki Menu, HyWikiWords, HyWiki
-@section Publish HyWiki
+@cindex special buffers, HyWikiWords
+@cindex allow HyWikiWords in special buffers
+@cindex HyWikiWords in special buffers
+@vindex hypb:include-major-modes
+HyWikiWords are automatically disabled in major modes with the
+@samp{special} property that manipulate specialized data, such as
+Dired Mode, unless the mode is included in the list value of the
+customization variable, @code{hypb:include-major-modes}.  Many
+special modes are included there by default such as email and news
+readers.
+
+@cindex HyWiki exclude modes
+@cindex buffer, disable HyWikiWords
+@cindex disallow HyWikiWords in major modes
+@cindex exclude major modes from HyWikiWords
+@vindex hypb:exclude-major-modes
+You can disable HyWikiWords in specific major modes by adding the mode
+to the list value of the customization variable,
+@code{hypb:exclude-major-modes}.  Changes to this value affect files
+with the associated major modes the next time they are read into
+buffers.
+
+@node Publishing a HyWiki, HyWiki Menu, HyWiki Mode, HyWiki
+@section Publishing a HyWiki
 
 @cindex publish HyWiki
 @cindex HyWiki publish
@@ -4709,26 +4921,28 @@ loading Hyperbole's HyWiki code.
 @vindex hywiki-org-publishing-directory
 @cindex HyWiki publishing directory
 HyWiki html files are saved in:
-@code{(hywiki-org-get-publish-property :publishing-directory)}
-Customize this directory with:
+@code{(hywiki-org-get-publish-property :publishing-directory)} which defaults to
+@file{~/public_hywiki}.  Customize this directory with:
 @bkbd{M-x customize-variable @key{RET} hywiki-org-publishing-directory @key{RET}}
 
 @vindex hywiki-org-publishing-function
 @cindex HyWiki publishing function
 HyWiki html files are generated by the function given by:
-@code{(hywiki-org-get-publish-property :publishing-function)}
-Customize the value of this function if necessary with:
-@bkbd{M-x customize-variable @key{RET} hywiki-org-publishing-function @key{RET}}
+@code{(hywiki-org-get-publish-property :publishing-function)} which
+defaults to @code{org-html-publish-to-html}.  Customize the value of
+this function if necessary with: @bkbd{M-x customize-variable
+@key{RET} hywiki-org-publishing-function @key{RET}}
 
-@node HyWiki Menu,  , Publish HyWiki, HyWiki
+@node HyWiki Menu,  , Publishing a HyWiki, HyWiki
 @section HyWiki Menu
 
-The HyWiki minibuffer menu offers quick access to important HyWiki features.
+The HyWiki minibuffer menu at @bkbd{C-h h h} offers quick access to important HyWiki features.
 It looks like this:
 
 @smallexample
 @noindent
-HyWiki>  Act BacklinkConsult Create DiredHyWiki EditPage FindReferent GrepConsult Help Info Link ModeSet/ Org-M-RET/ Publish TagFind
+HyWiki>  Act BacklinkConsult Create DiredHyWiki EditPage FindReferent GrepConsult
+         Help Info Link ModeSet/ Org-M-RET/ Publish TagFind
 @end smallexample
 
 @noindent
@@ -4753,10 +4967,228 @@ Activate HyWikiWord link at point.
 Use @code{hywiki-consult-backlink} to prompt for a HyWikiWord and then
 consult grep over its HyWiki backlink references, selecting one.
 
-@cindex HyWiki create a page
+@cindex HyWikiWord creation
+@cindex HyWikiWord types
+@cindex Activity HyWiki reftype
+@cindex Bookmark HyWiki reftype
+@cindex Command HyWiki reftype
+@cindex Denote HyWiki reftype
+@cindex Elisp HyWiki reftype
+@cindex Find HyWiki reftype
+@cindex Gbut HyWiki reftype
+@cindex HyRolo HyWiki reftype
+@cindex InfoIndex HyWiki reftype
+@cindex Keys HyWiki reftype
+@cindex pathLink HyWiki reftype
+@cindex infoNode HyWiki reftype
+@cindex OrgID HyWiki reftype
+@cindex Page HyWiki reftype
+@cindex orgRoamNode HyWiki reftype
+@cindex Spec HyWiki reftype
+@cindex glossarY HyWiki reftype
+@findex hywiki-add-activity
+@findex hywiki-add-bookmark
+@findex hywiki-add-command
+@findex hywiki-add-elisp
+@findex hywiki-add-find
+@findex hywiki-add-global-button
+@findex hywiki-add-glossary-entry
+@findex hywiki-add-hyrolo
+@findex hywiki-add-info-index
+@findex hywiki-add-key-series
+@findex hywiki-add-path-link
+@findex hywiki-add-info-node
+@findex hywiki-add-org-id
+@findex hywiki-add-page
+@findex hywiki-add-org-roam-node
+@findex hywiki-add-spec
+@vindex hywiki-referent-prompt-flag
+@cindex referent type, auto-prompting
+@cindex referent type menu
+@vindex hywiki-referent-menu
 @item Create
-Create and display a new HyWiki page.  Shows existing page names to
-aid in new naming.
+Create and display a new or existing HyWikiWord referent, prompting
+with any existing referent names.  With either
+@code{hywiki-referent-prompt-flag} set or a prefix argument, prompt
+for and choose a typed referent; otherwise, create and/or display a
+HyWiki page.
+
+@noindent
+The referent types menu, specified by @code{hywiki-referent-menu},
+selects the referent type for a HyWikiWord and prompts for any
+arguments it requires.  It looks like this (Note that @samp{Activity}
+appears only if the Activities package is available):
+
+@anchor{HyWiki Referents}
+@smallexample
+@noindent
+HyWiki RefType>  Activity Bookmark Denote Command Elisp Find Gbut HyRolo
+                 InfoIndex Keys pathLink infoNode OrgID Page orgRoamNode
+                 Spec glossarY
+@end smallexample
+
+@exampleindent 0
+@example
+@group
+Menu Item       RefType Add Command       Display Action Description
+===================================================================
+Activity        hywiki-add-activity       Activate a saved Activity
+Bookmark        hywiki-add-bookmark       Jump to an Emacs bookmark
+Command         hywiki-add-command        Run a Hypb action or cmd
+Denote          hywiki-add-denote         Display a denote file
+Elisp           hywiki-add-elisp          Evaluate an Elisp sexp
+Find            hywiki-add-find           Grep through hywiki dir
+Gbut            hywiki-add-global-button  Activate a global button
+HyRolo          hywiki-add-hyrolo         Search @code{hyrolo-file-list}
+InfoIndex       hywiki-add-info-index     Display an Info index item
+Keys            hywiki-add-key-series     Execute a series of keys
+pathLink        hywiki-add-path-link      Display a path and opt pos
+infoNode        hywiki-add-info-node      Display an Info doc node
+OrgID           hywiki-add-org-id         Display a sect for Org ID
+Page            hywiki-add-page           Display a HyWiki page#sect
+orgRoamNode     hywiki-add-org-roam-node  Display an Org Roam node
+Spec            hywiki-add-spec           Defer referent linkage
+glossarY        hywiki-add-glossary-entry Display a HyWiki term def
+===================================================================
+@end group
+@end example
+
+@noindent
+In more detail:
+
+@table @asis
+@cindex menu item, HyWiki Activity
+@cindex HyWiki Activity reftype
+@item Activity
+Add a HyWikiWord that activates a saved activity from the Activities package.
+
+@cindex menu item, HyWiki Bookmark
+@cindex HyWiki Bookmark reftype
+@item Bookmark
+Add a HyWikiWord that jumps to an Emacs bookmark.
+
+@cindex menu item, HyWiki Command
+@cindex HyWiki Command reftype
+@item Command
+Add a HyWikiWord that runs an Emacs interactive command or Hyperbole
+action type.  If the command referent is just a symbol without any
+arguments, then the WikiWord is passed as the sole argument when the
+command is run.  If the command takes a single argument and the empty
+string is given for the argument, then this is replaced with the
+WikiWord when the command is run.
+
+@cindex menu item, HyWiki Denote
+@cindex HyWiki Denote reftype
+@item Denote
+Add a HyWikiWord that displays a denote file.  When called
+interactively or with a WikiWord argument of nil or the empty string,
+then set the WikiWord argument to any wikiword at point; otherwise,
+convert the description from the denote file chosen to a wikiword.
+
+@cindex menu item, HyWiki Elisp
+@cindex HyWiki Elisp reftype
+@item Elisp
+Add a HyWikiWord that evaluates an Elisp sexpression.
+
+@cindex menu item, HyWiki Find
+@cindex HyWiki Find reftype
+@findex hywiki-word-grep
+@item Find
+Add a HyWikiWord that greps through @code{hywiki-directory} for its matches.
+It searches all of the HyWiki pages for matches of the WikiWord using the
+@code{hywiki-word-grep} command.
+
+@cindex menu item, HyWiki Gbut
+@cindex HyWiki Global Button reftype
+@item Gbut
+Add a HyWikiWord that activates a named Hyperbole global button.
+
+@cindex menu item, HyWiki HyRolo
+@cindex HyWiki HyRolo search reftype
+@findex hyrolo-fgrep
+@item HyRolo
+Add a HyWikiWord that searches @code{hyrolo-file-list} for matches of
+the WikiWord using the @code{hyrolo-fgrep} command.
+
+@cindex menu item, HyWiki InfoIndex
+@cindex HyWiki InfoIndex reftype
+@item InfoIndex
+Add a HyWikiWord that displays an Info index item.
+
+@cindex menu item, HyWiki Keys
+@cindex HyWiki Key Series reftype
+@item Keys
+Add a HyWikiWord that executes a key series.
+
+@cindex menu item, HyWiki pathLink
+@cindex HyWiki pathLink reftype
+@findex hpath:find
+@item pathLink
+Add a HyWikiWord that links to a path and possible position. See the
+documention for @code{hpath:find} for the rich forms of paths that may
+be used.
+
+@cindex menu item, HyWiki infoNode
+@cindex HyWiki infoNode reftype
+@item infoNode
+Add a HyWikiWord that displays an Info node.
+
+@cindex menu item, HyWiki OrgID
+@cindex HyWiki OrgID reftype
+@item OrgID
+Add an Org link that displays an Org section given its Org ID.
+
+@cindex menu item, HyWiki Page
+@cindex HyWiki Page reftype
+@item Page
+Add/Reset a HyWikiWord to display its standard HyWiki page or a
+section therein, e.g. WikiWord.org, within the
+@code{hywiki-directory}.
+
+@cindex menu item, HyWiki orgRoamNode
+@cindex HyWiki orgRoamNode reftype
+Add a HyWikiWord that displays an Org Roam node given its title.
+
+@cindex menu item, HyWiki Spec
+@cindex HyWiki Spec reftype
+@item Spec
+Add a HyWikiWord without a specified referent (the HyWikiWord
+reference is highlighted but no referent is displayed).  Defer
+referent creation until the first activation of the HyWikiWord, at
+which point the HyWiki RefType menu is displayed for selection.
+
+@cindex menu item, HyWiki glossarY
+@cindex HyWiki Glossary reftype
+@cindex HyWikiWord definition
+@cindex definition, HyWikiWord
+@findex hywiki-get-definition
+@anchor{HyWiki Glossary}
+@item Glossary
+Add or edit the definition of a HyWikiWord that displays its own
+definition from the HyWiki's Glossary.org file.
+
+A HyWiki can contain a Glossary.org file with heading titles that
+represent terms associated with the HyWiki.  The body of each heading
+section is the definition of the term.  Terms can consist of multiple
+words and do not have to be HyWikiWords but may be.
+
+@noindent
+There are three ways to work with HyWiki glossary terms:
+
+@enumerate
+@item Use a @dfn{hydef} Action Button to display the term's definition.
+For example, @samp{<hydef Action Key>} or @samp{<hydef "Action Key">}
+
+@item Create a HyWikiWord with a glossary referent type.
+With @code{hywiki-mode} active, @bkbd{M-0 M-RET y} or @bkbd{C-h h h c
+y} will turn the wikiword at point into or will prompt you for a
+wikiword name whose referent displays the definition for the wikiword.
+
+@item Programmatically display a glossary entry.
+Call @code{(hywiki-get-definition "term" t)} to display the entry.
+@end enumerate
+
+@end table
 
 @vindex hywiki-directory
 @vindex action-key-modeline-buffer-id-function
@@ -4769,8 +5201,7 @@ aid in new naming.
 @item DiredHyWiki
 Display and edit HyWiki pages in current @code{hywiki-directory}.  Use
 @code{dired} unless @code{action-key-modeline-buffer-id-function} is
-set to @code{smart-treemacs-modeline}, then use the @code{treemacs}
-package.
+set to @code{smart-treemacs-modeline}, then use the Treemacs package.
 
 @cindex HyWiki find/edit a page
 @item EditPage
@@ -4810,37 +5241,37 @@ Select from three states for the global minor mode, @code{hywiki-mode}.
 @item All-Editable-Buffers
 This is the default setting.  Highlight HyWikiWord references within
 HyWiki page buffers only.  The @code{hywiki-mode} variable is set to
-@samp{:pages}.
+@samp{:pages}.  Programatically, use: @code{(hywiki-mode :pages)}.
 
-@vindex hywiki-exclude-major-modes
+@vindex hypb:exclude-major-modes
 @item HyWiki-Pages-Only
 Highlight HyWikiWord references within all editable buffers except
-those with major modes in @code{hywiki-exclude-major-modes}.  The
-@code{hywiki-mode} variable is set to @samp{:all}.
+those with major modes in @code{hypb:exclude-major-modes}.  The
+@code{hywiki-mode} variable is set to @samp{:all}.  Programatically,
+use: @code{(hywiki-mode :all)}.
 
 @item Nowhere
 Disable highlighting HyWikiWord references everywhere.  The
-@code{hywiki-mode} variable is set to @samp{nil}.
+@code{hywiki-mode} variable is set to @samp{nil}.  Programatically,
+use: @code{(hywiki-mode nil)}.
 @end table
 
 @kindex C-h h h o
 @kindex HyWiki, C-h h h o
-@kindex C-h h h c
-@kindex HyWiki, C-h h h c
 @cindex menu item, HyWiki/Org-M-RET
-@cindex menu item, HyWiki/Org-M-RET/Hyperbole-Buttons-Only
+@cindex menu item, Hyperbole-Buttons-Only
 @cindex customize Org M-RET
 @cindex Org M-RET customize
 @cindex override Org M-RET
 @cindex Org M-RET override
 @item Org-M-RET/
 Menu to customize contexts in which Hyperbole Action and Assist Keys
-override Org's @bkbd{M-@key{RET}} command.  The default is
-when on @samp{Hyperbole-Buttons-Only}.  Use @samp{All-Hyperbole-Contexts} to
+override Org's @bkbd{M-@key{RET}} command.  The default is when on
+@samp{Hyperbole-Buttons-Only}.  Use @samp{All-Hyperbole-Contexts} to
 make the Action Key create new HyWiki pages when pressed on as-yet
-undefined HyWikiWords; otherwise, you must use @bkbd{C-h h h c} to create a
-new HyWiki page instead.  Use @samp{None} if you want to
-use Org's @bkbd{M-@key{RET}} command in every context within Org mode.
+undefined HyWikiWords; otherwise, you must use @bkbd{C-h h h c} to
+create a new HyWiki page instead.  Use @samp{None} if you want to use
+Org's @bkbd{M-@key{RET}} command in every context within Org mode.
 
 @cindex HyWiki publish to web
 @item Publish
@@ -4875,7 +5306,7 @@ implicit button type that HyNote defines, @code{hynote-file}.
 In the future, HyNote will also provide a universal way to easily link to
 information across many file formats.
 
-For more, @ref{HyWiki}.
+For more, @pxref{HyWiki}.
 
 
 @node HyControl, Koutliner, HyNote, Top
@@ -5486,7 +5917,7 @@ read the following sections explaining commands.
 
 @float Image,image:Koutline Menu
 @caption{Koutline Menu}
-@image{im/menu-koutline,6in,,Koutline Menu}
+@image{im/menu-koutline,3.5in,,Koutline Menu}
 @end float
 @sp 1
 
@@ -6582,12 +7013,18 @@ these capabilities back into the mainstream of modern computing culture.
 Hyperbole includes HyRolo, a complete, advanced system for convenient
 management of hierarchical, record-oriented information.  Most often
 this is used for contact management but it can quickly be adapted to
-most any record-oriented lookup task requiring fast retrieval.  There
-is also a Python-based command-line version, @file{hyrolo.py}, included.
+most any record-oriented lookup task requiring fast retrieval.  For
+example, you can look up glossary entries listed in Org file headlines
+or legal-numbered requirements from a Koutline file.
+
+@noindent
+There is also a Python-based command-line version of HyRolo search
+included, @file{hyrolo.py}.
 
 @cindex rolo, buttons in
 Hyperbole buttons may be included within rolo records and then
-manually activated whenever their records are retrieved in a search.
+manually activated with a press of the Action Key whenever their
+records are retrieved in a search.
 
 @noindent
 The following subsections explain use and basic customization of this
@@ -6625,7 +7062,8 @@ mode).
 
 HyRolo @dfn{entries} begin with a delimiter of one or more special
 characters followed by another space.  Delimiters vary based on the
-type of file, for example level 3 entry delimiters look like this:
+type of file, for example, delimiters for outline entries at the third
+level down look like this:
 
 @example
 @group
@@ -6704,7 +7142,8 @@ so.
 
 @smallexample
 @noindent
-Rolo>  Add  ConsultFind  Display  Edit  FileFind  Info  Kill  Mail  Order  RegexFind  StringFind  TagFind  WordFind  Yank
+Rolo>  Add  ConsultFind  Display  Edit  FileFind  Info  Kill  Mail  Order
+       RegexFind  StringFind  TagFind  WordFind  Yank
 @end smallexample
 
 @cindex Rolo menu
@@ -6747,7 +7186,7 @@ pattern narrowing):
 Menu Item       Command                 Description
 =====================================================================
 Add             hyrolo-add              Add a hyrolo entry
-ConsultFind     hyrolo-consult-grep     Interactively narrow grep matches
+ConsultFind     hyrolo-consult-grep     Interactive grep matches
 Display         hyrolo-display-matches  Display last matches again
 Edit            hyrolo-edit             Edit an existing hyrolo entry
 FileFind        hyrolo-find-file        Edit a @code{hyrolo-file-list} file
@@ -6760,7 +7199,7 @@ RegexFind       hyrolo-grep             Find all entries containing
 StringFind      hyrolo-fgrep            Find all entries containing
                                           a string (or logical
                                           expression)
-TagFind         hyrolo-tags-view        Find HyWiki Org tags
+TagFind         hyrolo-tags-view        Find hyrolo Org tags
 WordFind        hyrolo-word             Find all entries containing
                                           a string of whole words
 Yank            hyrolo-yank             Insert the first matching
@@ -6769,8 +7208,8 @@ Yank            hyrolo-yank             Insert the first matching
 @end group
 @end example
 
-The 'File' menu item displays and edits the first file listed in
-@code{hyrolo-file-list} unless given a prefix argument, in which case
+The 'FileFind' menu item displays and edits the first file listed in
+@code{hyrolo-file-list}, unless given a prefix argument, in which case
 it prompts with completion for the file to edit.
 
 A prefix argument used with any of the above menu items that have 'Find'
@@ -7056,19 +7495,23 @@ current frame to its state prior to the rolo search.
 @node HyRolo Settings,  , HyRolo Keys, HyRolo
 @section   HyRolo Settings
 
+@vindex hyrolo-default-file
 @vindex hyrolo-file-list
 @cindex rolo, personal
 The files used in any rolo search are given by the
-@code{hyrolo-file-list} variable, whose default value is typically
-@code{"~/.rolo.otl"}, in which case, searches scan only your personal
-rolo file.  But you can customize this to include files with variables
-in them, wildcard patterns and directories, as explained below.  Any
+@code{hyrolo-file-list} variable, whose default first value is
+specified by the variable, @code{hyrolo-default-file}.  Its standard
+value is @code{"~/.rolo.org"}, unless the older @code{~/.rolo.otl}
+exists when Hyperbole is loaded, in which case it is used.  You can
+customize @code{hyrolo-file-list} to include files with variables in
+them, wildcard patterns and directories, as explained below.  Any
 paths added to this list should be absolute.
 
 If you include file wildcards in paths for this variable and
-@code{find-file-wildcards} is non-nil (the default), then any files
-matching the pattern (which can include [char-matches] or * wildcards
-and regular text) when the variable is set will be included in HyRolo
+@code{find-file-wildcards} is non-nil (the default), then any existing
+files matching the pattern (which can include square bracketed
+[character matches], optional characters followed by ?, or *
+wildcards) when the variable is set will be included in future HyRolo
 searches.  For more on wildcards, see @ref{Wildcards,,,emacs,the GNU
 Emacs Manual}.
 
@@ -7080,9 +7523,9 @@ that matches.
 
 If you include an existing directory (invalid ones are ignored) in
 your @code{hyrolo-file-list}, HyRolo will expand it recursively across
-all of its files that match @code{hyrolo-file-suffix-regexp}.  By
-default, this is Org files (.org), Emacs outlines (.otl), Koutlines
-(.kotl), or Markdown files (.md).  See @file{hpath.el#hpath:expand-list}.
+all of its files that match @code{hyrolo-file-suffix-regexp}.  This
+matches to Org files (.org), Emacs outlines (.otl), Koutlines (.kotl),
+and Markdown files (.md).  See @file{hpath.el#hpath:expand-list}.
 
 Once expanded, if a file in the list does not exist or is not
 readable, it is dropped.  Paths are searched in the order in which
@@ -7108,12 +7551,12 @@ following to your Emacs initialization file:
 @cindex BBDB
 @cindex Big Brother DataBase
 If you use the Big Brother DataBase (BBDB) Emacs package to capture
-email addresses and store contact information, the rolo automatically
+email addresses and store contact information, HyRolo automatically
 works with it.  If the BBDB package is loaded before HyRolo, then your
 @code{bbdb-file} of contacts is added as the second entry in
-@code{hyrolo-file-list} and will be searched automatically for any matches by
-the rolo find commands.  Presently there is no support for editing
-BBDB entries, just finding them.
+@code{hyrolo-file-list} and will be searched automatically for any
+matches by the rolo find commands.  Presently there is no support for
+editing BBDB entries, just finding them.
 
 For finding matches within only BBDB, there are the commands
 @code{hyrolo-bbdb-fgrep} (string finding) and @code{hyrolo-bbdb-grep}
@@ -7122,15 +7565,15 @@ For finding matches within only BBDB, there are the commands
 @cindex contacts, Google
 @cindex Google Contacts
 @cindex Gmail Contacts
-If you use Google/Gmail Contacts, you can configure the HyRolo to
-query your Google Contacts for matches.  First you must download and
-install the external @file{google-contacts} package using the Emacs
-Package Manager.  Then you must install the non-Emacs GNU Privacy
-Guard (GPG) package from @uref{https://gnupg.org} so that
-the @file{gpg} or @file{gpg2} executable is in your command-line
-search path.  Once these are in place, either restart Emacs or
-use @bkbd{M-x hyrolo-initialize-file-list @key{RET}} to add Google
-Contacts to your searches.
+If you use Google/Gmail Contacts, you can configure HyRolo to query
+your Google Contacts for matches.  First you must download and install
+the external Google Contacts package using the Emacs Package Manager.
+Then you must install the non-Emacs GNU Privacy Guard (GPG) package
+from @uref{https://gnupg.org} so that the @file{gpg} or @file{gpg2}
+executable is in your command-line search path.  Once these are in
+place, either restart Emacs or use @bkbd{M-x
+hyrolo-initialize-file-list @key{RET}} to add Google Contacts to your
+searches.
 
 When you next do a search, you will be prompted for your Google
 Contacts password and may also have to enter an authorization code
@@ -7729,7 +8172,12 @@ optional DOC string.
 
 When the Action Key is pressed in a buffer between the start and end
 delimiters and the text in-between matches to TEXT-REGEXP, then the
-button is activated and does one of four things with LINK-EXPR:
+button is activated.  To ensure TEXT-REGEXP matches to the full text
+and not just a part, start the REGEXP with "\\`" and end it with
+"\\'", to match to the start and end of string.
+
+@noindent
+When activated, the button does one of four things with LINK-EXPR:
 
 @enumerate
 @item executes it as a brace-delimited key series;
@@ -7868,7 +8316,8 @@ same type symbol used in the type definition call (not the Hyperbole
 symbol returned by the call).  This will not delete the action type used
 by the implicit button; that must be done separately.
 
-@cindex ibtype, help
+@anchor{ibtype help}
+@cindex ibtype help
 @findex ibut:at-p
 By default, a request for help on an implicit button will display the
 button's attributes in the same manner as is done for explicit
@@ -7880,9 +8329,9 @@ assist-action whenever the Assist Key is pressed, to respond to
 requests for help on buttons of that type.  Any such function should
 take a single argument of an implicit button construct.  (This is what
 @code{(ibut:at-p)} returns when point is within an implicit button
-context).  Remember that the standard help for buttons with custom
-help functions is still available with @bkbd{C-h A} for the Action Key
-and @bkbd{C-u C-h A} for the Assist Key.
+context).  Remember that documentation of the Action Key's behavior is
+always available on @bkbd{C-h A} and @bkbd{C-u C-h A} for the Assist
+Key's.
 
 @vindex class, hattr
 @vindex class, hbut
@@ -8255,6 +8704,11 @@ We speak of Smart Key and implicit button contexts.  Both are typically
 defined in terms of surrounding patterns within a buffer, but may be
 defined by arbitrary Emacs Lisp predicates.
 
+@item Denote
+An Emacs package for note taking that uses time-stamped, descriptive file
+naming conventions to label and locate notes.  HyWiki provides an expanded
+set of denote-specific link formats as one of its reference types.
+
 @item Display
 See @b{Screen}.
 
@@ -8385,18 +8839,61 @@ multi-line, hierarchically ordered free form text records.  It can
 also lookup records from Google/GMail Contacts and the Big Brother
 DataBase (BBDB) package.
 
+@cindex HyWiki
+@findex hywiki-mode
+@kindex C-h h h m a
+@kindex C-u C-h h h p
 @item HyWiki
 HyWiki, the Hyperbole personal wiki tool, lets you create a personal
 wiki of interlinked Org files in a single directory, where each page
-name automatically becomes a live HyWikiWord link back to the
+name (HyWikiWord) automatically becomes a live link back to the
 associated page whenever added in any file within the HyWiki
-directory.  HyWikiWords also work outside this directory if you turn
-on the minor @code{hywiki-mode} in other buffers.  A single command,
-@bkbd{C-u C-h h h p}, publishes/exports an entire HyWiki to HTML for
-display on the web.
+directory.  HyWikiWords also work outside this directory in text and
+programming buffers if you call @code{(hywiki-mode :all)} to enable
+HyWiki mode in your Emacs initializations, or use @bkbd{C-h h h m a}
+interactively.  A single command, @bkbd{C-u C-h h h p},
+publishes/exports an entire HyWiki to HTML for display on the web.
 
-See the documentation for its implicit button types, @code{hywiki-word}
-and @code{hywiki-existing-word}.
+See the documentation for its implicit button types,
+@code{hywiki-word} and @code{hywiki-existing-word}.
+
+@cindex glossary, HyWiki
+@cindex definition, HyWikiWord
+@cindex HyWikiWord definition
+@item HyWiki Glossary
+A HyWiki can contain a Glossary.org file with heading titles that
+represent terms associated with the HyWiki.  The body of each heading
+section is the definition of the term.  Terms can consist of multiple
+words and do not have to be HyWikiWords but may be.
+
+@xref{HyWiki Glossary}, for more details.
+
+@item HyWikiWord
+A @dfn{HyWikiWord}, or just wikiword, is a PascalCase word that starts
+with a capital letter and contains upper and lowercase letters only
+and has an associated referent (a link or an action).  The default,
+most common referent type, is a @dfn{HyWiki Page}, an Org file with
+the wikiword's name and a @file{.org} suffix that lives in
+@code{hywiki-directory}.
+
+HyWikiWords are automatically highlighted and turned into hyperlinks
+to their referents as soon as you type them, without the need for any
+delimiters.  By default, this happens only in HyWiki pages so as not
+to confuse new users.  But with one setting, you can enable them in
+all text buffers and within the comments of programming language
+buffers.  @xref{HyWiki Mode}.
+
+@item HyWikiWord Referent
+The entity that a HyWikiWord displays when activated, its link
+referent.  HyWiki supports many different referent types,
+@pxref{HyWikiWord Referent Types}.
+
+@item HyWikiWord Spec
+A HyWikiWord placeholder without a referent type or referent.  On the
+first Action Key activation of any reference to the word, Hyperbole
+displays a referent type menu to select from, and then creates and
+displays the word's referent.  See also @b{HyWikiWord} and
+@b{HyWikiWord referent}.
 
 @item Ilink
 @itemx link-to-ibut
@@ -8559,6 +9056,11 @@ grep commands from the Consult extension package.
 @item Outline
 See @b{Koutline}.
 
+@item PascalCase
+A naming syntax used by HyWiki to recognize HyWikiWords, terms formed
+from the concatenation of one or more capitalized words.  HyWiki
+allows only alpha characters in such case-sensitive words.
+
 @item Parent
 Any koutline cell which has children.
 
@@ -8692,81 +9194,49 @@ There are multiple package managers you can use to install Hyperbole once
 you have GNU Emacs set up at your site.  Choose one based on your needs.
 
 @menu
-* Elpa Stable Package Installation::
-* Elpa In-Development Package Installation::
-* Git In-Development Package Installation::
+* Elpa Latest or Release Package Installation::
+* Git Latest Package Installation::
 * Manual Tarball Archive Installation::
 @end menu
 
 @noindent
 After installing Hyperbole, read the next section on Invocation.
 
-@node Elpa Stable Package Installation, Elpa In-Development Package Installation, Installation, Installation
-@subsection Elpa Stable Package Installation (Emacs Package Manager)
+@node Elpa Latest or Release Package Installation, Git Latest Package Installation, Installation, Installation
+@subsection Elpa Latest or Release Package Installation (Emacs Package Manager)
 
 @cindex installation
 @cindex elpa package
 @cindex package manager
 @cindex Emacs package manager
-@cindex stable release installation
-@cindex installation, stable
+@cindex release installation
 @cindex obtaining Hyperbole
 @cindex Hyperbole, obtaining
-Once you have Emacs set up at your site, the stable, released version of
-GNU Hyperbole may be installed by using the Emacs Package Manager.  If
-you are not familiar with it, @pxref{Packages,,,emacs,the GNU Emacs
-Manual}.  Releases are very rare and the in-development branch may be
-many months and features ahead, so you may want to consider using either
-the Elpa In-Development or Git In-Development installation instead.
-
-If you have Hyperbole installed and simply want to upgrade it, invoke
-the Emacs Package Manager with @bkbd{M-x list-packages @key{RET}},
-then use the @bkbd{U} key followed by the @bkbd{x} key to upgrade all
-out-of-date packages, Hyperbole among them.  Then skip the text below
-and move on to the next section, @pxref{Invocation}.
-
-Otherwise, to download and install the Hyperbole package, you should add
-several lines to your personal Emacs initialization file, @file{~/.emacs}.
-(For further details, @pxref{Init File,,The Emacs Initialization File,emacs,
-the GNU Emacs Manual}).
-
-@lisp
-@group
-;; Below are the lines to add:
-
-(when (< emacs-major-version 28)
-  (error "Hyperbole requires Emacs 28 or above, not %d"
-         emacs-major-version))
-(require 'package)
-(unless (package-installed-p 'hyperbole)
-  (package-refresh-contents)	
-  (package-install 'hyperbole))
-(hyperbole-mode 1)
-@end group
-@end lisp
-
-Now save the file and restart Emacs.  Hyperbole will then be downloaded
-and compiled for use with your version of Emacs; give it a minute or two.
-You may see a bunch of compilation warnings but these can be safely
-ignored.
-
-@node Elpa In-Development Package Installation, Git In-Development Package Installation, Elpa Stable Package Installation, Installation
-@subsection Elpa In-Development Package Installation
-
 @cindex elpa-devel package
 @cindex in-development installation
-@cindex pre-release installation
-@cindex installation, pre-release
+@cindex latest installation
+@cindex installation, latest
+@cindex installation, release
 @cindex installation, from git
-The Elpa In-Development package pulls from the latest Hyperbole
-development branch tip and does not require installation of any new
-package manager software.  Since Hyperbole is a mature package, this is
-usually fine to use and update on a day-to-day basis.  But new features
-are tested on this branch and once in awhile it may break for a short
-time before a fix is pushed.  With this branch you'll be able to submit
-bug reports and feature requests but will not be able to submit pull
-requests for changes to the developers; use the Git In-Development
-Package instead for that.
+Once you have Emacs set up at your site, you may install GNU Hyperbole
+using the Emacs Package Manager.  If you are not familiar with it,
+@pxref{Packages,,,emacs,the GNU Emacs Manual}.  Releases are done with
+care and occur once in awhile.  In between, there is are
+regression-tested @emph{latest} distributions packaged from the
+in-development code branch; these may be many months and features
+ahead of the release branch.
+
+Therefore, consider using the Elpa Latest package; it pulls from the
+latest Hyperbole development branch tip and uses the builtin Emacs
+package manager.  Since Hyperbole is a mature package, this is fine to
+use and update on a day-to-day basis.  But new features are tested on
+this branch and once in awhile it may break for a short time before a
+fix is pushed.
+
+With this branch you'll be able to submit bug reports and feature
+requests but will not be able to submit pull requests for changes to
+the developers; use the Git Latest Package, described in the next
+section, instead for that.
 
 If you have Hyperbole installed and simply want to upgrade it, invoke
 the Emacs Package Manager with @bkbd{M-x list-packages @key{RET}},
@@ -8774,35 +9244,26 @@ then use the @bkbd{U} key followed by the @bkbd{x} key to upgrade all
 out-of-date packages, Hyperbole among them.  Then skip the text below
 and move on to the next section, @pxref{Invocation}.
 
-Otherwise, to download and install the Hyperbole package, you should add
-several lines to your personal Emacs initialization file, @file{~/.emacs}.
-(For further details, @pxref{Init File,,The Emacs Initialization File,emacs,
-the GNU Emacs Manual}).
+Otherwise, to download and install the Hyperbole package, you should
+add the following Lisp to your Emacs initialization file, as described
+below.  It installs the Elpa Latest package; there is one commented
+line in the configuration that you can switch out to pull from the
+older Elpa production release package.  (For further details,
+@pxref{Init File,,The Emacs Initialization File,emacs, the GNU Emacs
+Manual}).
 
-@lisp
-@group
-;; Below are the lines to add:
-
-(when (< emacs-major-version 28)
-  (error "Hyperbole requires Emacs 28 or above, not %d"
-         emacs-major-version))
-(require 'package)
-(add-to-list 'package-archives
-             '("gnu-devel" . "https://elpa.gnu.org/devel/"))
-(unless (package-installed-p 'hyperbole)
-  (package-refresh-contents)
-  (package-install 'hyperbole))
-(hyperbole-mode 1)
-@end group
-@end lisp
+@sp 1
+@smalllisp
+@include hy-package.el
+@end smalllisp
+@sp 1
 
 Now save the file and restart Emacs.  Hyperbole will then be downloaded
 and compiled for use with your version of Emacs; give it a minute or two.
-You may see a bunch of compilation warnings but these can be safely
-ignored.
 
-@node Git In-Development Package Installation, Manual Tarball Archive Installation, Elpa In-Development Package Installation, Installation
-@subsection Git In-Development Package Installation (Straight Package Manager)
+
+@node Git Latest Package Installation, Manual Tarball Archive Installation, Elpa Latest or Release Package Installation, Installation
+@subsection Git Latest Package Installation (Straight Package Manager)
 
 @cindex Straight package manager
 @cindex pre-release installation
@@ -8822,46 +9283,21 @@ out-of-date packages, Hyperbole among them.  Then skip the text below
 and move on to the next section, @pxref{Invocation}.
 
 Otherwise, to download and install the Hyperbole package, you should add
-several lines to your personal Emacs initialization file, @file{~/.emacs}.
+the following Lisp to your Emacs initialization file, as described below.
 (For further details, @pxref{Init File,,The Emacs Initialization File,emacs,
 the GNU Emacs Manual}).
 
+@sp 1
 @smalllisp
-@group
-;; Use this in your Emacs init file to install Straight
-(progn
-  (when (< emacs-major-version 28)
-    (error "Hyperbole requires Emacs 28 or above, not %d"
-           emacs-major-version))
-  (defvar bootstrap-version)
-  (setq package-enable-at-startup nil)
-  (let ((bootstrap-file
-         (expand-file-name "straight/repos/straight.el/bootstrap.el"
-                           user-emacs-directory))
-        (bootstrap-version 5))
-    (unless (file-exists-p bootstrap-file)
-      (with-current-buffer
-          (url-retrieve-synchronously
-           "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-           'silent 'inhibit-cookies)
-        (goto-char (point-max))
-        (eval-print-last-sexp)))
-    (load bootstrap-file nil 'nomessage)))
-
-;; Then use this to install Hyperbole
-(straight-use-package
- '(hyperbole
-   :host nil
-   :repo "https://git.savannah.gnu.org/git/hyperbole.git"
-   :config (hyperbole-mode 1)))
-@end group
+@include hy-straight.el
 @end smalllisp
+@sp 1
 
 Now save the file and restart Emacs.  Hyperbole will then be downloaded
 and compiled for use with your version of Emacs; give it a minute or two.
 
-@node Manual Tarball Archive Installation,  , Git In-Development Package Installation, Installation
-@subsection Manual Tarball Archive Installation
+@node Manual Tarball Archive Installation,  , Git Latest Package Installation, Installation
+@subsection Manual Tarball Archive Installation (SFTP)
 
 If you are old-school, don't like package managers, and prefer doing
 everything by hand, then you can obtain Hyperbole from a tarball:
@@ -8870,7 +9306,7 @@ everything by hand, then you can obtain Hyperbole from a tarball:
 Download either:
 
 @table @asis
-@item 1. a stable release tar.gz source archive from either:
+@item 1. a release tar.gz source archive from either:
 @uref{ftp://ftp.gnu.org/gnu/hyperbole/} or
 @uref{http://ftpmirror.gnu.org/hyperbole/}, which will find the closest
 mirror of the GNU ftp site and show it to you.
@@ -8897,7 +9333,11 @@ lines to your personal Emacs initialization file, @file{~/.emacs}:
   (push "<directory-ending-with-hyperbole-where-you-unpacked>"
         load-path)
   (require 'hyperbole)
-  (hyperbole-mode 1))
+  (hyperbole-mode 1)
+  ;; Allow HyWikiWords in text buffers and programming buffer comments,
+  ;; not just in HyWiki pages, by uncommenting the next line.
+  ;; (hywiki-mode :all)
+  )
 @end group
 @end lisp
 
@@ -8991,6 +9431,7 @@ Internal Image Display        hpath:native-image-suffixes
 Internal Custom Display       hpath:internal-display-alist
 External Display              hpath:external-display-alist
 Internal Standard Display     hpath:display-where
+=====================================================================
 @end example
 
 @noindent
@@ -9499,7 +9940,7 @@ binding.  @xref{Smart Key Thing Selection}, for more information.
 @kitem M-w
 @cindex copying things to kill ring
 Delimited Thing, Koutline Cell Reference or Region Copy: While Hyperbole is
-active, it sets @code{mark-even-if-inactive} to @code{nil} and overrides
+active, it sets @code{mark-even-if-inactive} to @samp{nil} and overrides
 @bkbd{M-w} with its own command, @code{hui:kill-ring-save}, which copies the
 region only when it is active/highlighted.  When there is no active region,
 @bkbd{M-w} does one of the following:
@@ -9508,7 +9949,7 @@ region only when it is active/highlighted.  When there is no active region,
 @item in a Koutline klink, copies the klink;
 @item in a Koutline cell, outside any klink, copies a klink reference to the current cell;
 @item on a Hyperbole button, copies the text of the button excluding delimiters;
-@item at the start of a paired delimiter, copy the text including the delimiters.
+@item on a thing (not at whitespace), copy the text of the thing including any delimiters.
 @end enumerate
 
 @cindex key binding, C-x r s
@@ -9937,9 +10378,10 @@ With optional COPY-P equal to t, copy region to kill ring but don't
 kill it.  With COPY-P any other non-nil value, return region as a
 string without affecting the kill ring.
 
-If called interactively and there is no active region, copy any
-delimited selectable thing at point; see the documentation for
-@code{hui:delimited-selectable-thing}.
+If called interactively, @code{transient-mark-mode} is non-nil,
+there is no active region, and point is not on a whitespace character,
+then kill/copy the selectable thing at point including any delimiters;
+see @code{hui:selectable-thing-and-bounds}.
 
 If the buffer is read-only and COPY-P is nil, the region will not be
 deleted but it will be copied to the kill ring and then an error will be
@@ -11003,7 +11445,9 @@ When pressed on a Hyperbole button:
      Activates the button.
   ASSIST KEY
      Displays help for the button, typically a summary of its
-     attributes.
+     attributes.  For implicit button types, the help behavior can be
+     overridden by defining a help function function for the stype,
+     @pxref{ibtype help}.
 @end group
 @end format
 
@@ -12299,10 +12743,10 @@ It did not exist when Hyperbole was first developed.
 Smart Key support for Org-mode is already in Hyperbole.  Use the
 @code{hsys-org-enable-smart-keys} customization variable to control
 the Smart Keys and @bkbd{M-@key{RET}} when in Org-mode with
-@code{hyperbole-mode} active.  @code{t} enables Smart Key support
+@code{hyperbole-mode} active.  @samp{t} enables Smart Key support
 everywhere.  The symbol, @code{:buttons}, is the default; it means the
 Smart Keys are active only when point is within a Hyperbole button.  A
-@code{nil} value means no Smart Key support; Hyperbole gives Org
+@samp{nil} value means no Smart Key support; Hyperbole gives Org
 complete control over @bkbd{M-@key{RET}} so that it behaves just as it
 does normally in Org mode.
 

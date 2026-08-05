@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    19-Jun-21 at 22:42:00
-;; Last-Mod:      5-Apr-26 at 02:24:43 by Bob Weiner
+;; Last-Mod:      8-Jun-26 at 23:42:26 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -19,17 +19,51 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ert-x)
+(require 'seq)
 (require 'hyrolo)
 (require 'hyrolo-demo)
 (require 'hy-test-dependencies) ;; can install el-mock
 (require 'hy-test-helpers "test/hy-test-helpers")
+(require 'rx)
 (require 'hib-kbd)
 (require 'kotl-mode)
 
 (declare-function hy-test-helpers:consume-input-events "hy-test-helpers")
 
+(ert-deftest hyrolo-tests--add--error-cases ()
+  "Verify `hyrolo-add' error cases."
+  (defvar hyrolo-file)
+  (let ((hyrolo-file (make-temp-file "hypb" nil ".otl")))
+    (unwind-protect
+        (let ((hyrolo-file-list (list hyrolo-file)))
+          (should-error (hyrolo-add ""))
+          (should-error (hyrolo-add 'symbol))
+          (should-error (hyrolo-add "a" ""))
+          (should-error (hyrolo-add "a" 'symbol))
+          (should-error (hyrolo-add "a/b/c"))
+          ;; File not writable
+          (with-mock
+            (mock (file-writable-p hyrolo-file) => nil)
+            (should-error (hyrolo-add "a")))
+          ;; File not readable
+          (with-mock
+            (mock (file-readable-p hyrolo-file) => nil)
+            (should-error (hyrolo-add "a"))))
+      (hy-delete-file-and-buffer hyrolo-file))))
+
+(ert-deftest hyrolo-tests--add-item-to-new-file ()
+  "Verify `hyrolo-add' creates and visits the file buffer if file does not exist."
+  (let ((new-file (expand-file-name (make-temp-name "hypb") "/tmp")))
+    (unwind-protect
+        (progn
+          (should-not (file-exists-p new-file))
+          (hyrolo-add "a" new-file)
+          (should (equal (current-buffer) (get-file-buffer new-file))))
+      (hy-delete-file-and-buffer new-file))))
+
 (ert-deftest hyrolo-tests--add-items-at-multiple-levels ()
-  "`hyrolo-add` can add items at different levels."
+  "`hyrolo-add' can add items at different levels."
   (let ((hyrolo-file (make-temp-file "hypb" nil ".otl")))
     (unwind-protect
         (let ((hyrolo-file-list (list hyrolo-file)))
@@ -45,7 +79,7 @@
       (hy-delete-file-and-buffer hyrolo-file))))
 
 (ert-deftest hyrolo-tests--add-items-interactive ()
-  "`hyrolo-add` can add items when called interactively."
+  "`hyrolo-add' can add items when called interactively."
   (let ((hyrolo-file (make-temp-file "hypb" nil ".otl")))
     (unwind-protect
         (let ((hyrolo-file-list (list hyrolo-file)))
@@ -298,8 +332,8 @@ and {b} the previous same level cell."
           (dolist (v '(:interactive nil))
             (if (eq v :interactive)
                 (hy-test-helpers:ert-simulate-keys "string\n"
-                  (call-interactively #'hyrolo-fgrep))
-              (hyrolo-fgrep "string"))
+                  (should (= 4 (call-interactively #'hyrolo-fgrep))))
+              (should (= 4 (hyrolo-fgrep "string"))))
             (should (string= (buffer-name) hyrolo-display-buffer))
             (should (= (how-many "@loc>") 4))
             (dolist (f (list org-file kotl-file md-file outl-file))
@@ -316,7 +350,7 @@ and {b} the previous same level cell."
          (hyrolo-file-list (list folder)))
     (unwind-protect
         (progn
-          (hyrolo-fgrep "string")
+          (should (= 1 (hyrolo-fgrep "string")))
           (should (string= (buffer-name) hyrolo-display-buffer))
           (should (= (how-many "@loc>") 1))
           (should (looking-at-p "==="))
@@ -344,7 +378,7 @@ and {b} the previous same level cell."
           (insert "string")
           (kotl-mode:newline 1)
           (insert "more")
-          (hyrolo-fgrep "string")
+          (should (= 1 (hyrolo-fgrep "string")))
           (should (string= (buffer-name) hyrolo-display-buffer))
           (should (= (how-many "@loc>") 1))
           (should (looking-at-p "==="))
@@ -365,7 +399,7 @@ and {b} the previous same level cell."
          (hyrolo-file-list (list folder)))
     (unwind-protect
         (progn
-          (hyrolo-fgrep "string")
+          (should (= 1 (hyrolo-fgrep "string")))
           (should (string= (buffer-name) hyrolo-display-buffer))
           (should (= (how-many "@loc>") 1))
           (should (looking-at-p "==="))
@@ -386,7 +420,7 @@ and {b} the previous same level cell."
          (hyrolo-file-list (list folder)))
     (unwind-protect
         (progn
-          (hyrolo-fgrep "string")
+          (should (= 1 (hyrolo-fgrep "string")))
           (should (string= (buffer-name) hyrolo-display-buffer))
           (should (= (how-many "@loc>") 1))
           (should (looking-at-p "==="))
@@ -416,7 +450,7 @@ Match a string in a level 2 child cell."
           (insert "string")
           (kotl-mode:newline 1)
           (insert "more")
-          (hyrolo-fgrep "string")
+          (should (= 1 (hyrolo-fgrep "string")))
           (should (string= (buffer-name) hyrolo-display-buffer))
           (should (= (how-many "@loc>") 1))
           (should (looking-at-p "==="))
@@ -446,7 +480,7 @@ Match a string in the second cell."
           (insert "string")
           (kotl-mode:newline 1)
           (insert "more")
-          (hyrolo-fgrep "string")
+          (should (= 1 (hyrolo-fgrep "string")))
           (should (string= (buffer-name) hyrolo-display-buffer))
           (should (= (how-many "@loc>") 1))
           (should (looking-at-p "==="))
@@ -458,6 +492,114 @@ Match a string in the second cell."
       (hy-delete-file-and-buffer kotl-file)
       (kill-buffer hyrolo-display-buffer)
       (delete-directory folder))))
+
+(ert-deftest hyrolo-tests--fgrep-move-test ()
+  "Verify different move commands after `hyrolo-fgrep'."
+  (let* ((kotl-file1 (hyrolo-tests--gen-kotl-outline "heading" "foo bar" 1))
+         (kotl-file2 (hyrolo-tests--gen-kotl-outline "heading" "foo bar" 1))
+         (hyrolo-file-list (list kotl-file1 kotl-file2))
+         (h1_str  "   1\\. heading")
+         (h1a_str  "     1a\\. heading 1"))
+    (unwind-protect
+        (progn
+          (should (= 2 (hyrolo-fgrep "bar")))
+          (should (string= hyrolo-display-buffer (buffer-name)))
+
+          (ert-info ("Hide first header move down using ?f")
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "h"))
+            (execute-kbd-macro (kbd "f"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "f"))
+            (should (looking-at-p h1_str))
+            (let ((err (should-error (execute-kbd-macro (kbd "f")))))
+              (should (string-match-p "No following same-level heading/header" (cadr err)))))
+
+          (ert-info ("With hidden first header move up using ?b")
+            (execute-kbd-macro (kbd "b"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "b"))
+            (should (looking-at-p "==="))
+            (should (bobp))
+            (let ((err (should-error (execute-kbd-macro (kbd "b")))))
+              (should (string-match-p "No previous same-level heading/header" (cadr err)))))
+
+          (ert-info ("With hidden first header and move down using ?n")
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p h1a_str))
+            (execute-kbd-macro (kbd "n"))
+            (should (eobp)))
+
+          (ert-info ("With hidden first header move up using ?p")
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p h1a_str))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p "==="))
+            (should (bobp)))
+
+          (outline-show-all)
+
+          (ert-info ("Move down using ?n")
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p h1a_str))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "n"))
+            (should (looking-at-p h1a_str))
+            (execute-kbd-macro (kbd "n"))
+            (should (eobp)))
+
+          (ert-info ("Move up using ?p")
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p h1a_str))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p h1a_str))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "p"))
+            (should (looking-at-p "==="))
+            (should (bobp)))
+
+          (ert-info ("Move down using ?f")
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "f"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "f"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "f"))
+            (should (looking-at-p h1_str))
+            (should-error (execute-kbd-macro (kbd "f"))))
+
+          (ert-info ("Move up using ?b")
+            (execute-kbd-macro (kbd "b"))
+            (should (looking-at-p "==="))
+            (execute-kbd-macro (kbd "b"))
+            (should (looking-at-p h1_str))
+            (execute-kbd-macro (kbd "b"))
+            (should (looking-at-p "==="))
+            (should-error (execute-kbd-macro (kbd "b")))
+            (should (bobp))))
+      ;; Unwind forms
+      (kill-buffer hyrolo-display-buffer)
+      (hy-delete-files-and-buffers hyrolo-file-list))))
 
 (ert-deftest hyrolo-tests--get-file-list-change ()
   "Verify a change to hyrolo-file-list is noticed by hyrolo-get-file-list."
@@ -561,7 +703,7 @@ below verifies all the details."
     (unwind-protect
         (progn
           (hy-test-helpers:ert-simulate-keys "body\n"
-            (call-interactively #'hyrolo-grep))
+            (should (= 2 (call-interactively #'hyrolo-grep))))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           (should (looking-at-p "==="))
@@ -577,7 +719,7 @@ below verifies all the details."
          (hyrolo-file-list (list org-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move down
@@ -615,7 +757,7 @@ below verifies all the details."
          (hyrolo-file-list (list md-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move down
@@ -653,7 +795,7 @@ below verifies all the details."
          (hyrolo-file-list (list md-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move down
@@ -691,7 +833,7 @@ below verifies all the details."
          (hyrolo-file-list (list org-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move to last heading
@@ -715,7 +857,7 @@ below verifies all the details."
          (hyrolo-file-list (list org-file1 md-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move down
@@ -763,7 +905,7 @@ optional DEPTH the number of sub cells are created to that depth."
         (insert (format "%s %d" heading (1+ d)))
         (kotl-mode:newline 1)
         (insert (format "%s %d" body (1+ d)))))
-    (save-buffer)
+    (hypb:save-buffer-silently)
     kotl-file))
 
 (ert-deftest hyrolo-tests--outline-next-visible-heading-kotl ()
@@ -772,7 +914,7 @@ optional DEPTH the number of sub cells are created to that depth."
          (hyrolo-file-list (list kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 1 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           (should (looking-at-p "==="))
@@ -799,7 +941,7 @@ optional DEPTH the number of sub cells are created to that depth."
          (hyrolo-file-list (list org-file1 otl-file1 md-file1 kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 4 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move down
@@ -837,7 +979,7 @@ optional DEPTH the number of sub cells are created to that depth."
          (hyrolo-file-list (list org-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 1 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Hide/Show first line hides whole section
@@ -878,7 +1020,7 @@ optional DEPTH the number of sub cells are created to that depth."
          (hyrolo-file-list (list org-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 1 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Hide first line hides whole section
@@ -901,13 +1043,15 @@ optional DEPTH the number of sub cells are created to that depth."
       (hy-delete-files-and-buffers hyrolo-file-list))))
 
 (ert-deftest hyrolo-tests--tab-through-matches ()
-  "Verify tabbing through search matches."
-  (let* ((org-file (make-temp-file "hypb" nil ".org"
+  "Verify tabbing through search matches.
+File name contains the search string to verify it is not selected while
+tabbing though the matches."
+  (let* ((org-file (make-temp-file "hypb_body_" nil ".org"
                                    (hyrolo-tests--gen-outline ?* "heading" 2 "body" 2)))
          (hyrolo-file-list (list org-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Search Down
@@ -941,7 +1085,7 @@ optional DEPTH the number of sub cells are created to that depth."
          (hyrolo-file-list (list org-file)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 1 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Search Down
@@ -966,6 +1110,30 @@ optional DEPTH the number of sub cells are created to that depth."
       (kill-buffer hyrolo-display-buffer)
       (hy-delete-files-and-buffers hyrolo-file-list))))
 
+(ert-deftest hyrolo-tests--edit-entry-updates-the-date ()
+  "Verify `hyrolo-edit-entry' moves to the entry and updates the date."
+  (let ((test-time "2024-12-11"))
+    (cl-letf (((symbol-function 'format-time-string)
+               (lambda (_fmt &optional _time _zone) test-time)))
+      (defvar hyrolo-file)
+      (let ((hyrolo-file (make-temp-file "hypb" nil ".otl" "===\nHdr\n===\n"))
+            (item-pat (rx bol "*" (= 3 space) "item")))
+        (unwind-protect
+            (let ((hyrolo-file-list (list hyrolo-file)))
+              (find-file (car (hyrolo-get-file-list)))
+              (hyrolo-add "item")
+              (save-buffer)
+              (hyrolo-grep "item")
+              (execute-kbd-macro (kbd "TAB"))
+              (should (string= (buffer-name) hyrolo-display-buffer))
+              (should (looking-at (rx-to-string `(seq "item\n" (one-or-more whitespace) ,test-time))))
+              (setq test-time "2025-01-01")
+              (hyrolo-edit-entry)
+              (should (equal (current-buffer) (get-file-buffer hyrolo-file)))
+              (should (looking-at (rx-to-string `(seq "item\n" (one-or-more whitespace) ,test-time)))))
+          (kill-buffer hyrolo-display-buffer)
+          (hy-delete-file-and-buffer hyrolo-file))))))
+
 (ert-deftest hyrolo-tests--forward-same-level-all-file-types-level1 ()
   "Verify forward and backward to first level headers and section lines.
 All files types are present."
@@ -979,7 +1147,7 @@ All files types are present."
          (hyrolo-file-list (list org-file1 md-file1 otl-file1 kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 7 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move forward
@@ -1015,7 +1183,7 @@ structure."
          (hyrolo-file-list (list org-file1 md-file1 otl-file1 kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 4 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move forward
@@ -1073,7 +1241,7 @@ Useful for creating outline and markdown test data from org examples."
          (hyrolo-file-list (list org-file1 org-file2)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 4 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move to first second level header
@@ -1110,7 +1278,7 @@ Useful for creating outline and markdown test data from org examples."
          (hyrolo-file-list (list org-file1 otl-file1 md-file1 kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 7 (hyrolo-grep "body")))
           (should (string= hyrolo-display-buffer (buffer-name)))
 
           ;; Move to first second level header
@@ -1170,7 +1338,7 @@ optional BEGIN and END only return that part of the buffer."
          (hyrolo-file-list (list org-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
 
           ;; First line
           (should (= (point) 1))
@@ -1219,7 +1387,7 @@ body...
          (hyrolo-file-list (list org-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
 
           ;; First line
           (should (= (point) 1))
@@ -1312,7 +1480,7 @@ body...
          (hyrolo-file-list (list org-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
 
           ;; First line - show all
           (should (= (point) 1))
@@ -1385,7 +1553,7 @@ body
          (hyrolo-file-list (list org-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (hyrolo-top-level)
 
           (should (string=
@@ -1413,7 +1581,7 @@ body
          (hyrolo-file-list (list kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 1 (hyrolo-grep "body")))
           (hyrolo-top-level)
 
           (should (string= (concat
@@ -1452,7 +1620,7 @@ body
          (hyrolo-file-list (list org-file1 otl-file1 md-file1 kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 7 (hyrolo-grep "body")))
           (hyrolo-top-level)
 
           (should (string=
@@ -1490,7 +1658,7 @@ body
          (hyrolo-file-list (list org-file1 otl-file1 md-file1 kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 7 (hyrolo-grep "body")))
           (hyrolo-overview nil)
 
           (should (string=
@@ -1520,15 +1688,20 @@ body
 "))
          (hyrolo-file-list (list org-file)))
     (unwind-protect
-        (let ((hypb:mail-address-mode-list '(hyrolo-mode)))
-          (hyrolo-grep "receiver\\.org")
+        (let ((hypb:include-major-modes '(hyrolo-mode)))
+          (should (= 2 (hyrolo-grep "receiver\\.org")))
           (mocklet (((actypes::link-to-compose-mail "first@receiver.org") => t))
             (hyrolo-mail-to))
           (forward-line)
           (mocklet (((actypes::link-to-compose-mail "second@receiver.org") => t))
             (hyrolo-mail-to)))
       (kill-buffer hyrolo-display-buffer)
-      (hy-delete-files-and-buffers hyrolo-file-list))))
+      (hy-delete-files-and-buffers hyrolo-file-list)))
+  (with-temp-buffer
+    (mocklet (((beep) => t))
+      (ert-with-message-capture cap
+        (hyrolo-mail-to)
+        (hy-test-helpers:should-last-message "Invalid buffer or no e-mail address found" cap)))))
 
 (ert-deftest hyrolo-tests--location-movement ()
   "Verify movement between location headers."
@@ -1537,7 +1710,7 @@ body
          (hyrolo-file-list (list org-file1 otl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 4 (hyrolo-grep "body")))
           (hyrolo-to-next-loc)
           (should (looking-at-p (concat "@loc> \"" org-file1 "\"")))
           (hyrolo-to-next-loc)
@@ -1553,7 +1726,7 @@ body
          (hyrolo-file-list (list org-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 2 (hyrolo-grep "body")))
           (hyrolo-next-match)
           (action-key)
           (should (string= (hypb:buffer-file-name) org-file1))
@@ -1567,7 +1740,7 @@ body
          (hyrolo-file-list (list org-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "h-org")
+          (should (= 2 (hyrolo-grep "h-org")))
           (hyrolo-next-match)
           (action-key)
           (should (string= (hypb:buffer-file-name) org-file1))
@@ -1581,7 +1754,7 @@ body
          (hyrolo-file-list (list kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body")
+          (should (= 1 (hyrolo-grep "body")))
           (hyrolo-next-match)
           (action-key)
           (should (string= (hypb:buffer-file-name) kotl-file1))
@@ -1604,7 +1777,7 @@ body
          (hyrolo-file-list (list kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "h-kotl")
+          (should (= 1 (hyrolo-grep "h-kotl")))
           (hyrolo-next-match)
           (action-key)
           (should (string= (hypb:buffer-file-name) kotl-file1))
@@ -1627,7 +1800,7 @@ body
          (hyrolo-file-list (list kotl-file1)))
     (unwind-protect
         (progn
-          (hyrolo-grep "body2")
+          (should (= 1 (hyrolo-grep "body2")))
           (hyrolo-next-match)
           (action-key)
           (should (string= (hypb:buffer-file-name) kotl-file1))
@@ -1651,7 +1824,7 @@ body
     (unwind-protect
         (progn
 	  (kotl-mode:beginning-of-buffer)
-          (hyrolo-grep "h2")
+          (should (= 1 (hyrolo-grep "h2")))
           (action-key)
           (should (string= (hypb:buffer-file-name) kotl-file1))
           (should (looking-at-p "h1 / h2$"))
@@ -1694,22 +1867,21 @@ match
 
 (ert-deftest hyrolo-tests--expand-path-list ()
   "Verify `hyrolo-expand-path-list'."
-  (should (equal (hyrolo-expand-path-list nil)
-		 (list (expand-file-name "~/.rolo.otl"))))
-  (let ((bbdb-file nil))
-    (mocklet (((hpath:expand-list
-                '("/file1")
-                "\\.\\(kotl?\\|org\\|ou?tl\\|md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\)$"
-                #'file-readable-p)
-               => (list "/file1")))
-      (should (equal (hyrolo-expand-path-list '("/file1")) '("/file1")))))
-  (let ((bbdb-file nil))
-    (mocklet (((hpath:expand-list
-                '("/file1")
-                "\\.\\(kotl?\\|org\\|ou?tl\\|md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\)$"
-                #'file-readable-p)
-               => (list "/file1")))
-      (should (equal (hyrolo-expand-path-list '("/file1")) '("/file1"))))))
+  (let ((hyrolo-default-file "~/default"))
+    (should (equal (hyrolo-expand-path-list nil)
+		   (list hyrolo-default-file)))
+    (defvar bbdb-file)
+    (defvar google-contacts-buffer-name)
+    (let ((bbdb-file "~/bbdb")
+          (google-contacts-buffer-name "*Google Contacts*"))
+      (mocklet (((hyrolo-google-contacts-p) => t))
+        (should (equal (hyrolo-expand-path-list nil)
+		       (list hyrolo-default-file bbdb-file google-contacts-buffer-name))))))
+  (mocklet (((hpath:expand-list
+              '("/file1")
+              "\\.\\(kotl?\\|org\\|ou?tl\\|md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\)$")
+             => (list "/file1")))
+    (should (equal (hyrolo-expand-path-list '("/file1")) '("/file1")))))
 
 (ert-deftest hyrolo-tests--at-tags-p ()
   "Verify `hyrolo-at-tags-p´."
@@ -1755,6 +1927,254 @@ match
           (ert-info ("return-to-buffer is selected")
             (hyrolo-display-matches buf1 buf2)
             (should (equal buf2 (current-buffer)))))))))
+
+(ert-deftest hyrolo-tests--consult-fgrep ()
+  "Verify `hyrolo-consult-grep' calls hsys-consult-grep."
+  (with-mock
+    (mock (hyrolo-consult-grep (regexp-quote "string") 0 nil nil))
+    (hyrolo-consult-fgrep "string" 0))
+  (with-mock
+    ;; Ignore checking grep-includes and ripgrep-globs
+    (mock (hsys-consult-grep * * "string" 1 (list "path-list") "Fgrep HyRolo files"))
+    (hyrolo-consult-fgrep "string" 1 (list "path-list"))))
+
+(ert-deftest hyrolo-tests--consult-grep ()
+  "Verify `hyrolo-consult-grep' calls hsys-consult-grep."
+  (defvar hyrolo-file-list)
+  (defvar path-list)
+  (let ((hyrolo-file-list '("hyrolo.otl" "another.otl"))
+        (path-list '("yet-another.otl")))
+    (with-mock
+      ;; Ignore checking grep-includes and ripgrep-globs
+      (mock (hsys-consult-grep * * nil nil hyrolo-file-list "Grep HyRolo files") => t)
+      (call-interactively #'hyrolo-consult-grep))
+    (with-mock
+      ;; Ignore checking grep-includes and ripgrep-globs
+      (mock (hsys-consult-grep * * "regexp" 0 path-list "Grep HyRolo headlines") => t)
+      (hyrolo-consult-grep "regexp" 0 path-list))))
+
+(ert-deftest hyrolo-tests--edit ()
+  "Verify `hyrolo-edit'."
+  (defvar hyrolo-file)
+  (let ((hyrolo-file (make-temp-file "hypb" nil ".otl" "===\nHdr\n===\n"))
+        (item-pat (rx "*" (= 3 space) "item")))
+    (unwind-protect
+        (let ((hyrolo-file-list (list hyrolo-file)))
+          (find-file (car (hyrolo-get-file-list)))
+          (hyrolo-add "alpha")
+          (hyrolo-add "item")
+          (hyrolo-add "xerxes")
+
+          (ert-info ("Edit item")
+            (goto-char (point-min))
+            (hyrolo-edit "item" hyrolo-file)
+            (should (looking-at-p item-pat)))
+
+          (ert-info ("Edit item called interactively")
+            (goto-char (point-min))
+            (with-mock
+              (mock (hsys-consult-grep-headlines-read-regexp #'hyrolo-consult-grep *) => "item")
+              (call-interactively #'hyrolo-edit))
+            (should (looking-at-p item-pat)))
+
+          (ert-info ("Edit item called interactively with consult active")
+            (goto-char (point-min))
+            (with-mock
+              (mock (hsys-consult-grep-headlines-read-regexp #'hyrolo-consult-grep *) =>
+                    (concat hyrolo-file ":10:item"))
+              (mock (hsys-consult-active-p) => t)
+              (call-interactively #'hyrolo-edit))
+            (should (looking-at-p item-pat)))
+
+          (ert-info ("Verify hook is called")
+            (let* (run-hook (hook (lambda () (setq run-hook t))))
+              (unwind-protect
+                  (progn
+                    (add-hook 'hyrolo-edit-hook hook)
+                    (hyrolo-edit "item" hyrolo-file)
+                    (should run-hook))
+                (remove-hook 'hyrolo-edit-hook hook))))
+
+          (ert-info ("Error cases")
+            (should-error (hyrolo-edit 'symbol))
+            (should-error (hyrolo-edit "" (make-temp-name "hypb")))
+            (should-not (hyrolo-edit nil))
+            (with-mock
+              (mock (beep) => t)
+              (ert-with-message-capture cap
+                (should-not (hyrolo-edit "beta" hyrolo-file))
+                (hy-test-helpers:should-last-message "not found" cap)))))
+
+      (hy-delete-file-and-buffer hyrolo-file))))
+
+(ert-deftest hyrolo-tests--grep-or-fgrep ()
+  "Verify `hyrolo-grep-or-fgrep' calls hyrolo grep or fgrep based on prefix arg.
+Uses mocks to verify the call path."
+  (let ((captured-args nil))
+    (cl-letf (((symbol-function 'call-interactively)
+               (lambda (cmd &optional record-flag keys)
+                 (setq captured-args (list cmd record-flag keys)))))
+      (hyrolo-grep-or-fgrep)
+      (should (equal (car captured-args) #'hyrolo-grep))
+      (hyrolo-grep-or-fgrep '(4))
+      (should (equal (car captured-args) #'hyrolo-fgrep)))))
+
+(ert-deftest hyrolo-tests--kill ()
+  "Verify `hyrolo-kill' deletes hyrolo items and handles error cases.
+Dependencies on the consult package are mocked."
+  (defvar hyrolo-file)
+  (let ((hyrolo-file (make-temp-file "hypb" nil ".otl" "===\nHdr\n===\n"))
+        (item-pat (rx bol "*" (= 3 space) "item")))
+    (unwind-protect
+        (let ((hyrolo-file-list (list hyrolo-file)))
+          (find-file (car (hyrolo-get-file-list)))
+          (hyrolo-add "alpha")
+          (hyrolo-add "item")
+          (hyrolo-add "xerxes")
+          (should (= 1 (count-matches item-pat (point-min) (point-max))))
+
+          (ert-info ("Kill item")
+            (goto-char (point-min))
+            (should-not (hyrolo-kill "not-exists" hyrolo-file))
+            (should (hyrolo-kill "item" hyrolo-file))
+            (should (= 0 (count-matches item-pat (point-min) (point-max)))))
+
+          (ert-info ("Kill item called interactively")
+            (hyrolo-add "item")
+            (goto-char (point-min))
+            (with-mock
+              (mock (hsys-consult-grep-headlines-read-regexp #'hyrolo-consult-grep *) => "item")
+              (stub y-or-n-p => t)
+              (should (call-interactively #'hyrolo-kill)))
+            (should (= 0 (count-matches item-pat (point-min) (point-max)))))
+
+          (ert-info ("Kill item called interactively with consult active")
+            (hyrolo-add "item")
+            (goto-char (point-min))
+            (with-mock
+              (mock (hsys-consult-grep-headlines-read-regexp #'hyrolo-consult-grep *) =>
+                    (concat hyrolo-file ":10:item"))
+              (mock (hsys-consult-active-p) => t)
+              (stub y-or-n-p => t)
+              (call-interactively #'hyrolo-kill))
+            (should (= 0 (count-matches item-pat (point-min) (point-max)))))
+
+          (ert-info ("Error cases")
+            (should-error (hyrolo-kill 'symbol))
+            (should-error (hyrolo-kill "" (make-temp-name "hypb")))
+            (should-error (hyrolo-kill nil))
+            (with-mock
+              (mock (beep) => t)
+              (ert-with-message-capture cap
+                (should-not (hyrolo-kill "not-exist" hyrolo-file))
+                (hy-test-helpers:should-last-message "not found" cap)))))
+      (hy-delete-file-and-buffer hyrolo-file))))
+
+(ert-deftest hyrolo-tests--set-date ()
+  "Verify `hyrolo-set-date' sets and updates an items date."
+  (let ((test-time "2024-12-11"))
+    (cl-letf (((symbol-function 'format-time-string)
+               (lambda (_fmt &optional _time _zone) test-time)))
+      (with-temp-buffer
+        (insert "* item\n")
+
+        (ert-info ("Do not insert date if date format is empty or nil")
+          (dolist (v '("" nil))
+            (let ((hyrolo-date-format v))
+              (goto-char (point-min))
+              (hyrolo-set-date)
+              (should (string= "* item\n" (buffer-string))))))
+
+        (ert-info ("Do not insert date in kotl-mode")
+          (let ((major-mode 'kotl-mode))
+            (goto-char (point-min))
+            (hyrolo-set-date)
+            (should (string= "* item\n" (buffer-string)))))
+
+        (ert-info ("Don't set date if date is not present and request is edit-only")
+          (goto-char (point-min))
+          (hyrolo-set-date t)
+          (should (string= "* item\n" (buffer-string))))
+
+        (ert-info ("Set date if not there")
+          (goto-char (point-min))
+          (hyrolo-set-date)
+          (should (string= "* item\n\t2024-12-11\n" (buffer-string))))
+
+        (ert-info ("Update date if item has a date")
+          (setq test-time "2025-01-01")
+          (goto-char (point-min))
+          (hyrolo-set-date)
+          (should (string= "* item\n\t2025-01-01\n" (buffer-string))))
+
+        (ert-info ("Update date if item has a date, keep trailing newlines")
+          (setq test-time "2025-01-02")
+          (goto-char (point-max))
+          (insert "\n\n")
+          (goto-char (point-min))
+          (hyrolo-set-date)
+          (should (string= "* item\n\t2025-01-02\n\n\n" (buffer-string))))
+
+        (ert-info ("Update date if item has a date, keep leading whitespace")
+          (goto-char (point-min))
+          (search-forward "2025-01-02")
+          (beginning-of-line)
+          (insert "\t\t")
+          (setq test-time "2025-01-03")
+          (goto-char (point-min))
+          (hyrolo-set-date)
+          (should (string= "* item\n\t\t\t2025-01-03\n\n\n" (buffer-string))))))))
+
+(ert-deftest hyrolo-tests--rename ()
+  "Verify `hyrolo-rename' changes the name of the old rolo file."
+  (defvar new-file)
+  (let* ((old-file (make-temp-file "hypb" nil ".otl" "old-file"))
+         (old-file-backup (concat old-file "~"))
+         (new-file (concat (expand-file-name (make-temp-name "hypb") "/tmp") ".otl"))
+         (new-file-backup (concat new-file "~")))
+    (unwind-protect
+        (with-mock
+          (mock (hyrolo-get-file-list) => (list new-file))
+          (mock (hyrolo-prompt 'y-or-n-p *) => t)
+          (make-empty-file old-file-backup)
+          (find-file-noselect old-file)
+          (ert-with-message-capture cap
+            (hyrolo-rename old-file new-file)
+            (should (string-search "Your personal rolo file is now" cap)))
+          (should (file-exists-p new-file-backup))
+          (with-current-buffer (find-file new-file)
+            (should (looking-at-p "old-file"))))
+      (hy-delete-files-and-buffers (list old-file old-file-backup new-file new-file-backup)))))
+
+(ert-deftest hyrolo-tests--edit-entry-edits-the-selected-match ()
+  "Verify `hyrolo-edit-entry' moves to the selected match and not a substring."
+  (let* ((org-file (make-temp-file "hypb" nil ".org"
+                                   "\
+* heading long
+body 1
+* heading
+body 2
+"))
+         (hyrolo-file-list (list org-file)))
+    (unwind-protect
+        (progn
+          (should (= 2 (hyrolo-grep "heading")))
+          (should (string= hyrolo-display-buffer (buffer-name)))
+
+          ;; Search Down
+          (should (looking-at-p "==="))
+          (hyrolo-next-match)
+          (should (looking-at-p (rx "heading long" eol)))
+
+          ;; Edit next record
+          (hyrolo-next-match)
+          (should (looking-at-p (rx "heading" eol)))
+          (hyrolo-edit-entry)
+          (should (string= (buffer-name) (file-name-nondirectory org-file)))
+          (should (looking-at-p (rx "heading" eol)))
+          )
+      (kill-buffer hyrolo-display-buffer)
+      (hy-delete-files-and-buffers hyrolo-file-list))))
 
 (provide 'hyrolo-tests)
 

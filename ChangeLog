@@ -1,3 +1,1232 @@
+2026-08-04  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:cache-mswindows-mount-points): Fix 'shell-command-to-string'
+    call that had been wrapped in 'ignore-errors' but this grabbed the error
+    string as the plist result (found because errors when 'tcsh' shell is used).
+    Instead wrap with a 'condition-case' so returns nil on any error.
+
+2026-07-30  Bob Weiner  <rsw@gnu.org>
+
+* test/demo-tests.el (demo-mail-compose-test):
+  test/hmouse-drv-tests.el (hbut-mail-address-test):
+  test/hibtypes-tests.el (ibtypes::mail-address-test, mail-address-at-p-test,
+                          mail-address-at-p-no-mail-should-fail-test): Fix to
+    use 'text-mode' rather than default 'fundamental-mode' since that no longer
+    supports mail buttons by default.
+
+* hypb.el (hypb:include-major-modes): Fix/remove slow HyWikiWord scan of
+    'elfeed' package database.  Remove `fundamental-mode' as we don't
+    know what kind of data will be in such a buffer, so highlighting wikiwords
+    there can be risky.  In fact, 'elfeed' uses that mode for its large and
+    slow-to-process database files.  Also, change this and
+    'hypb:exclude-major-modes' from customizations to variables, since if
+    these are changed, it should be done programmatically, with understanding.
+
+* hibtypes.el (Info-node): Allow for whitespace between the closing paren
+    of an Info file name and the node, index or anchor name, as the GNU
+    project writes Info refs this way.
+
+2026-07-27  Bob Weiner  <rsw@gnu.org>
+
+* Makefile (HYPB_VERSION): Update package version to 9.1.0 as an interim
+    release to sync with the new package versioning techniques used by
+    elpa and melpa.
+
+* test/hywiki-tests.el (hywiki-tests--potential-buffer-p): Fix test to
+    exclude python-mode requires it not be in the include list.
+
+* hypb.el (hypb:in-string-check): Rename to 'hypb:in-string-no-cache-p'.
+
+2026-07-26  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-exclude-major-modes): Rename to 'hypb:exclude-major-modes'.
+            (hywiki-include-special-modes): Rename to 'hypb:include-major-modes'
+    Because now these are used for both HyWiki and compose mail button mode checks.
+            (hywiki-potential-buffer-p): If 'hypb:include-major-modes' is nil, then
+    HyWikiWords are allowed in all major-modes.
+  test/hywiki-tests.el (hywiki-tests--potential-buffer-p): Rename above.
+  hibtypes.el (mail-address): Replace 'hypb:mail-address-mode-list' with
+    'hypb:include-major-modes'.
+
+2026-07-27  Mats Lidell  <matsl@gnu.org>
+
+* test/hypb-tests.el (hypb--string-count-matches):
+    (hypb--package-el-install): Removed. Moved to hy-string-tests.el.
+
+* test/hy-string-tests.el (hy-string-tests--strings-with-quotes):
+    (hy-string-tests--strings-with-quotes-extended):
+    (hy-string-tests--max-lines):  Add tests.
+    (hy-string-tests--gen-response-list): Helper for creating a response
+    list.
+
+2026-07-25  Mats Lidell  <matsl@gnu.org>
+
+* hibtypes.el (hywiki-non-hook-context-p):
+  hmouse-drv.el (hattr:copy, hywiki-get-definition, ibut:key-to-label):
+  hsys-www.el (eww-links-at-point): Declare functions.
+
+* hyrolo.el (hyrolo-get-entry): Remove unused lexical variables.
+
+* hyperbole.el: Use only Maintainer header.
+
+* man/hy-package.el:
+* man/hy-straight.el: Add copyright
+
+2026-07-23  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-get-entry): Strip file header when returning
+    definition as a string, as that is all should be desired.
+            (hywiki-get-definition, hywiki-get-entry): Change so just
+    returns nil if first arg is sent as a non-string or an empty string
+    rather than triggering an error.
+            (hywiki-display-glossary-entry): Don't display the entry if in
+    the middle of a 'hywiki-create-referent-and-display' call since that
+    displays the entry source buffer already.
+
+* hmouse-drv.el (hkey-help): Conditionalize HyWikiWord glossary entry
+    definition output on a non-nil 'lbl-key', i.e. non-nil reference.
+
+2026-07-22  Bob Weiner  <rsw@gnu.org>
+
+* test/hy-string-tests.el: Add to start 'hypb:in-string-p' testing.
+
+* man/hyperbole.texi (HyWiki Menu, HyWiki Glossary): Document the ways
+    to use HyWiki glossary entries.
+
+* hywiki.el (hywiki-get-term-variant-regexp): Allow the term to be
+    surrounded by Org emphasis characters.
+            (hywiki-get-term-variant-regexp): Fix to make case sensitive
+    so wikiwords are always split on capital letters properly.
+  hpath.el  (hpath:org-normalize-title): Strip any Org emphasis characters.
+            (hywiki-get-entry): Obey 'regexp-flag' when calling
+    'hyrolo-grep-file'.
+            (hydef): Add macro to use as an Action Button to display HyWiki
+    glossary definitions.
+
+2026-07-22  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--potential-buffer-p): New test.
+    (hywiki-tests--active-in-current-buffer-p): Refactor test, no buffers.
+
+2026-07-21  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-get-entry): Fix return of display-buffer string
+    when 'display-flag' is nil.  Also, removed unneeded sets of
+    `hyrolo-display-buffer'.
+
+* hyrolo.el (hyrolo-set-display-buffer, hyrolo--post-display-buffer):
+    Add optional 'buffer' arg to override the value of
+    'hyrolo-display-buffer', e.g. when want to use the default value
+    for interactive calls of HyRolo functions.
+    (hyrolo-grep): When called interactively, use
+    (hyrolo-set-display-buffer (default-value 'hyrolo-display-buffer)).
+  hyrolo-logic.el (hyrolo-logic, hyrolo-map-logic): Use
+    (hyrolo-set-display-buffer (default-value 'hyrolo-display-buffer)).
+    (hyrolo-fgrep, hyrolo-grep): Add last arg, 'interactive-flag' to
+  emulate interactive calls.
+    (hyrolo-set-display-buffer): Fix to return the buffer set.
+    (hyrolo-set-display-buffer-mode): Remove, combine into
+    'hyrolo--post-display-buffer' since only used there.
+
+* hywiki.el (require 'hyrolo): Since use many hyrolo functions now.
+
+2026-07-20  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-set-buffer): Add to maintain current value of
+    'hyrolo-display-buf' after 'set-buffer'.
+            (hyrolo--pre-display-buffer): Maintain current value
+     of 'hyrolo-display-buf' after 'major-mode' change.
+
+* hywiki.el (hywiki-get-definition): For 'hyrolo-grep' call,
+    set 'no-display' arg to t since display is handled by callers
+    if desired.  Make all 'hywiki-get-entry' calls use 'term' variant
+    regexp.
+            (hyrolo-glossary-display-buffer): Add this buffer name.
+	    (hywiki-get-entry): Align args with those of
+    'hywiki-get-definition', adding 'display-flag' and 'file'.
+
+* hyrolo.el (hyrolo-hdr-to-first-line-p): Fix to not use
+    (1- (point)) when at (point-min).
+            (hyrolo-edit-entry): Remove 'cl-destructuring-bind'
+    so can handle a nil return from 'hyrolo-name-at-p'.
+            (hyrolo-quit): Remove unneeded 'hyrolo-verify' call
+    and only test that buffer is in `hyrolo-mode' to work.  This
+    makes it work when used with 'hywiki-get-definition'.
+            (hyrolo-grep-file): Change so if (< max-matches 0),
+    headers are now included in the result (where removed before).
+
+* hywiki.el (hywiki-add-glossary-entry): Edit existing entry
+    if found, rather than adding a duplicate.
+            (hywiki-get-term-variant-regexp): Generalize glossary
+    term variant regexp generation.
+            (hywiki-display-glossary-entry): Fix to take 2 args since
+    generalized caller, 'hywiki-display-referent-type' sends both the
+y    wikiword and the referent-value as args.
+
+* hyrolo.el (hyrolo-grep): Remove negative 'max-matches' from
+    setting 'inserting' flag and removing headers since this
+    prevents erasing and displaying the match buffer as well
+    as jumping to source entries for editing.  Send the `no-display'
+    arg to prevent display.  Expand doc string on the meaning of
+    each `max-matches' value.
+            (hyrolo-set-display-buffer-mode): Allow for 'hyrolo-mode'
+    derived mode usage.
+            (hyrolo-set-display-buffer-mode, hyrolo-grep-file,
+             hyrolo--cache-initialize, hyrolo--cache-major-mode,
+             hyrolo--pre-display-buffer, hyrolo--post-display-buffer):
+    Create 'hyrolo-display-buffer' if it does not yet exist.
+
+* test/hy-test-dependencies.el: Enable 'hyperbole-mode' for all
+    tests run via the Makefile.
+
+* hywiki.el (hywiki-add-glossary-entry): Fix to add term to the
+    HyWikiWord lookup tables.
+            (hywiki-string-to-wikiword): Fix to upcase only the
+    first char of each word and not change other chars case.
+
+* test/demo-tests.el (fast-demo-key-series-emacs-lisp-mode): Ignore
+    test if {C-c @} key is not bound by Hyperbole, due to some
+    prior binding.
+
+* hywiki.el (hywiki-add-referent): Fix #section removal so it does
+    not depend on string match groupings from `hywiki-word-is-p'
+    which no longer exist.
+            (hywiki-get-definition): Fix so does not trigger an error
+    but just returns nil when the Glossary file does not exist or is
+    unreadable.  Otherwise, HyWikiWord help displays will break.
+
+2026-07-19  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-completing-read-glossary-term,
+             hywiki-get-glossary-terms): Add for 'completing-read' of
+    hywiki glossary terms.
+            (hywiki-get-definition): Add use of above completing read
+    function.  When called interactively or with `display-flag',
+    display the definition in a help buffer.
+  man/hyperbole.texi (HyWiki Menu): Add initial documention for glossary
+    HyWikiWords.
+
+* hypb.el (hypb:empty-file-p): Extend to allow for an optional 'file' arg.
+
+* hmouse-drv.el (hkey-help): For a WikiWord with a glossary file entry,
+    include the definition entry in the help for the WikiWord.
+  hywiki.el (hywiki-get-definition): Add to return a HyWiki glossary
+    definition.
+            (hywiki-get-glossary-file, hywiki-add-glossary-entry,
+     hywiki-display-glossary-entry): Add.
+            (hywiki-referent-menu): Add glossarY referent type menu item.
+
+* hui-menu.el (hui-menu-hywiki):
+  hui-mini.el (hui:menu-hywiki): Add 'HyWiki/Yank' menu item.
+
+2026-07-19  Mats Lidell  <matsl@gnu.org>
+
+* test/hy-test-dependencies.el (hypb:package-install-advice-for-retry):
+    Add delay before retrying.
+
+2026-07-18  Mats Lidell  <matsl@gnu.org>
+
+* test/hy-test-dependencies.el (hypb:package-install-advice-for-retry):
+    Advice for retrying package-install.
+
+* test/hy-test-helpers.el (hy-test-mocked-feature): Macro for mocking
+    featurep.
+
+* test/hypb-tests.el (hypb--users-package-manager):
+    (hypb--package-el-install):
+    (hypb--notify-manual-install-needed):
+    (hypb--ensure-dependency):
+    (hypb--require-package):  Unit tests for the new functions.
+
+* test/hy-test-dependencies.el (hypb:ask-to-install-package-flag): Set to
+    nil for not asking about installing dynamic dependencies during test,
+    i.e. markdown-mode.
+
+* hsys-consult.el (hsys-consult-require-version):
+    (hsys-consult--org-roam-call-function):
+* hui-treemacs.el (treemacs):
+* hypb.el (hypb:activate-interaction-log-mode): Use hypb:require-package.
+
+* hyrolo.el (hyrolo-any-file-type-problem-p): Use require to check if
+    markdown-mode is available. Use users package-archives and fail
+    markdown-mode install if nongnu is not present.
+    (hyrolo-markdown-mode): Remove not needed require.
+    (hyrolo-install-markdown-mode): Use hypb:require-package.
+
+* hypb.el (hypb:ask-to-install-package-flag): Give user control if package
+    shall be installed when using package.el.
+    (hypb:users-package-manager): Users package manager.
+    (hypb:package-el-install): Install package using package.el.
+    (hypb:notify-manual-install-needed): Notify user manual install is needed.
+    (hypb:ensure-dependency): Ensure package is available using
+    hypb:package-el-install or hypb:notify-manual-install-needed.
+    (hypb:require-package): Use hypb:ensure-dependency.
+
+2026-07-18  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-get-entry, hywiki-read-headline-regexp, hywiki-yank,
+             hywiki-yank-reformat-function): Add to support getting first
+    matching HyWiki entry as a string and yanking/inserting it into a buffer.
+
+* hyrolo.el (hyrolo-yank, hyrolo-get-entry): Add to return first matching entry
+    as a string.
+    (hyrolo-yank): Rewrite to use 'hyrolo-get-entry'.
+
+* hsys-consult.el (hsys-consult--grep-paths): Remove requirement of whitespace
+    after the * or # character so works better with orderless.  Add a backslash
+    space if want to match to a literal space and eliminate matches to Org
+    property lines like "#+TODO:".
+                  (hsys-consult-entry-regexp): Add so can adjust this regexp
+    for different limits on entry formats.
+
+2026-07-17  Bob Weiner  <rsw@gnu.org>
+
+* hsys-consult.el (hsys-consult-grep-headlines-with-prompt,
+                   hsys-consult-grep-headlines-read-regexp): Add 4th optional arg,
+    path-list, provided to the grep-function called.  Allows these to be used
+    in HyWiki grep calls.
+
+* hywiki.el (hywiki-word-is-p): Make non-nil return value be the string index
+    at the end of tthe word.
+
+2026-07-16  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (docker-clean): Fix remove command for docker volumes.
+
+2026-07-16  Bob Weiner  <rsw@gnu.org>
+
+* hsys-www.el (link-to-url): Explicitly duplicate `www-url' defact, for now.
+
+* hui.el (hui:ibut-message): Prefer 'name' to 'lbl-key' in message describing
+    an implicit button.
+         (hui:link-possible-types): For 'link-to-url', include and use anchor
+    text as button name only if a prefix argument is given because that is
+    how 'hui:ibut-link-directly' on {C-u C-h h i l} works.
+  hbut.el (ibut:insert-text): For 'link-to-url' never insert anchor text as
+    title, that is done elsewhere.
+
+* test/hpath-tests.el (hpath:substitute-var-name-test, hpath:substitute-var-test):
+  hpath.el (hpath:substitute-var-name): Don't drop ${hyperb:dir} substitution
+    because path may be to another dir with that value in the root of its path.
+    Once we drop the whole prefix, the file could resolve to the wrong directory
+    and file.  So instead put the variable into the path.
+
+* hsys-www.el (www-url): Replace call of Hyperbole-defined 'eww-link-at-point'
+    with eww-defined 'eww-links-at-point'.
+  hui.el (hui:link-possible-types): Replace 'eww--url-at-point' call with
+    '(car (eww-links-at-point)' call
+
+* hywiki.el (hywiki-non-hook-context-p): Add Emacs pushbutton read-only
+    contexts (disallow HyWiki words there).
+  hibtypes.el (hywiki-existing-word, hywiki-word): Add initial check of
+    whether in a valid context, rather than doing this after local vars
+    are bound.
+
+2026-07-15  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ibut:insert-text):
+  hui.el (hui:link-possible-types): Add linking support to urls within
+    'eww-mode' buffers.
+  hsys-www.el (link-to-url): Add and alias to actype www-url.
+
+* Makefile (env): Add and document this target (alias of echo target).
+
+* man/hyperbole.texi (Elpa Latest or Release Package Installation):
+    Combine Latest/In-Development and Release package installation
+    instructions into one subsection.
+
+* man/hy-package.el:
+  man/hy-straight.el: Add these two files of install and config
+    instructions for different package managers.  Include in
+    man/hyperbole.texi.
+  Makefile (HYPERBOLE_FILES):
+  MANIFEST (DOCUMENTATION): Add the above two files.
+
+* man/hyperbole-straight.el: Copy from "man/hyperbole.texi" and include
+    in the manual.  Update 'straight-use-package' configuration to latest.
+
+* hpath.el (hpath:to-markup-anchor): Fix programming mode anchors so
+    are anchored to the beginning of a line and may have one or more
+    initial 'comment-start' prefix characters.  Also, anchor to the
+    beginning of the line (plus whitespace) when in fundamental mode,
+    text mode or a non-file buffer.  These fixes prevent matching to
+    the "#link" reference rather than its referent in the same buffer.
+           (hpath:to-markup-anchor): Remove special handling for
+    fundamental and text modes as well as non-buffer files and just
+    use 'hpath:outline-section-pattern' for all of them.
+          (hpath:shell-comment-pattern): Add and use in new separate
+    shell-specific #anchor matching clause.
+
+2026-07-14  Bob Weiner  <rsw@gnu.org>
+
+* test/hy-test-dependencies.el: Add 'markdown-ts-mode' declaration.
+
+* hsys-denote.el - Remove unneeded autoloads that were causing load
+    dependency issues; add autoloads for "denote.el" declared functions
+    since we don't (require 'denote) at package load time when autoloads
+    are initialized.
+  hui.el, hywiki.el - Add needed denote function declarations.
+
+* hyperbole.el (require 'kotl-autoloads): Move to before (require 'hinit)
+    to eliminate klink macro not being defined when needed.
+
+* hyperbole.el (hyperb:init): Remove auto-enabling of 'hywiki-mode' as this
+    also enables 'hyperbole-mode' immediately after Hyperbole is installed.
+    The user needs to choose to enable Hyperbole either interactively or
+    through his configuration.
+
+* hsys-org.el (hsys-org-link-at-p): Fix code at the end to remove hy: prefix
+    from 'label'.
+
+* test/smart-org-tests.el (smart-org-mode-with-smart-keys-buttons-on-org-link-activates):
+    Replace 'org-open-at-point' with 'org-link-open-from-string' to get more
+    flexibility in link syntax handling.
+                          (smart-org-mode-with-smart-keys-buttons-on-org-link-activates,
+                           smart-org-mode-with-smart-keys-on-org-link-activates):
+    Replace 'org-open-at-point' with 'org-link-open-from-string' to get more
+    flexibility in link syntax handling.
+
+
+* hactypes.el (link-to-ibut): Fix so 'key-src-buf-flag' is only set non-nil
+    when key-src is or is set to a buffer object.
+
+2026-07-13  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (Keyboard Drags): Add table of contexts and
+    associated link action types in decreasing priority order, used
+    when creating links in a 2-window source-target configuration.
+
+* hui.el (hui:link-possible-types):
+  hbut.el (ibut:insert-text): Add 'link-to-denote' support.
+
+* hactypes.el (link-to-ibut): Fix so if find key-src buffer from a buffer
+    name, then set the key-src to the buffer object or else later 'ibut:get'
+    call will fail.
+
+* hsys-org.el (hsys-org-link-at-p): Change to allow a Wikiword in an Org
+    link description only if it is the entire description.
+
+2026-07-12  Bob Weiner  <rsw@gnu.org>
+
+* hui-mouse.el (require 'hsys-denote): Add and handle denote links ahead
+    of other Org link types so can handle Hyperbole #section syntax too.
+
+* hui-mouse.el (smart-org): Change 'org-link' to 'org-link-open-from-string'
+    to better control the link string sent when Org does not highlight the
+    full link reference string, typically when using the prefix: syntax
+    without double bracket delimiters.
+
+* hbut.el (hbut:label-to-key): Remove any label properties so potentially
+    long property list does not show in help buffers.
+
+2026-07-11  Bob Weiner  <rsw@gnu.org>
+
+* hsys-denote.el: Add with ibtype 'denote-link', actype 'link-to-denote',
+    and functions 'hsys-denote-file-at-p', 'hsys-denote-link-at-p',
+    'hsys-denote-get-description-from-id' and
+    'sys-denote-get-id-from-description'.
+  MANIFEST, Makefile: Add hsys-denote.el entry.
+  hywiki.el (hywiki-wikiword-to-string): Add.
+
+2026-07-11  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (package): Depend on tar-file.
+    (release): Remove targets not needed.
+    (git-pull): Make check robust for current state on the workfolder.
+    (git-tag-release):
+    (ftp): Add confirm check for these potential dangerous targets.
+    ($(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz): Add dependency on
+    tar file.
+    ($(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.sig): Remove
+    target. gnupload script handles the sig file.
+    (packageclean): Simplify cleanup by removing whole package build
+    directory.
+    (GNUFTP): Add --dry-run during for now while testing.
+
+* hpath.el (hpath:substitute-var): Try the substitution on the
+    absolute path.
+    (hpath:substitute-var-name): Anchor regexp substitution on first pos.
+
+* test/hpath-tests.el (hpath:substitute-var-test):
+    (hpath:substitute-var-name-test): Unit tests.
+
+2026-07-10  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-at-point, hywiki-word-at): Add to doc that point may
+    be immediately after the HyWikiWord reference and it will be found.
+            (hywiki-add-denote, hywiki-create-referent-and-display): Update
+    wikiword insertion logic to never insert within non-whitespace text.
+    Expand doc string and include return value.
+
+* hypb.el (hypb:require-package): Add support for alternative package managers
+    like elpaca that don't show up with a `package-installed-p' check.
+
+* hpath.el (hpath:at-p): Near the top, move (match-string 0 path) call before
+    path is modified, otherwise, with a 1 char path, shrunk to an empty string,
+    match-path will trigger an error; fixes this.
+
+* hyperbole.el (hkey-initialize): Change to bind {M-o} in 'hyperbole-mode-map'
+    only if not previously bound.
+
+* hywiki.el (hywiki-referent-menu): Add Denote support.
+            (hywiki-add-denote, hywiki-display-denote, hywiki-string-to-wikiword)
+             hywiki-denote-file-to-wikiword, hywiki-denote-id-to-wikiword): Add
+    these functions.
+            (hywiki-create-referent-and-display): If point is not on 'wikiword'
+    when called, then insert it.  If buffer is read-only in this case, trigger
+    an error.
+
+2026-07-09  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-delimited-p): Fix so 'wikiword' is always set to a
+    string or nil, not the 't return value from 'hypb:in-string-p'.  Also,
+    limit region narrowing to just where it is needed near the function
+    beginning.
+
+2026-07-07  Bob Weiner  <rsw@gnu.org>
+
+* hsys-youtube.el (hsys-youtube-end-format): YouTube no longer allows end
+    times or the embed protocol in video urls, so update this format to at
+    least jump to the proper start time.  The end time is sent but
+    ignored.
+
+* FAST-DEMO (Hyperbole Videos):
+  README.md: Add "HyWiki: Zero Markup Hypertext" article video links.
+
+* man/hyperbole.texi (Implicit Button Link Types):
+  hbut.el (defil): Clarify that TEXT-REGEXP is a partial match unless surrounded
+    by start \\` and end \\' match string delimiters.
+
+* hui-mouse.el (hkey-alist): Trigger 'hui-select-thing' or
+    'hui-select-mark-delimited-sexp' if (point) >= any hbut end point, not
+    just equal to it, as before.  This was causing a failure to trigger
+    when a HyWikiWord came right before a closing double quote that point
+    was on, so the double quoted string was not selected and the
+    HyWikiWord was activated instead.
+
+2026-07-06  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (HyWiki): Finish HyWiki manual chapter.
+                     (Elpa In-Development Package Installation): Move before
+    Elpa Stable given long full release cycles.
+                     (Installation): Add optional (hywiki-mode :all) config.
+
+* hywiki.el (hywiki--extend-region): Fix so start is always <= end.
+
+2026-07-05  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-at): Don't allow : or ; at the end of a #section.
+
+* hbut.el (hbut:label-delimiters-regexp): Add and use in
+    'hywiki-maybe-highlight-references'.
+
+* hywiki.el (hywiki-get-buttonize-characters): Allow : as a trailing
+    separator character (previously had been filtered out).
+            (hywiki-get-existing-page-file): Handle 't' value as 'file-stem-name'
+    from a HyWikiWord spec.
+  hpath.el (hpath:expand): Ensure path value is a string before trying to expand
+    to handle HyWikiWord specs.
+
+2026-07-04  Bob Weiner  <rsw@gnu.org>
+
+* hycontrol.el (hycontrol-frame-zoom-reset): Handle 'frame not zoomed'
+    error by displaying a message instead to preven leaving HyControl mode.
+               (hycontrol--frames-prompt-format, hycontrol--windows-prompt-format):
+    Reformat for easier readability.
+
+2026-07-02  Bob Weiner  <rsw@gnu.org>
+
+            (hywiki--get-delimited-range-backward): Fix to 'hbut:syntax-table'
+    during backward 'scan-sexps' so open/close angle brackets match to
+    account for use in hbut labels.  Otherwise, when point is after a closing
+    angle bracket, the region returned is a single char, not the span of the
+    brackets.
+
+* hywiki.el (hywiki-scan-sexps): Add and use in place of 'scan-sexps' in
+    hywiki code.
+            (hywiki-get-delimited-region,
+             hywiki-maybe-highlight-balanced-pairs): Use 'hbut:syntax-table'.
+  hui-select.el (hui-select-get-syntax-table): Use 'hui-select-syntax-table'
+    in most programming modes when within a comment to support angle brackets
+    as sexpression delimiters.
+
+2026-07-01  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki--get-delimited-range-at-closing-delimiter): Add to
+    separate out this code from a quoted sexp in 'hywiki-get-delimited-region'
+    and simplify debugging.
+            (hywiki--get-delimited-range-backward): Fix wrong location of
+    'save-excursion' call so that point was moved one char forward before
+    backward 'scan-sexps' was called.  This led to HyWiki words not be
+    dehighlighted when deleted the last WikiWord character within a set
+    of delimiters where it was the last word.
+
+2026-06-30  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-display-hywiki-test): Add helper
+    display function.
+    (hywiki-tests--display-referent-type): Verify right display function
+    is called and hbut:current attributes are set.
+
+2026-06-30  Bob Weiner  <rsw@gnu.org>
+
+* FAST-DEMO: Add link to EmacsATX unscripted demo of Hyperbole.
+
+* man/hyperbole.texi (HyRolo): Add examples of non-contact management usage.
+
+* hui-mini.el (hui:menu-maybe-highlight-item-keys): Fix that in
+    column layout mode, items in the first column on 2nd and succeeding
+    lines did not have the first capital letter highlighted because were
+    neglecting newlines as word separators and handling only spaces.
+
+2026-06-29  Mats Lidell  <matsl@gnu.org>
+
+* .github/workflows/main.yml (on): Reduce number of builds by
+    eliminating the main workflow to trigger on updates to markdown and
+    man/** files. Those are handled by the docs workflow.
+
+* hibtypes.el (hywiki-add-spec, hywiki-message-spec):
+    (hywiki-word-create-and-display): Declare functions.
+
+* hmouse-drv.el (hattr:set, hywiki-get-referent): Declare functions.
+
+* hywiki.el (hywiki-add-spec): Fix quotes in docstring.
+
+* test/hui-tests.el (hui--hbut-act--links): Check error messages
+    matches elink and glink. Remove old comments.
+
+2026-06-28  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-include-special-modes): Add HyWiki support in csv,
+    GNUS, mh, mu4e and rmail modes.
+
+* hpath.el (hpath:delimited-possible-path): Fix 'char-syntax' comparison
+    to compare current char's syntax against the punctuation char, not
+    the char-syntax of the punctuation char.
+
+* test/hui-tests.el (hui--hbut-act--links): Add for testing that ilinks,
+    elinks and glinks do not confuse each others referents.
+
+* hpath.el (hpath:delimited-possible-path): Fix 'delq nil' call to allow
+    for ~, ., *, ?, / and \\ valid single character/wildcard path characters.
+    Otherwise, paths like "~" and "./" are not recognized.
+
+* hypb.el (hypb:in-string-p): Fix doc to reflect that a list with positions
+    of the string is returned iff 'range-flag' is non-nil.
+
+* hmouse-drv.el (hkey-help): Improve to:
+    1. show the doc for custom actype:help functions for the Assist Key
+       (in addition to ibtype:help functions, e.g. see hsys-youtube.el.
+    2. with the Assist Key on an Action button, show the doc for its
+       actype.
+    3. with the Assist Key, comment out removal of the 'actype' and
+       'action' button attributes, as seeing them can be helpful.
+
+* hibtypes.el (texinfo-ref): Update to handle references to @anchor
+    locations.  Update doc string for this and that only info (no
+    Texinfo) manuals are displayed if a cross-reference is outside
+    of the current Texinfo manual.
+  hactypes.el (link-to-texinfo-node): Update to handle references
+    to @anchor.
+  man/hyperbole.texi (link-to-Info-node): Update doc to match.
+
+2026-06-27  Bob Weiner  <rsw@gnu.org>
+
+* man/hyperbole.texi (Smart Key - Hyperbole Buttons): Cross-reference
+    how to add ibtype help functions.
+
+* hywiki.el (hywiki-word-highlight-post-command): Fix to add support
+    for WikiWord rehighlighting after a capitalize, downcase or upcase
+    command.
+
+2026-06-26  Bob Weiner  <rsw@gnu.org>
+
+* hmouse-drv.el (hkey-help): Suppress generic Assist Key doc when
+    ibut has its own :help function.
+
+* hibtypes.el (hywiki-word:help): Add to to dispatch for creating a
+    HyWikiWord with prompting for its reference type or displaying
+    help for the potential WikiWord ibtype.
+
+* hywiki.el (hywiki-add-page): Fix so 'page-in-hasht' is t only if ref
+    type is a page, not some other type.
+            (hywiki-word-dehighlight-in-buffers): Fix so does not move
+    point in any of these buffers.
+            (hywiki-referent-menu): Change title from 'HyWiki Add>' to
+    'HyWiki RefType>' to match that used in 'hywiki-create-referent'.
+            (hywiki-add-spec): Add this autoloaded command that
+    lets you create a HyWikiWord but defer deciding on its type until
+    it is activated with the Action Key.
+            (hywiki-display-spec): Add to transform spec to a standard
+    HyWiki referent.
+            (hywiki-referent-menu): Change "Sexp" to "Elisp" and add in
+    "Spec".
+            (hywiki-display-sexpression): Make obsolete; replace with
+    'hywiki-display-elisp'.
+            (hywiki-add-sexpression): Replace with 'hywiki-add-elisp'.
+	    (hywiki-add-elisp, hywiki-display-elisp): Add.
+  man/hyperbole.texi (HyWiki Menu): Add doc on referent types that when
+    activated aare given the WikiWord as an argument.
+
+2026-06-25  Bob Weiner  <rsw@gnu.org>
+
+* hasht.el (hash-merge-values): Remove ordered result requirement to allow
+    for handling a mixed set of value types.  Also fix cases where value
+    returned was not a list or duplicate values were returned.
+  test/hasht-tests.el - Add rest of Mats tests.
+           (hash-set-of-strings): Remove together with test function for
+  it since it is no longer used.
+
+* hbut.el (ibut:get): Fix so tests if at ibut only if 'ibut:next-occurrence'
+    succeeds.  This prevents matching to a different named ibut within the
+    buffer.
+          (ibut:next-occurrence): Fix to not match to non-delimited matches
+    of 'name-key' as plain text, to help in solving the above problem.
+  test/hibtypes-tests.el (ibtypes::ilink-error-case-missing-button): Remove
+    and add not-failing test to 'ibtypes::ilink-ibut-in-other-file'.
+
+* hywiki.el (hywiki-add-command): Fix to compare command first arg
+    against wikiword with any #suffix stripped off.
+
+* test/hywiki-tests.el (hywiki-tests--command): Fix interactive call
+    which was missing wikiword argument.
+
+* hywiki.el (hywiki-add-command, hywiki-display-command): Generalize
+    to handle the arguments of any Emacs command or Hyperbole actype.
+    Now a referent can be any type of Hyperbole button action.
+  test/hywiki-tests.el (hywiki-tests--add-command): Update to handle
+    above changes.
+
+* hywiki.el (hywiki-referent-menu): Extend 'Create' doc string to explain
+    how to get a prompt for a referent type rather than just linking
+    to a HyWiki page.
+  man/hyperbole.texi (HyWiki Menu): Extend 'Create' doc and document all
+    potentially prompted for HyWikiWord referent types.
+
+* hmouse-drv.el (hkey-help): When on a HyWikiWord, include attributes
+    'referent-type' and 'referent-value' in help display.
+
+2026-06-24  Bob Weiner  <rsw@gnu.org>
+
+* test/hasht-tests.el: Add.
+  test/MANIFEST: Add hasht-tests.el.
+  hasht.el (hash-copy): Fix to use Emacs builtin 'copy-hash-table'.
+           (hash-deep-copy): 'length' does not work on hash-tables.
+    Replace with 'hash-size' instead.  Also fix 'maphash' call that
+    was doing a 'hash-deep-copy' of 'obj' (causes an infinite loop
+    rather than 'value' associated with 'key'.
+           (hash-merge-values): Generalize to more sequence types
+    by using 'seq-union'.
+
+2026-06-20  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el: Add !!FIXME comments to highlight the ibtypes
+    where tests should be added.
+
+* test/hibtypes-tests.el (ibtypes::ilink-ibut-in-other-file)
+    (ibtypes::ilink-error-case-missing-button)
+    (ibtypes::elink-ebut-in-other-file): Add tests.
+
+2026-06-18  Bob Weiner  <rsw@gnu.org>
+
+* hui.el (hui:link-possible-types): Add required arg, 'src-dir', so relative
+    links point to the proper directory.
+
+* hui-select.el (hui-select-get-syntax-table): Add and leave syntax-table
+    unchanged when in a programming mode so that <> pair syntax does not
+    interfere with {} region/sexp selection.
+
+* test/hibtypes-tests.el (ibtypes::ilink-test): Add and ensure only one
+    instance of this test.
+
+* hywiki.el (hywiki-include-special-modes): Add to recognize HyWikiWords in
+    particular special major modes, like eww and elfeed ones.
+            (hywiki-potential-buffer-p): Use above setting in this function.
+
+2026-06-16  Bob Weiner  <rsw@gnu.org>
+
+* test/demo-tests.el (fast-demo-display-kotl-starting-from-cell): Fix to
+    erase viespec modification to "kotl/EXAMPLE.kotl" which test was leaving.
+
+* hsys-activities.el: Improve documentation.
+
+* hui.el (hui:ebut-message, hui:ibut-message): Fix 'actype' setting so
+    it never ends up nil.
+
+* hsys-org.el (hsys-org-link-at-p): Rewrite to handle non-delimited Org links,
+    such as: file:my-file::my-text.  Leave file:// links for www-url ibtype
+    by using 'hpath:www-at-p' test as Org url test will match to this:
+    [[Link]] rather than requiring a true url.
+
+* hasht.el (hash-merge): Fix call to hash-map which was not treating its
+    input as string-keys.  This led to HyWiki hash tables having string keys
+    rather than symbol keys whenever a non-page referent HyWiki word was read
+    in from the file where it was saved.
+
+2026-06-14  Bob Weiner  <rsw@gnu.org>
+
+* hactypes.el (link-to-ibut): Fix infinite loop in <ilink:label> by preventing
+    ilinks from linking to other ilinks.
+
+* test/hibtypes-tests.el (ibtypes::ilink-test): Update match to ilink error.
+
+* hbut.el (ibut:label-set): Make 'label' arg optional.  When omitted or nil,
+    reuse the existing label or if that is null, set it to "temp".  This behavior
+    is used by the ibtypes: elink, glink, and ilink.
+          (hbut:act): Change from (< delim-text-start (point)) to
+                                  (<= delim-text-start (point)) since actions
+    can move point to the starting delimiter of a button.
+
+2026-06-12  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ebut:get): Allow a buffer name for 'buffer' argument and prioritize
+    'buffer' argument over 'key-src' argument.
+  hactypes.el (link-to-ebut, link-to-ibut): Rewrite to support links to buttons
+    in buffers without attached files.
+              (hactypes:link-to-file-interactively): Fix to handle buffer-type
+    'loc attribute.
+
+* hibtypes.el (hlink:parse-label-and-file): Simplify using 'seq-position'
+    rather than a loop.
+    (hlink:parse-label-and-file): Rename to 'hlink:parse-label-and-loc'.
+
+* hyrolo.el (hyrolo-file-list): Explain that dirs and file wildcards are
+    allowed.  Point to doc of 'hyrolo-expand-path-list' for how entries are
+    expanded.
+
+* hibtypes.el (klink, elink, ilink, glink): Move to be higher priority than
+    action buttons so are not overridden and misfired as an action button.
+    This manifested as an elink or glink matching to the action of a named
+    ilink.
+  man/hyperbole.texi (Implicit Button Types): Update priority ordering of
+    the above types.
+
+2026-06-12  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el (ibtypes::elink-test):
+    (ibtypes::glink-test):
+    (ibtypes::ilink-test): Add tests.
+
+2026-06-10  Mats Lidell  <matsl@gnu.org>
+
+* test/hywiki-tests.el (hywiki-tests--referent-test): Disable
+    vertico-mode during the test if active.
+    (hywiki-tests--save-referent-command-use-menu):
+    (hywiki-tests--save-referent-find-use-menu): Do not set vertico-mode
+    in let.
+    (hywiki-tests--save-referent-info-node-use-menu): Change expected
+    results to match result without vertico-mode active. Test now passes
+    both when in docker and native.
+
+2026-06-09  Mats Lidell  <matsl@gnu.org>
+
+* test/hbut-tests.el (hbut-tests--ibut-at-p-identifies-a-remote-pathname):
+    Remove comment.
+
+* test/hywiki-tests.el (hywiki-tests--edit-string-pairs): Uncomment
+    working test case.
+
+* test/hyrolo-tests.el (hyrolo-tests--grep-or-fgrep): Use cl-letf for
+    mocking call-interactively. Functions with optional arguments does not
+    work with el-mock and native compilation. The mock is called with the
+    optional args set to nil causing it to see different number of
+    arguments depending on whether the code is natively compiled or not.
+
+2026-06-09  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-mode): Move doc of 'hywiki-mode' state values here,
+    from 'hywiki-default-mode', for ease of reference.
+
+2026-06-07  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ibut:to-text): Fix missing let of 'name-end' and assign a value.
+
+2026-06-07  Mats Lidell  <matsl@gnu.org>
+
+* test/hibtypes-tests.el (hibtypes-tests--hib-python-traceback):
+    Verify `hib-python-traceback' matches python debugger source ibuts.
+
+2026-06-07  Bob Weiner  <rsw@gnu.org>
+
+* hmouse-tag.el (smart-emacs-lisp-mode-p): Add support for 'comint-mode'
+    used by shell buffers and 'compilation-mode' that contain elisp symbols.
+
+2026-06-06  Bob Weiner  <rsw@gnu.org>
+
+* test/hui-tests.el (hui--ibut-create-interactive)
+(hui--ibut-create-interactive-add-comment-char)
+(hui--ibut-create-interactive-label-using-region):
+
+2026-06-05  Bob Weiner  <rsw@gnu.org>
+
+* hbut.el (ibut:to): Fix to search for 'name-key' surrounded by
+    implicit button name delimiters.  Avoids matching to
+    <ilink:name-key> action buttons.
+          (ibut:to-text): Allow movement to the linked ibut if point
+    is on an ilink.  Fixes bug where in-buffer ilinks did not work.
+    Remove check of any hbut:current attributes prior to moving to the
+    linked to ibut as these refer to the link-to-ibut button.
+          (ibut:insert-text): For 'actypes::link-to-ibut', convert
+    label key to label text.
+  hui.el (hui:link-possible-types): Fix 'link-to-ibut' to use label
+    text rather than label key and don't include the location if
+    the link is to a button within the source buffer.
+          (ibut:insert-text): Use 'actype:def-symbol' and don't expose
+    actypes:: prefix.
+
+* MANIFEST: (hui-register.el): Add missing entry.
+
+* hbut.el (ibut:to-text): Error if 'lbl-key' is an empty string.
+
+2026-06-05  Mats Lidell  <matsl@gnu.org>
+
+* hui.el (kcell-view:label): Declare function.
+    (hui:copy-message-length): Use type and group.
+
+* hypb.el (smart-ancestor-tag-files): Declare function.
+
+* hui-mouse.el (smart-calendar, smart-calendar-assist): Use
+    calendar-scroll-calendar-right and calendar-scroll-calendar-left.
+
+* hywiki.el (hywiki-org-format-heading): Use
+    org-fold-core-remove-optimization.
+
+2026-06-04  Bob Weiner  <rsw@gnu.org>
+
+* hibtypes.el (hib-python-traceback, debugger-source): Fix 2nd regexp in
+    'hib-python-traceback' to not allow any paired delimiters in the file
+    name part of the regexp to prevent matching to a named man-apropos
+    implicit button where the name is split across two lines like so:
+	<[My
+	  Name]> - ls(1)
+
+* hui.el (hui:link-possible-types): Fix klink 'link-to-kcell' return string
+    to include the relative id (cell label) with syntax: relid=idstamp.  This
+    is used when inserting a klink with 'hui:ibut-link-directly'.
+
+2026-05-31  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-edit, hyrolo-name-at-p): Rename 'hyrolo-line-entry to
+    :hyrolo-line-entry-column.
+            (hyrolo-name-at-p): Rename :hyrolo-name-entry to
+    :hyrolo-name-entry-column and make its value be just the column number.
+    And change return of entry-name to entry-line to prevent partial string
+    match when jumping to an entry to edit.
+            (hyrolo-to, hyrolo-name-at-p): Adjust to handle
+    :hyrolo-name-entry-column value change.
+            (hyrolo-to): When searching for a full-line do a regexp search
+    matching the full line so do not match substrings of the line.
+            (hyrolo-name-at-p): Change return from a cons to a list.
+  test/hyrolo-tests.el (hyrolo-tests--edit-entry-edits-the-selected-match):
+    Add to test that 'hyrolo-to' does not match to a substring of the line
+    selected.
+
+2026-05-28  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--edit-entry-updates-the-date): Add
+    test verifying the item date is updated on edit.
+
+2026-05-27  Bob Weiner  <rsw@gnu.org>
+
+* hypb.el (hypb:remove-from-in-string-cache): Add and use to remove the
+    current buffer as part of 'kill-buffer-hook'.
+
+* hmouse-tag.el (smart-ancestor-tag-files): Fix to ensure all 'dirs' given
+    are normalized and then 'hpath:expand'ed.  This fixes handling of "."
+    and ".." as dir args.
+  hypb.el (hypb:fgrep-git-log): Walk up directory tree to find if within
+    a git archive for selecting default dir.  If none found, default to
+    'hyperb:dir'.  Default directory to 'hyperb:dir' if current  dir does
+    not contain a ".git" directory.
+
+2026-05-24  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-hdr-to-first-line-p, hyrolo-hdr-move-after-p):
+    Simplify and rewrite for efficiency.  This sped up 'hyrolo-fgrep'
+    with 1000 matches almost 10-fold.
+            (hyrolo-to-previous-entry, hyrolo-to-next-entry): Add to
+    programmatically sequentially move through headers and entries whether
+    visible or not.
+            (hyrolo-to-previous-hdr, hyrolo-to-next-hdr): Add to move between
+    file headers in a HyRolo match buffer.  Bound to '{' and '}' respectively.
+            (hyrolo-to-previous-loc): Change to always move to the start of
+    a loc before moving to another one, to match 'hyrolo-to-previous-loc'.
+            (hyrolo-hdr-at-p): Add to test if point is at the start of a file
+    hdr or not in a HyRolo match buffer.
+            (hyrolo-hdr-in-p): Simplify.
+
+2026-05-23  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-mode): Prevent 'org-element-at-point' warnings in *HyRolo*
+    buffer when 'which-func' minor mode is active by nullifying relevant
+    variables at the top of this function.
+            (hyrolo-grep-file): Add :hyrolo-hdr property at the start of a
+    file/buf header within the *HyRolo* match buffer.
+            (hyrolo-outline-next-heading): Add.
+
+2026-05-21  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--expand-path-list): Add test when
+    bbdb and google-contacts are in use.
+
+2026-05-21  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:expand): Don't expand if path is a "*Buffer Name*"
+    like "*Google Contacts*".
+
+2026-05-20  Bob Weiner  <rsw@gnu.org>
+
+* hpath.el (hpath:expand): Change to expand non-existing paths as they may
+    be created after expansion.  Update doc string to reflect the new behavior.
+           (hpath:expand-with-variable): Fix to match doc and don't expand
+    absolute paths like "~/.bashrc".
+
+2026-05-19  Mats Lidell  <matsl@gnu.org>
+
+* test/hy-test-dependencies.el (fboundp): When markdown-ts-mode is defined
+    prefer markdown-mode. This avoids markdown-ts-mode prompting for
+    treesitter grammar.
+
+2026-05-17  Bob Weiner  <rsw@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--expand-path-list): Fix to use
+    identity filter instead of file-read-p.
+
+* hyrolo.py: Expand commentary on priority order of file search.
+
+2026-05-16  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-default-file): Add customization for default HyRolo full
+    path to search if none are provided.  Use "~/.rolo.org" if none exist.
+            (hyrolo-expand-path-list): Change filter from 'file-readable-p'
+    to 'identity' since want to keep non-existent files so 'hyrolo-add' can
+    create them when an initial entry is added.  An internal filter will
+    continue to remove any non-string entries.
+            (hyrolo-file-suffix-regexp): Change from a defcustom to a defconst
+    since editing this is not sufficient to change supported file types since
+    the types are manually set in one of the grep functions as well.
+
+* man/hyperbole.texi (Default Hyperbole Bindings): Update doc for {M-w} to copy
+    things, not just delimited things.
+                     (Koutliner Keys): Update doc for {C-w} to kill/copy things,
+    not just delimited things.
+
+* hui.el (hui:copy-to-register, hui:kill-ring-save): Change "Saved selectable
+    thing" to "Copied selectable thing" to better match regurlar emacs.  Also
+    call 'query-replace-descr' to prevent newline display within 'thing'.
+         (hui:indicate-copied-region): Add to centralize display of copied
+    text and call from the above two functions.
+         (hui:copy-message-length): Add this defcustom with default of 40
+    and use in the prior function.
+         (hui:kill-ring-save, hui:copy-to-register, hui:kill-region): Don't
+    copy a 'thing' if point is on whitespace.  Update doc strings.
+  kotl/kotl-mode.el (kotl-mode:kill-region): Don't kill a 'thing' if point
+    is on whitespace.
+
+* kotl/kotl-mode.el (kotl-mode:split-cell): Fix to ensure point within a
+    valid cell position and fix to not modify label-separator and leave
+    a stray character in the original cell when splitting at the first
+    character of that cell, i.e. all contents move to the second cell.
+  test/kotl-mode-tests.el (kotl-mode-split-cell): Add test of split on
+    first character.
+
+2026-05-16  Mats Lidell  <matsl@gnu.org>
+
+* hload-path.el (hload-path--make-directory-autoloads-in-sync-subprocess):
+    Run autoload generation in a synchronous subprocess.
+    (hyperb:generate-autoloads): Use
+    hload-path--make-directory-autoloads-in-sync-subprocess.
+
+2026-05-15  Mats Lidell  <matsl@gnu.org>
+
+* Add declare-function and defvar that replaces the autoload definitions
+    now when autoloads are not loaded as part of byte compiling.
+
+* hload-path.el: Only generate and load autoloads when interactive.
+
+* hycontrol.el: Move minor-mode definitions section up so it occurs
+    before use of the minor-mode variables.
+
+2026-05-12  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (HYPB_NATIVE_COMP): Use MAKE variable in recursive make.
+
+2026-05-11  Bob Weiner  <rsw@gnu.org>
+
+* kotl/kotl-mode.el (kotl-mode:cell-help): When called interactively, default
+    to help for the cell or tree (with a prefix arg) at point.
+
+* kotl/kotl-mode (kotl-mode:just-one-space): Fix param name from 'N' to 'n'.
+
+* kotl/kotl-mode.el (kotl-mode:yank): Narrow to current cell's text region.
+  hypb.el (hypb:in-string-p): Fix kotl-mode yank error by ensuring 'str-start'
+    and 'str-end' fall within the presently visible buffer range even when
+    pulled from the cache.
+
+2026-05-11  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--mail-to): Test error case.
+    (hyrolo-tests--rename): Add test.
+
+* test/hyrolo-tests.el: Verify all return values for hyrolo-grep and
+    hyrolo-fgrep.
+
+2026-05-10  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--set-date):
+    (hyrolo-tests--add--error-cases):
+    (hyrolo-tests--add-item-to-new-file): Add tests.
+    (hyrolo-tests--add-items-at-multiple-levels):
+    (hyrolo-tests--add-items-interactive): Fix quotes in docstring.
+
+2026-05-10  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-set-date): Change edit date to replace date without
+    changing whitespace around it.
+
+2026-05-06  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-word-read-new, hywiki.el (hywiki-page-read-new):
+    Update to allow inputs only if they match 'hywiki-word-regexp'.
+
+2026-05-06  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--grep-or-fgrep):
+    (hyrolo-tests--kill): Add tests.
+
+2026-05-03  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--consult-fgrep)
+    ((hyrolo-tests--consult-grep, hyrolo-tests--edit): Add tests.
+
+2026-04-30  Bob Weiner  <rsw@gnu.org>
+
+* kotl/kvspec.el (kvspec:update): If updating an existing viewspec, mark
+    buffer as modified so new viewspec is saved when writing out the file.
+
+* kotl/kfile.el (kfile:insert-attributes-v3): Fix to handle alpha and legal
+    numbering properly plus a period with no following spaces as the separator.
+    Update to 'save-excursion' and force start at (point-min) and make
+    args optional so can be called in 'kfile:write' as well as 'kfile:read'.
+
+* kotl/kotl-mode.el (kotl-mode): Prevent 'delete-trailing-whitespace-mode'
+    from deleting trailing whitespace from any lines within kcells.  Ensure
+    "stripmode" package does not delete trailing whitespace from cells whose
+    first line is blank or editing will not start at the proper column.
+
+* kotl/kotl-mode.el (kotl-mode:just-one-space): Add optional 'n' arg of how
+    many spaces to leave that 'just-one-space' supports and update doc string.
+    Since works for a single line only, does not support -n for removing
+    newlines as 'just-one-space' does.
+
+2026-04-29  Bob Weiner  <rsw@gnu.org>
+
+* kotl/kfile.el (kfile:insert-attributes-v3): When reading in an existing
+    Koutline, repair any cells that start with a blank line and have had
+    the label separator removed or where lines of just whitespace have been
+    removed due to packages that delete trailing spaces.  Also ensure search
+    for relative ids that only start with a digit, not alpha chars.
+
+2026-04-21  Mats Lidell  <matsl@gnu.org>
+
+* Makefile (COVERAGE_TESTSPEC): Use test= for specifying the test selector
+    to be used when running coverage check. Defaults to t.
+
+2026-04-16  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--tab-through-matches): Verifies
+    that the path name is not selected when tabbing through matches.
+
+2026-04-13  Bob Weiner  <rsw@gnu.org>
+
+* hyrolo.el (hyrolo-next-match, hyrolo-next-regexp-match,
+             hyrolo-previous-match): Update to match only outside of file
+    headers.
+
+2026-04-12  Bob Weiner  <rsw@gnu.org>
+
+* hywiki.el (hywiki-cache-save):
+  test/hy-test-helpers.el (hy-delete-file-and-buffer): Suppress echo area and
+    *Messages* output of 'Wrote <filename' and use 'basic-save-buffer' instead
+    of 'save-buffer' to reduce backup files, etc.
+  hypb.el (hypb:save-buffer-silently): Add and use in 'hywiki-cache-save' and
+    throughout Hyperbole tests.
+
+* test/hywiki-tests.el (hywiki-tests--save-referent-info-node-use-menu): Change
+    match to Info node from "(emacs)" to "(emacs)*" to get it to match.
+
+* hibtypes.el (pathname): Eliminate matches to Elisp quoted symbols like
+    #'symbol or any use of quote marks after the leading optional # character.
+  hpath.el (hpath:find): Don't match as an anchor unless there are anchor
+    chars after the opening # char.
+
+* kotl/kotl-mode.el (kotl-mode:split-cell): Fix extra blank line(s)
+    remaining after split a cell.  Now removes all whitespace, including
+    newlines  around the point where the split occurs.
+  test/kotl-mode-tests.el (kotl-mode-split-cell): Above fixes this test
+    so remove ':expected-result :failed'.
+
+* hyrolo.el (hyrolo-hdr-move-after-p): Fix infinite loop where did not
+    check that (forward-line 1) actually moved, so just kept looping.
+    Now it checks that the return value is zero.  This fixes the test:
+    'hyrolo-tests--outline-hide-other'.
+
+2026-04-11  Bob Weiner  <rsw@gnu.org>
+
+* hsys-consult.el (hsys-consult-get-exit-value): Use 'hypb:function-p'
+    instead of 'functionp' so recognizes symbol names of functions too.
+
+* hibtypes.el (man-apropos): Stop matches to (function (pos)) in elisp
+    by requiring first char in parens to be a 1-9 digit.
+
+* hyrolo.el (hyrolo-outline-level): Remove first cond clause checking
+    for :hyrolo-level which would return 0 for outline-level in Koutlines
+    matched in the hyrolo display buffer because the :hyrolo-level property
+    was not on the first char of the line but indented to the first char
+    of the cell's relative id.  Instead let it fall through to the clause
+    matching 'hyrolo-entry-group-number'.
+            (hyrolo--cache-initialize,
+             hyrolo--cache-major-mode-indexes): Clarified usage in doc string.
+    Initialize to '(1) instead of '(0) so when point is at position 1 in the
+    *HyRolo* buffer which matches to the first position in this list.  The
+    'major-mode' lookup table indexes starting with 1, not 0, so using 0 would
+    return nil for the 'major-mode'.
+            (hyrolo-outline-backward-same-level,
+             hyrolo-outline-forward-same-level): Fix so if within a file hdr
+    moves to the start of the file hdr before trying to move to the next
+    entry at the same level. Update to treat a nil arg as 1, a 0 arg as a
+    no-op, negative args move in the opposite direction and return whether
+    any sibling is found (point moves) or not (point does not move).
+
+2026-04-10  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--fgrep-move-test): Add more tests for
+    movement when a section is hidden.
+
+2026-04-08  Bob Weiner  <rsw@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--fgrep-move-test): Move tests more
+    likely to fail to the start and after these ensure full outline is
+    shown and point goes to 'point-min'.
+
+* hyrolo.el (hyrolo-move-to-entry-end): Fix movement over collapsed file
+    headers by changing call of 'outline-next-heading' to
+    'hyrolo-outline-next-visible-heading'.
+            (hyrolo-hdr-move-after-p): Fix to fully move past hidden file
+    headers.
+
+2026-04-08  Mats Lidell  <matsl@gnu.org>
+
+* test/hyrolo-tests.el (hyrolo-tests--fgrep-move-test): Add test case
+    for moving in *HyRolo* buffer after fgrep search. Test is set as
+    expected failed since there is a problem with moving over hidden
+    sections.
+
+2026-04-07  Bob Weiner  <rsw@gnu.org>
+
+* hsys-consult.el: Rewrite to properly extract version number from the
+    consult.el file.
+
 2026-04-05  Bob Weiner  <rsw@gnu.org>
 
 * hyrolo.el (hyrolo-hdr-to-first-line-p): Handle black lines and @loc> after
@@ -2226,7 +3455,7 @@
     so 'consult' package does not interfere with testing.
   hsys-consult.el (hsys-consult-active-p): Add and autoload this so can turn
     on and off use of consult (and vertico) within Hyperbole, e.g. when running
-    ert tests where consults interactivity interferes with batch testing.
+    ert tests where consult's interactivity interferes with batch testing.
 
 * hbut.el (ibut:set-name-and-label-key-p): Move recognition of action button
     angle brackets ahead of string matches so that in a Lisp buffer, the action
@@ -4851,7 +6080,7 @@ value to be [[WikiWord]] not [[file:WikiWord.org][WikiWord]].
 2024-10-05  Bob Weiner  <rsw@gnu.org>
 
 * hywiki.el (hywiki-kill-buffer-hook): Change to return t iff 'hywiki-directory'
-    change
+    changes.
 
 2024-09-30  Bob Weiner  <rsw@gnu.org>
 
@@ -5026,7 +6255,7 @@ value to be [[WikiWord]] not [[file:WikiWord.org][WikiWord]].
 
 2024-09-01  Bob Weiner  <rsw@gnu.org>
 
-* man/dir (File): Narrow width to better fit with out Info entries.
+* man/dir (File): Narrow width to better fit without Info entries.
 
 * hyrolo.el (hyrolo-org-mode): Prioritize Org 9.7 folding-spec config
     over earlier versions to fix a bug that used the wrong version.
@@ -5237,7 +6466,7 @@ value to be [[WikiWord]] not [[file:WikiWord.org][WikiWord]].
     to 0 since just want to trigger redisplay.
             (hywiki-publish-to-html): Retrieve HyWiki project by name.
 	    (hywiki-directory): Change to a defcustom so can set this before
-    loading Hyperoble.
+    loading Hyperbole.
             (hywiki-org-get-publish-property): (require 'ox-publish).
 	    (hywiki-org-maybe-add-title): Add title to HyWiki pages without one
     using the file or buffer name.
@@ -5251,7 +6480,7 @@ value to be [[WikiWord]] not [[file:WikiWord.org][WikiWord]].
     properties so that changes trigger updates in 'org-publish-project-alist'.
             (hywiki-org-maybe-add-title): Add to add the HyWikiWord as the
     title for each HyWiki page.
-            (hywiki-org-make-publish-project-alist): Add :sitemap-title property..
+            (hywiki-org-make-publish-project-alist): Add :sitemap-title property.
 	    (hywiki-org-publishing-sitemap-title): Add to set above property.
 	    (hywiki-is-wikiword): Add not 'string-empty-p' test.
 	    (hywiki-add-page): Add interactive spec.
@@ -6226,7 +7455,7 @@ value to be [[WikiWord]] not [[file:WikiWord.org][WikiWord]].
     grouping 1 rather than the entire delimited string.
 
 * man/hyperbole.texi (Top):
-  man/version.texi: Update version to 9.0.2pre.
+  man/version.texi: Update version.
 
 * hibtypes.el (mail-address): Move so lower priority than 'pathname' ibtype
     so that Tramp paths with embedded email addresses don't trigger as
@@ -6360,7 +7589,7 @@ value to be [[WikiWord]] not [[file:WikiWord.org][WikiWord]].
   test/demo-tests.el (hy-test-dependencies): Add to ensure el-mock is installed.
 
 ==============================================================================
-V9.0.2pre changes ^^^^:
+V9.1.0 changes ^^^^:
 ==============================================================================
 
 * hversion.el:
@@ -9959,7 +11188,7 @@ name with 'name' and 'name-key'.
     with 'hpath:symlink-referent'.
                (smart-symlink-expand): Remove this function.
 
-* hbut.el (ibut:to-text): Fix so does not move point if lbl-key end up nil.
+* hbut.el (ibut:to-text): Fix so does not move point if lbl-key ends up nil.
 
 2023-01-28  Bob Weiner  <rsw@gnu.org>
 

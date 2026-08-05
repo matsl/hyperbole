@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-Jan-21 at 12:00:00
-;; Last-Mod:     14-Sep-25 at 19:26:09 by Mats Lidell
+;; Last-Mod:     29-Jun-26 at 14:23:29 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -32,6 +32,41 @@
 (load "klink")
 
 (declare-function hy-test-helpers:consume-input-events "hy-test-helpers")
+
+(ert-deftest hui--hbut-act--links ()
+  "Verify `hui:hbut-act' finds the ilink but not elink and glink."
+  (with-temp-buffer
+    (set-window-buffer (selected-window) (current-buffer))
+    (insert "\
+<ilink: Command >
+<[Command]> <identity 123)>
+")
+    (goto-char 4)
+    (ert-with-message-capture cap
+      (action-key)
+      (should (string-match-p "123\n" cap)))
+
+    (erase-buffer)
+    (insert "\
+<elink: Command >
+<[Command]> <identity 456)>
+")
+    (goto-char 4)
+    (let ((err (should-error (action-key) :type 'error)))
+      (should
+       (string-match-p (rx "No button " punct "Command" punct " in")
+                       (cadr err))))
+
+    (erase-buffer)
+    (insert "\
+<glink: Command >
+<[Command]> <identity 789)>
+")
+    (goto-char 4)
+    (let ((err (should-error (action-key) :type 'error)))
+      (should
+       (string-match-p "No global button found for label: Command"
+                       (cadr err))))))
 
 (ert-deftest hui-gbut-edit-link-to-file-button ()
   "A global button with action type link-to-file shall be possible to edit."
@@ -79,7 +114,7 @@
       ;; unsaved buffers are left open
       (save-excursion
 	(set-buffer gbut-file-buffer)
-	(save-buffer))
+	(hypb:save-buffer-silently))
       (hy-delete-file-and-buffer linked-file)
       (when (file-writable-p hbmap:dir-user)
 	(delete-directory hbmap:dir-user t)))))
@@ -546,7 +581,7 @@ of the defun."
         (progn
           (find-file kotl-file)
           (klink:create "1")
-	  (save-buffer)
+	  (hypb:save-buffer-silently)
 
           (kotl-mode:beginning-of-cell)
           (forward-char 1)
@@ -648,8 +683,9 @@ of the defun."
     (unwind-protect
         (progn
           (find-file file)
+          (erase-buffer)
 	  (hy-test-helpers:ert-simulate-keys "ibut\rlink-to-rfc\r123\r"
-	    (hact (lambda () (call-interactively 'hui:ibut-create))))
+	    (call-interactively 'hui:ibut-create))
           (should (string= "<[ibut]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
 
@@ -659,11 +695,12 @@ of the defun."
     (unwind-protect
         (progn
           (find-file file)
+          (erase-buffer)
           (insert "ibut")
           (set-mark (point-min))
           (goto-char (point-max))
 	  (hy-test-helpers:ert-simulate-keys "\rlink-to-rfc\r123\r"
-	    (hact (lambda () (call-interactively 'hui:ibut-create))))
+	    (call-interactively 'hui:ibut-create))
           (should (string= "<[ibut]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
 
@@ -674,9 +711,10 @@ of the defun."
     (unwind-protect
         (progn
           (find-file file)
+          (erase-buffer)
           (insert "(sexp)")
 	  (hy-test-helpers:ert-simulate-keys "ibut\rlink-to-rfc\r123\r"
-	    (hact (lambda () (call-interactively 'hui:ibut-create))))
+	    (call-interactively 'hui:ibut-create))
           (should (string= "(sexp); <[ibut]> - rfc123" (buffer-string))))
       (hy-delete-file-and-buffer file))))
 
@@ -987,7 +1025,7 @@ With point on label suggest that ibut for rename."
        (progn
          (should (equal (car err) 'error))
          (should (string-match
-                  "(func) Read-only error in Hyperbole button buffer"
+                  "(func) Read-only error in buffer"
                   (cadr err))))))))
 
 (ert-deftest hui--gbut-link-directly-ibut ()

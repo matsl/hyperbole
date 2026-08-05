@@ -19,6 +19,8 @@ hyperbole.el         - Loads and initializes GNU Hyperbole
 ChangeLog            - Summary of changes in recent GNU Hyperbole releases
 
 * --- DOCUMENTATION ---
+man/hy-package.el    - Hyperbole package.el installation and configuration instructions
+man/hy-straight.el   - Hyperbole Straight installation and configuration instructions
 man/dir              - GNU Hyperbole Info directory tree entry
 man/hyperbole.html   - The GNU Hyperbole Manual  (web version)
 man/hyperbole.info   - The GNU Hyperbole Manual  (GNU Info version)
@@ -43,6 +45,7 @@ hui-jmenu.el         - Popup menus for jumping to and managing buffers, frames, 
 hui-menu.el          - Menubar menu of GNU Hyperbole commands
 hui-mini.el          - Single line command menus for GNU Hyperbole
 hui-mouse.el         - Use key or mouse key for many functions, e.g. GNU Hyperbole menus
+hui-register.el      - Hyperbole links to Emacs registers
 hui-select.el        - Select delimited or larger and larger syntax-driven regions in a buffer
 hui-treemacs.el      - GNU Hyperbole Smart Key support for the Treemacs file manager package
 hui-window.el        - Smart Mouse Key window and modeline depress/release actions
@@ -110,7 +113,7 @@ topwin.py            - Python script to find the topmost macOS app window at a s
 * --- EXTERNAL SYSTEM ENCAPSULATIONS ---
 hsys-activities.el   - GNU Hyperbole support functions for Activities
 hsys-consult.el      - Hyperbole interactive consult-grep convenience functions
-hsys-ert.el          - Hyperbole support for jumping to ert 'should' source lines
+hsys-denote.el       - GNU Hyperbole support functions for denote note-taking
 hsys-flymake.el      - Add missing source buffer keymap to flymake linter
 hsys-org.el          - GNU Hyperbole support functions for Org mode
 hsys-org-roam.el     - GNU Hyperbole support functions for Org Roam

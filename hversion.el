@@ -30,12 +30,13 @@
 (declare-function hpath:substitute-value "hpath")
 (declare-function id-info-item "hversion")
 (declare-function br-in-browser "hpath")
+(declare-function hpath:display-buffer "hpath")
 
 ;;; ************************************************************************
 ;;; Public variables
 ;;; ************************************************************************
 
-(defconst hyperb:version "9.0.2pre" "GNU Hyperbole revision number.")
+(defconst hyperb:version "9.1.0" "GNU Hyperbole revision number.")
 
 (defvar hyperb:mouse-buttons
   (if (or (and hyperb:microsoft-os-p (not (memq window-system '(w32 w64 x))))

@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    28-Feb-21 at 23:26:00
-;; Last-Mod:      7-Mar-26 at 18:40:46 by Bob Weiner
+;; Last-Mod:     16-Jul-26 at 13:43:29 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -270,6 +270,46 @@
   (should (string= (hpath:substitute-value "$UNDEFINED_IS_NOT_SUBSTITUTED") "$UNDEFINED_IS_NOT_SUBSTITUTED"))
   (should (string= (hpath:substitute-value "${UNDEFINED_IS_NOT_SUBSTITUTED}") "${UNDEFINED_IS_NOT_SUBSTITUTED}")))
 
+(ert-deftest hpath:substitute-var-test ()
+  "Verify `hpath:substitute-var' inserts vars."
+  (let* ((hyperb:dir (make-temp-file "hypb_dir" t))
+         (file (expand-file-name "file" hyperb:dir))
+         (el-file (expand-file-name "file.el" hyperb:dir))
+         (non-existing-file (expand-file-name "foo.el" hyperb:dir))
+         (other-dir (make-temp-file "other_dir" t))
+         (other-el-file (expand-file-name "other.el" other-dir)))
+    (unwind-protect
+        (progn
+          (make-empty-file file)
+          (make-empty-file el-file)
+          (make-empty-file other-el-file)
+          (should (string= "${hyperb:dir}/file"
+                           (hpath:substitute-var file)))
+          (let ((default-directory other-dir))
+            (should (string= "${hyperb:dir}/file"
+                             (hpath:substitute-var (file-relative-name file default-directory)))))
+          (let ((default-directory hyperb:dir))
+            (should (string= (concat "../" (file-name-base other-dir) "/other.el")
+                             (hpath:substitute-var (file-relative-name other-el-file default-directory)))))
+          (should (string= "${hyperb:dir}/file.el"
+                           (hpath:substitute-var el-file)))
+          (should (string= non-existing-file
+                           (hpath:substitute-var non-existing-file))))
+      (hy-delete-files-and-buffers (list file el-file other-el-file))
+      (hy-delete-dir-and-buffer hyperb:dir)
+      (hy-delete-dir-and-buffer other-dir))))
+
+(ert-deftest hpath:substitute-var-name-test ()
+  "Verify variable name is substituted for the variable value in path."
+  (should (string= "${hyperb:dir}/file"
+                   (hpath:substitute-var-name 'hyperb:dir "/home/user/folder" "/home/user/folder/file")))
+  (should-not (hpath:substitute-var-name 'hyperb:dir "/home/user/folder" "../home/user/folder/file"))
+  (should (string= "${hyperb:dir}/file"
+                   (hpath:substitute-var-name 'hyperb:dir "/home/user/folder/" "/home/user/folder/file")))
+  (should (string= "${hyperb:dir}/file.el"
+                   (hpath:substitute-var-name 'hyperb:dir "/home/user/folder/" "/home/user/folder/file.el")))
+  (should-not (hpath:substitute-var-name 'hyperb:dir "/home/user/folder2/" "/home/user/folder/file.el")))
+
 (defun hypb-run-shell-test-command (command buffer)
   "Run a shell COMMAND with output to BUFFER and select it."
   (switch-to-buffer buffer)
@@ -399,7 +439,7 @@
                 (progn
                   (find-file filename)
                   (insert "\"" fn "\"")
-                  (save-buffer)
+                  (hypb:save-buffer-silently)
                   (goto-char 3)
                   (should (string= (hpath:at-p) fn))
                   (should (string= (hpath:is-p fn) fn)))
@@ -423,7 +463,7 @@
       (hy-delete-file-and-buffer file))))
 
 (ert-deftest hpath--expand-variations-non-existing-path ()
-  "Verify expand non existing paths."
+  "Verify expanding non-existing paths."
   (should (string= (hpath:expand "/not/existing/file") "/not/existing/file"))
   (should-not (hpath:expand "/not/existing/file" t))
   (should (string= (hpath:expand "/not/existing/file*" t) "/not/existing/file*"))
@@ -435,18 +475,18 @@
   (let ((hyperb-no-trailing-slash (substring hyperb:dir 0 -1)))
     (should (string= (hpath:expand "${hyperb:dir}") hyperb-no-trailing-slash))
     (should (string= (hpath:expand "${hyperb:dir}" t) hyperb-no-trailing-slash))
-    (should (string= (hpath:expand "${hyperb:dir}/notexisting") "${hyperb:dir}/notexisting"))
+    (should (string= (hpath:expand "${hyperb:dir}/notexisting")
+                     (expand-file-name "notexisting" hyperb-no-trailing-slash)))
     (should-not (hpath:expand "${hyperb:dir}/notexisting" t))))
 
 (ert-deftest hpath--expand-environment-variable ()
-  "Verify that a $VAR environment is expanded."
+  "Verify that a $VAR environment variable is expanded."
   (let ((envvar "hpath_test"))
     (unwind-protect
         (progn
           (setenv "HPATH" envvar)
-          (should (string= (hpath:expand "$HPATH") envvar))
-          ; Should next not work? See below where is works
-          ;(should (string= (hpath:expand "${HPATH}") envvar))
+          (should (string= (hpath:expand "$HPATH") (expand-file-name envvar)))
+          (should (string= (hpath:expand "${HPATH}") (expand-file-name envvar)))
           (should-not (hpath:expand "$HPATH" t))
           (should-not (hpath:expand "${HPATH}" t)))
       (setenv "HPATH")))
@@ -665,7 +705,7 @@ dir/subdir:
 
 (ert-deftest hpath--to-markup-anchor ()
   "Verify `hpath:to-markup-anchor'."
-  (dolist (v '((text-mode 2) (outline-mode 0)))
+  (dolist (v '((text-mode 0) (outline-mode 0)))
     (with-temp-buffer
       (funcall (car v)) ;; Mode
       (insert "Line 1\n* anchor\n* anchor")

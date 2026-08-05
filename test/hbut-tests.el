@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    30-may-21 at 09:33:00
-;; Last-Mod:      1-May-25 at 23:33:16 by Mats Lidell
+;; Last-Mod:      9-Jun-26 at 00:01:32 by Mats Lidell
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -256,14 +256,14 @@ Create button with link-to-directory using `temporary-file-directory`."
 	  ;; Test with name
           (setq annot-bib-buf (find-file annot-bib-file))
 	  (ibut:program "name" 'annot-bib "arg")
-	  (save-buffer)
+	  (hypb:save-buffer-silently)
 	  (should (string-match (concat (regexp-quote "<[name]> - [arg]")
 					"\\s-*")
 				(buffer-string)))
 	  ;; Test without name
 	  (erase-buffer)
 	  (ibut:program nil 'annot-bib "arg")
-	  (save-buffer)
+	  (hypb:save-buffer-silently)
 	  (should (string-match (concat (regexp-quote "[arg]")
 					"\\s-*")
 				(buffer-string))))
@@ -279,14 +279,14 @@ Create button with link-to-directory using `temporary-file-directory`."
 	  ;; Test with name
           (setq kbd-key-buf (find-file kbd-key-file))
 	  (ibut:program "name" 'kbd-key "{ C-f C-f }")
-	  (save-buffer)
+	  (hypb:save-buffer-silently)
 	  (should (string-match (concat (regexp-quote "<[name]> - { C-f C-f }")
 					"\\s-*")
 				(buffer-string)))
 	  ;; Test without name
 	  (erase-buffer)
 	  (ibut:program nil 'kbd-key "{ C-f C-f }")
-	  (save-buffer)
+	  (hypb:save-buffer-silently)
 	  (should (string-match (concat (regexp-quote "{ C-f C-f }")
 					"\\s-*")
 				(buffer-string))))
@@ -780,7 +780,7 @@ See #10 for the proper way to add an ibutton name.
     (should (equal (hattr:get (ibut:at-p) 'categ) 'ibtypes::pathname))
     (goto-char (- (point-max) 5))
     (should (equal (hattr:get (ibut:at-p) 'categ) 'ibtypes::pathname))
-    (goto-char 8)  ;; ibtypes::mail-address !!
+    (goto-char 8)
     (should (equal (hattr:get (ibut:at-p) 'categ) 'ibtypes::pathname))))
 
 (ert-deftest hypb--gbut-act-with-web-link ()

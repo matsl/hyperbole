@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:     5-Apr-21 at 18:53:10
-;; Last-Mod:      8-Mar-26 at 12:42:06 by Bob Weiner
+;; Last-Mod:     27-Jul-26 at 16:34:09 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -84,64 +84,6 @@ See Emacs bug#74042 related to usage of texi2any."
         (should (set:equal '("Key Index" "Function Index" "Concept Index") (Info-index-nodes))))
     (hy-test-helpers:kill-buffer "*info*")))
 
-(ert-deftest hypb--in-string-p ()
-  "Verify basic quote handing by `hypb:in-string-p'."
-  (let ((s '(("\"str\"" . text-mode)            ;; double-quotes:
-             ("'str'" . python-mode)            ;; Python single-quotes:
-             ("'''str'''" . python-mode)        ;; Python triple single-quotes:
-             ("\"\"\"str\"\"\"" . python-mode)  ;; Python triple double-quotes:
-             ("``str''" . texinfo-mode)))      ;; Texinfo open and close quotes:
-        (test-num 0)
-        str
-        mode)
-    (with-temp-buffer
-      (dolist (v s)
-        (setq str (car v)
-              mode (cdr v))
-        (erase-buffer)
-        (funcall mode)
-        (insert str)
-        (goto-char (/ (length str) 2))
-        (ert-info ((format "Test #%d: At pos %d, expected within \"%s\" in mode: %s"
-                           test-num (point) str mode))
-          (should (hypb:in-string-p))
-          (let ((seq (hypb:in-string-p nil t)))
-            (should (sequencep seq))
-            (cl-destructuring-bind (val beg end) seq
-              (should (stringp val))
-              (should (and beg end (= (- end beg) 3))))))))))
-
-(ert-deftest hypb--in-string-p--max-lines ()
-  "Verify max lines handling by `hypb:in-string-p'."
-  (let* ((str "1\n\\\"2\n")
-         (range (list str 2 8)))
-    (with-temp-buffer
-      (insert (format "\"%s\"" str))
-      (goto-line 1) (move-to-column 1)
-      ;; First line. Line starts with quote.
-      (should-not (hypb:in-string-p 1))
-      (should (hypb:in-string-p 2))
-      (should (hypb:in-string-p 3))
-      (should (hypb:in-string-p 99))
-
-      ;; With range-flag
-      (should (equal range (hypb:in-string-p 2 t)))
-      (should (equal range (hypb:in-string-p 3 t)))
-      (should (equal range (hypb:in-string-p 99 t)))
-
-      ;; Zero max-lines
-      (should-not (hypb:in-string-p 0))
-
-      ;; Second line. No quote on the line.
-      (goto-line 2)
-      (should-not (hypb:in-string-p 1))
-      (should (hypb:in-string-p 2))
-      (should (hypb:in-string-p 3))
-
-      ;; With range-flag
-      (should (equal range (hypb:in-string-p 2 t)))
-      (should (equal range (hypb:in-string-p 3 t))))))
-
 (ert-deftest hypb--string-count-matches ()
   "Verify `hypb--string-count-matches'."
   (should (= 2 (hypb:string-count-matches "a" "abcabd")))
@@ -156,6 +98,55 @@ See Emacs bug#74042 related to usage of texi2any."
   (should-error (hypb:string-count-matches "a" "a" 1 3))
   (should-error (hypb:string-count-matches "a" "a" 0 -1))
   (should-error (hypb:string-count-matches "a" "ab" 0 3)))
+
+(ert-deftest hypb--users-package-manager ()
+  "Verify `hypb:users-package-manager'."
+  (hy-test-mocked-feature 'straight
+    (should (eq 'straight (hypb:users-package-manager))))
+  (hy-test-mocked-feature 'elpaca
+    (should (eq 'elpaca (hypb:users-package-manager))))
+  (should (eq 'package (hypb:users-package-manager))))
+
+(ert-deftest hypb--package-el-install ()
+  "Verify `hypb:package-el-install'."
+  (let ((hypb:ask-to-install-package-flag t))
+    (with-mock
+      (mock (y-or-n-p *) => nil)
+      (hypb:package-el-install 'hypb-dummy-package-name)))
+  (let* ((hypb:ask-to-install-package-flag nil)
+         (err (should-error (hypb:package-el-install 'hypb-dummy-package-name) :type 'error)))
+    ;;FIXME: Emacs-28 includes a '-' when there is no version
+    ;;number. Can be removed when we drop support for Emacs 28.
+    (should (string-match-p (rx "Package " punct "hypb-dummy-package-name" (optional "-") punct " is unavailable") (cadr err)))))
+
+(ert-deftest hypb--notify-manual-install-needed ()
+  "Verify `hypb:notify-manual-install-needed'.
+Verifies it raises a 'need to install' package manager error."
+  (let ((err (should-error (hypb:notify-manual-install-needed 'la-package 'la-manager) :type 'user-error)))
+    (should (string-search "la-package" (cadr err)))
+    (should (string-search "la-manager" (cadr err)))))
+
+(ert-deftest hypb--ensure-dependency ()
+  "Verify `hypb:ensure-dependency'."
+  (with-mock
+    (mock (hypb:users-package-manager) => 'package)
+    (mock (hypb:package-el-install 'the-package) => t)
+    (should (hypb:ensure-dependency 'the-package)))
+  (with-mock
+    (mock (hypb:users-package-manager) => 'package)
+    (mock (hypb:package-el-install 'the-package) => nil)
+    (should-not (hypb:ensure-dependency 'the-package)))
+  (with-mock
+    (mock (hypb:users-package-manager) => 'elpaca)
+    (mock (hypb:notify-manual-install-needed 'the-package 'elpaca) => (user-error "Error"))
+    (should-error (hypb:ensure-dependency 'the-package) :type 'user-error)))
+
+(ert-deftest hypb--require-package ()
+  "Verify `hypb:require-package' signals if automatic install fails."
+  (with-mock
+    (mock (hypb:ensure-dependency 'package) => nil)
+    (let ((err (should-error (hypb:require-package 'package) :type 'error)))
+      (should (string-search "could not be found" (cadr err))))))
 
 ;; This file can't be byte-compiled without the `el-mock' package (because of
 ;; the use of the `with-mock' macro), which is not a dependency of Hyperbole.

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    16-Mar-90 at 03:38:48
-;; Last-Mod:     17-Feb-26 at 22:42:00 by Bob Weiner
+;; Last-Mod:     25-Jun-26 at 18:37:23 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -34,6 +34,7 @@
 ;;; Other required Elisp libraries
 ;;; ************************************************************************
 
+(require 'seq)      ; for 'seq-union'
 (require 'subr-x)   ; for `hash-table-keys/values', `hash-table-empty-p'
 
 ;;; ************************************************************************
@@ -63,12 +64,7 @@ Signal an error if anything goes wrong during addition."
 List and vector elements are shared across both tables."
   (unless (hash-table-p hash-table)
     (error "(hash-copy): Invalid hash-table: `%s'" hash-table))
-  (let ((htable-copy (make-hash-table :size (length hash-table))))
-    (hash-map
-     (lambda (val-key-cons) (hash-add (car val-key-cons) (cdr val-key-cons)
-				      htable-copy))
-     hash-table)
-    htable-copy))
+  (copy-hash-table hash-table))
 
 (defun hash-count (hash-table)
   "Return element count in HASH-TABLE or nil if not a valid hash table."
@@ -92,10 +88,10 @@ Otherwise, Return nil if KEY is not in HASH-TABLE or t otherwise."
 	((stringp obj)
 	 (copy-sequence obj))
 	((hash-table-p obj)
-	 (let ((htable-copy (make-hash-table :size (length obj))))
+	 (let ((htable-copy (make-hash-table :size (hash-size obj))))
 	   (maphash
-	    (lambda (key _value)
-	      (puthash key (hash-deep-copy obj) htable-copy))
+	    (lambda (key value)
+	      (puthash key (hash-deep-copy value) htable-copy))
 	    obj)
 	   htable-copy))
 	((vectorp obj)
@@ -257,9 +253,9 @@ whose keys are the same."
 		       key value)
 		   (mapc
 		     (lambda (ht)
-		       (hash-map (lambda (val-key-cons)
-				   (setq value (car val-key-cons)
-					 key (cdr val-key-cons))
+		       (hash-map (lambda (val-string-key-cons)
+				   (setq value (car val-string-key-cons)
+					 key (intern (cdr val-string-key-cons)))
 				   (if (gethash key htable)
 				       ;; Merge values
 				       (puthash
@@ -283,26 +279,29 @@ This is suitable for use as a value of `hash-merge-values-function'."
 
 (defun hash-merge-values (value1 value2)
   "Return a list from merging VALUE1 and VALUE2 or creating a new list.
-Nil values are thrown away.  If both arguments are lists, their elements are
-assumed to be strings and the result is a set of ordered strings.
+Nil values are thrown away.
 
 This is suitable for use as a value of `hash-merge-values-function'."
   ;; Copy lists so that merged result does not share structure with the
   ;; hash tables being merged.
-  (if (listp value1) (setq value1 (copy-sequence value1)))
-  (if (listp value2) (setq value2 (copy-sequence value2)))
-  (cond ((and (listp value1) (listp value2))
-	 ;; Assume desired result is a set of strings.
-	 (hash-set-of-strings (sort (append value1 value2) 'string-lessp)))
-	((null value1)
-	 value2)
+  (when (sequencep value1) (setq value1 (copy-sequence value1)))
+  (when (sequencep value2) (setq value2 (copy-sequence value2)))
+  (cond ((null value1)
+	 (if (listp value2) value2 (list value2)))
 	((null value2)
-	 value1)
+	 (if (listp value1) value1 (list value1)))
+        ((and (sequencep value1) (sequencep value2))
+         (when (stringp value1) (setq value1 (list value1)))
+         (when (stringp value2) (setq value2 (list value2)))
+	 ;; Return a list of the union of the values elements
+         (seq-union value1 value2))
 	((listp value1)
 	 (cons value2 value1))
 	((listp value2)
 	 (cons value1 value2))
-	(t (list value1 value2))))
+	(t (if (equal value1 value2)
+               (list value1)
+             (list value1 value2)))))
 
 (defun hash-prepend (value key hash-table)
   "Prepend VALUE onto the list value referenced by KEY, a string, in HASH-TABLE.
@@ -362,27 +361,6 @@ Return nil if not a valid hash table."
     (hash-table-size hash-table)))
 
 (defalias 'hash-length 'hash-size)
-
-;;; ************************************************************************
-;;; Private functions
-;;; ************************************************************************
-
-(defun hash-set-of-strings (sorted-strings &optional count)
-  "Return SORTED-STRINGS list with any duplicate entries removed.
-Optional COUNT conses number of duplicates on to front of list before return."
-  (and count (setq count 0))
-  (let ((elt1) (elt2) (lst sorted-strings)
-	(test (if count
-		  (lambda (a b)
-		    (when (string-equal a b)
-		      (setq count (1+ count))
-		      t))
-	        #'string-equal)))
-    (while (setq elt1 (car lst) elt2 (car (cdr lst)))
-      (if (funcall test elt1 elt2)
-	  (setcdr lst (cddr lst))
-	(setq lst (cdr lst)))))
-  (if count (cons count sorted-strings) sorted-strings))
 
 (provide 'hasht)
 ;;; hasht.el ends here

@@ -3,6 +3,7 @@ demo-tests.el           - unit tests from examples in the DEMO
 hact-tests.el           - hact unit tests
 hactypes-tests.el       - Ert tests for hactypes
 hargs-tests.el          - hargs unit tests
+hasht-tests.el          - unit tests for hasht
 hbut-tests.el           - hbut unit tests
 hib-kbd-tests.el        - unit test for hib-kbd
 hib-social-tests.el     - Test for hib-social
@@ -18,6 +19,7 @@ hui-mouse-tests.el      - hui-mouse and hkey-alist Action Key tests
 hui-register-tests.el   - test for hui-register
 hui-select-tests.el     - hui-select tests
 hui-tests.el            - tests for hui.el Hyperbole UI
+hy-string-tests.el      - test whether point is inside or outside of a string
 hy-test-coverage.el     - provide test coverage information
 hy-test-dependencies.el - Hyperbole test dependencies
 hy-test-helpers.el      - unit test helpers

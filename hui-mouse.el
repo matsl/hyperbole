@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    04-Feb-89
-;; Last-Mod:      4-Apr-26 at 23:19:29 by Bob Weiner
+;; Last-Mod:     16-Jul-26 at 11:09:40 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -45,8 +45,9 @@
 ;; so don't use if it fails to load properly.
 (ignore-errors (require 'hsys-flymake))
 (require 'hload-path)
-(require 'hsys-xref)
+(require 'hsys-denote)
 (require 'hsys-org)
+(require 'hsys-xref)
 (require 'hbut)
 (unless (fboundp 'smart-info)
   (require 'hmouse-info))
@@ -96,6 +97,11 @@
 (declare-function hyrolo-hdr-to-first-line-p "hyrolo")
 (declare-function kotl-mode:eobp "kotl-mode")
 (declare-function kotl-mode:eolp "kotl-mode")
+
+;; Other Hyperbole functions
+(declare-function smart-python-at-tag-p "hmouse-tag")
+(declare-function smart-tags-file-list "hmouse-tag")
+(declare-function Info-handle-in-note "hmouse-info")
 
 ;; Emacs functions
 (declare-function Custom-buffer-done "cus-edit")
@@ -255,8 +261,10 @@ The button's attributes are stored in the symbol, `hbut:current'.")
     ((eq major-mode 'dired-sidebar-mode)
      . ((smart-dired-sidebar) . (smart-dired-sidebar)))
     ;;
-    ;; Handle Emacs push buttons in buffers
-    ((button-at (point))
+    ;; Handle non-eww url Emacs push buttons in buffers
+    ((and (setq hkey-value (button-at (point)))
+          ;; If an eww url button, handle later as an ibut
+          (not (and (eq major-mode 'eww-mode) (eww-links-at-point))))
      . ((smart-push-button nil (mouse-event-p last-command-event))
 	. (smart-push-button-help nil (mouse-event-p last-command-event))))
     ;;
@@ -347,8 +355,8 @@ The button's attributes are stored in the symbol, `hbut:current'.")
     ;; character of the opening or closing tag.  Ignore delimiters in
     ;; the middle of a Hyperbole button.
     ((and (if (setq hkey-at-hbut (hbut:at-p))
-	      (or (eq (point) (hattr:get 'hbut:current 'lbl-end))
-		  (eq (point) (hattr:get 'hbut:current 'name-end)))
+	      (or (>= (point) (or (hattr:get 'hbut:current 'lbl-end) (1+ (point))))
+		  (>= (point) (or (hattr:get 'hbut:current 'name-end) (1+ (point)))))
 	    t)
 	  (hui-select-at-delimited-thing-p))
      . ((hui-select-thing) . (progn (hui-select-thing)
@@ -361,8 +369,8 @@ The button's attributes are stored in the symbol, `hbut:current'.")
     ;; removed someday.  Ignore delimiters in the middle of a
     ;; Hyperbole button.
     ((and (if hkey-at-hbut
-	      (or (eq (point) (hattr:get 'hbut:current 'lbl-end))
-		  (eq (point) (hattr:get 'hbut:current 'name-end)))
+	      (or (>= (point) (or (hattr:get 'hbut:current 'lbl-end) (1+ (point))))
+		  (>= (point) (or (hattr:get 'hbut:current 'name-end) (1+ (point)))))
 	    t)
 	  (hui-select-at-delimited-sexp-p))
      . ((hui-select-mark-delimited-sexp)
@@ -884,9 +892,15 @@ If key is pressed:
 
   (interactive)
   (cond ((smart-eobp) (calendar-cursor-to-nearest-date)
-	 (calendar-scroll-left-three-months 1))
+	 (if (fboundp 'calendar-scroll-calendar-left)
+             (calendar-scroll-calendar-left)
+           (with-suppressed-warnings ((obsolete calendar-scroll-left-three-months))
+             (calendar-scroll-left-three-months 1))))
 	((< (current-column) 5) (calendar-cursor-to-nearest-date)
-	 (calendar-scroll-right-three-months 1))
+	 (if (fboundp 'calendar-scroll-calendar-right)
+             (calendar-scroll-calendar-right)
+           (with-suppressed-warnings ((obsolete calendar-scroll-right-three-months))
+             (calendar-scroll-right-three-months 1))))
 	(t (calendar-cursor-to-nearest-date)
 	   (diary-view-entries 1))))
 
@@ -906,9 +920,15 @@ If assist key is pressed:
 
   (interactive)
   (cond ((smart-eobp) (calendar-cursor-to-nearest-date)
-	 (calendar-scroll-right-three-months 1))
+	 (if (fboundp 'calendar-scroll-calendar-left)
+             (calendar-scroll-calendar-left)
+           (with-suppressed-warnings ((obsolete calendar-scroll-left-three-months))
+             (calendar-scroll-left-three-months 1))))
 	((< (current-column) 5) (calendar-cursor-to-nearest-date)
-	 (calendar-scroll-left-three-months 1))
+         (if (fboundp 'calendar-scroll-calendar-right)
+             (calendar-scroll-calendar-right)
+           (with-suppressed-warnings ((obsolete calendar-scroll-right-three-months))
+             (calendar-scroll-right-three-months 1))))
 	(t (diary-mark-entries))))
 
 ;;; ************************************************************************
@@ -1926,7 +1946,8 @@ will invoke `org-meta-return'.
 Org links may be used outside of Org mode buffers.  Such links are
 handled by the separate implicit button type, `org-link-outside-org-mode'."
   (when (funcall hsys-org-mode-function)
-    (let (start-end)
+    (let (start-end
+          link-start-end)
       (cond ((not hsys-org-enable-smart-keys)
 	     (when (hsys-org-meta-return-shared-p)
 	       (hact 'hsys-org-meta-return))
@@ -1955,10 +1976,16 @@ handled by the separate implicit button type, `org-link-outside-org-mode'."
 		    (hact 'org-internal-target-link)
 		    t)
 		   ((setq start-end (hsys-org-link-at-p))
-		    (if (not assist-flag)
-			(progn (hsys-org-set-ibut-label start-end)
-			       (hact 'org-link))
-		      (hact 'hkey-help))
+                    (cond ((setq link-start-end (hsys-denote-link-at-p
+                                                 (car start-end)
+                                                 (cdr start-end)))
+                           (hact 'link-to-denote (car link-start-end)))
+		          ((not assist-flag)
+			   (hsys-org-set-ibut-label start-end)
+		           (hact 'org-link-open-from-string
+		                 (buffer-substring-no-properties
+		                  (car start-end) (cdr start-end))))
+		          (t (hact 'hkey-help)))
 		    t)
 		   ((hbut:at-p)
 		    ;; Fall through until Hyperbole button context and
@@ -1995,10 +2022,16 @@ handled by the separate implicit button type, `org-link-outside-org-mode'."
 		    (hact 'org-radio-target-link)
 		    t)
 		   ((setq start-end (hsys-org-link-at-p))
-		    (if (not assist-flag)
-			(progn (hsys-org-set-ibut-label start-end)
-			       (hact 'org-link))
-		      (hact 'hkey-help))
+                    (cond ((setq link-start-end (hsys-denote-link-at-p
+                                                 (car start-end)
+                                                 (cdr start-end)))
+                           (hact 'link-to-denote (car link-start-end)))
+		          ((not assist-flag)
+			   (hsys-org-set-ibut-label start-end)
+		           (hact 'org-link-open-from-string
+		                 (buffer-substring-no-properties
+		                  (car start-end) (cdr start-end))))
+		          (t (hact 'hkey-help)))
 		    t)
  		   ((hbut:at-p)
 		    ;; Fall through until Hyperbole button context and

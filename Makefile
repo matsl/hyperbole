@@ -3,7 +3,7 @@
 # Author:       Bob Weiner
 #
 # Orig-Date:    15-Jun-94 at 03:42:38
-# Last-Mod:     14-Mar-26 at 22:47:11 by Mats Lidell
+# Last-Mod:     16-Jul-26 at 23:26:56 by Mats Lidell
 #
 # Copyright (C) 1994-2026  Free Software Foundation, Inc.
 # See the file HY-COPY for license information.
@@ -49,6 +49,9 @@
 #
 #		Generate the website sources and upload them:
 #		    make website - generate web site in folder $(HYPB_WEB_REPO_LOCATION)"
+#
+#               List major build env versions:
+#                   make env
 #
 #               Lint all Hyperbole code files:
 #                   make lint
@@ -105,7 +108,7 @@
 
 # This ver setup won't work under any make except GNU make, so set it manually.
 #HYPB_VERSION = "`head -3 hversion.el | tail -1 | sed -e 's/.*|\(.*\)|.*/\1/'`"
-HYPB_VERSION = 9.0.2pre
+HYPB_VERSION = 9.1.0
 
 # Emacs executable used to byte-compile .el files into .elc's.
 # To override which executable is used from the commandline, do something like this:
@@ -158,12 +161,10 @@ SHELL = /bin/sh
 # Shell commands you may want to change for your particular system.
 CP = \cp -p
 ETAGS = \etags
-GNUFTP = \gnupload --to ftp.gnu.org:hyperbole --replace
-GPG = \gpg
+GNUFTP = \gnupload --dry-run --to ftp.gnu.org:hyperbole --replace
 GZIP = \gzip -c
 INSTALL = \install -m 644 -c
 MKDIR = \mkdir -p
-MAKE = \make
 RM = \rm -f
 TAR = \tar
 ZIP = \zip -qry
@@ -217,7 +218,7 @@ EL_COMPILE = hact.el hactypes.el hargs.el hbdata.el hbmap.el hbut.el \
 	     hinit.el hload-path.el hmail.el hmh.el hmoccur.el hmouse-info.el \
 	     hmouse-drv.el hmouse-key.el hmouse-mod.el hmouse-sh.el hmouse-tag.el \
 	     hpath.el hproperty.el hrmail.el hsettings.el hsmail.el hsys-consult.el \
-             hsys-ert.el hsys-flymake.el hsys-activities.el \
+             hsys-denote.el hsys-ert.el hsys-flymake.el hsys-activities.el \
              hsys-org.el hsys-org-roam.el hsys-www.el hsys-xref.el hsys-youtube.el htz.el \
 	     hycontrol.el hui-jmenu.el hui-menu.el hui-mini.el hui-mouse.el hui-select.el \
 	     hui-treemacs.el hui-window.el hui.el hvar.el hversion.el hynote.el hypb.el hyperbole.el \
@@ -243,7 +244,8 @@ HYPERBOLE_FILES = dir info html $(EL_SRC) $(EL_KOTL) \
         INSTALL DEMO DEMO-ROLO.otl FAST-DEMO MANIFEST README.md TAGS _hypb \
         .hypb hyrolo.py smart-clib-sym topwin.py hyperbole-banner.png \
 	.dir-locals.el \
-	$(man_dir)/hkey-help.txt $(man_dir)/hyperbole.texi $(man_dir)/hyperbole.css \
+	$(man_dir)/hkey-help.txt $(man_dir)/hy-package.el $(man_dir)/hy-straight.el \
+        $(man_dir)/hyperbole.texi $(man_dir)/hyperbole.css \
         $(man_dir)/texinfo-7.css
 
 TEST_ERT_FILES = $(wildcard test/*tests.el) $(wildcard test/hy-test-*.el)
@@ -303,8 +305,9 @@ help:
 .PHONY: all
 all: help
 
-.PHONY: echo
-echo:
+.PHONY: echo env
+echo: env
+env:
 	@echo "Emacs: $(shell which ${EMACS})"
 	@echo "Version: $(shell ${EMACS} --version)"
 	@echo "TERM: $(TERM)"
@@ -386,7 +389,7 @@ bin: remove-elc src new-bin
 # Native compilation (Requires Emacs built with native compilation support.)
 .PHONY: eln
 eln:
-	HYPB_NATIVE_COMP=yes make new-bin
+	HYPB_NATIVE_COMP=yes $(MAKE) new-bin
 
 .PHONY: tags
 tags: TAGS
@@ -479,12 +482,12 @@ website: website-local
 # Generate a Hyperbole package suitable for distribution via the Emacs package manager.
 .PHONY: pkg package
 pkg: package
-package: tags doc $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.sig
+package: tags doc $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz
 
 # Generate and distribute a Hyperbole release to ftp.gnu.org.
 # One step in this is to generate an autoloads file for the Koutliner, kotl/kotl-autoloads.el.
 .PHONY: release
-release: git-pull git-verify-no-update package $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz ftp website git-tag-release
+release: git-pull package ftp website git-tag-release
 	@echo "Hyperbole $(HYPB_VERSION) is released."
 
 # Ensure local hyperbole directory is synchronized with master before building a release.
@@ -492,15 +495,11 @@ release: git-pull git-verify-no-update package $(pkg_parent)/hyperbole-$(HYPB_VE
 git-pull:
 	@echo "If this step fails check your work directory for not committed changes"
 	git checkout master && git pull
-	git diff-index --quiet master
-
-.PHONY: git-verify-no-update
-git-verify-no-update:
-	@echo "If this step fails check your work directory for updated docs and push these to savannah"
-	git diff-index --quiet master
+	git diff-index --quiet HEAD --
 
 .PHONY: git-tag-release
 git-tag-release:
+	$(call confirm,Set git tag to hyperbole-$(HYPB_VERSION) on Savannah!,TAGIT)
 	git tag -a hyperbole-$(HYPB_VERSION) -m "Hyperbole release $(HYPB_VERSION)"
 	git push origin hyperbole-$(HYPB_VERSION)
 	@echo "Hyperbole $(HYPB_VERSION) is tagged as hyperbole-$(HYPB_VERSION)."
@@ -509,6 +508,7 @@ git-tag-release:
 # containing the tarball to upload.
 .PHONY: ftp
 ftp: package $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz
+	$(call confirm,Uploads release to ftp.gnu.org!,UPLOAD)
 	cd $(pkg_parent) && $(GNUFTP) hyperbole-$(HYPB_VERSION).tar.gz
 	@echo "Hyperbole $(HYPB_VERSION) uploaded to ftp.gnu.org."
 
@@ -525,14 +525,8 @@ kotl/kotl-autoloads.el: $(EL_KOTL)
 	$(HYPB_at)$(TOUCH) $@
 
 # Used for ftp.gnu.org tarball distributions.
-$(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz:
+$(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.gz: $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar
 	cd $(pkg_parent) && $(GZIP) hyperbole-$(HYPB_VERSION).tar > hyperbole-$(HYPB_VERSION).tar.gz
-
-$(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.sig: $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar
-	$(RM) $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar.sig && \
-	cd $(pkg_parent) && $(GPG) -ba -o hyperbole-$(HYPB_VERSION).tar.sig hyperbole-$(HYPB_VERSION).tar && \
-	echo &&  echo "Hyperbole package built successfully:" && \
-	ls -l $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar*
 
 $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar: version $(HYPERBOLE_FILES)
 	$(RM) -fr $(pkg_hyperbole) $(pkg_hyperbole).tar
@@ -545,18 +539,9 @@ $(pkg_parent)/hyperbole-$(HYPB_VERSION).tar: version $(HYPERBOLE_FILES)
 pkgclean: packageclean
 packageclean:
 	if [ -d $(pkg_hyperbole) ]; then \
-	  cd $(pkg_hyperbole) && $(RM) -r .git* videos ChangeLog.* *autoloads.* *.elc TODO* HY-ANNOUNCE-* .DS_Store \
-	    core .place* ._* .*~ *~ *\# *- *.orig *.rej .nfs* CVS .cvsignore GNUmakefile.id \
-	    && gsed '/\f/,/\f/{/\f/!d}' .hypb | tail +2 > .hypb2 && rm -f .hypb && mv .hypb2 .hypb; fi # Filter out unneeded TODO file hbut data from .hypb
-	if [ -d $(pkg_hyperbole)/kotl ]; then \
-	  cd $(pkg_hyperbole)/kotl && $(RM) -r *autoloads.* *.elc TODO* .DS_Store \
-	    core .place* ._* .*~ *~ *\# *- *.orig *.rej .nfs* CVS .cvsignore; fi
-	if [ -d $(pkg_hyperbole)/man ]; then \
-	  cd $(pkg_hyperbole)/man && $(RM) -r .DS_Store core .place* hyperbole.{log,aux,cp*,fn*,ky*,toc,vr*} \
-	    ._* .*~ *~ *\# *- *.orig *.rej .nfs* CVS .cvsignore; fi
-	if [ -d $(pkg_hyperbole)/man/im ]; then \
-	  cd $(pkg_hyperbole)/man/im && $(RM) -r .DS_Store core .place* ._* .*~ *~ \
-	    *.ps *\# *- *.orig *.rej .nfs* CVS .cvsignore; fi
+		$(RM) -r $(pkg_hyperbole); \
+	fi
+	$(RM) $(pkg_parent)/hyperbole-$(HYPB_VERSION).*
 
 # ERT test
 .PHONY: tests test batch-tests
@@ -722,18 +707,18 @@ run-bash:
 
 .PHONY: docker-clean
 docker-clean:
-	docker rm elpa-local
+	docker volume rm elpa-local || true
 
 # Run with coverage. Run tests given by testspec and monitor the
 # coverage for the specified file.
 #
 # Usage:
-#    make coverage file=<file> testspec=<testspec>
+#    make coverage file=<file> test=<testspec>
 
 # Specify file to inspect for coverage while running tests given by testspec
 COVERAGE_FILE = ${file}
-ifeq ($(origin testspec), command line)
-COVERAGE_TESTSPEC = ${testspec}
+ifeq ($(origin test), command line)
+COVERAGE_TESTSPEC = ${test}
 else
 COVERAGE_TESTSPEC = t
 endif

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    6/30/93
-;; Last-Mod:     29-Mar-26 at 12:53:49 by Bob Weiner
+;; Last-Mod:     16-May-26 at 17:18:12 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -32,7 +32,9 @@
 (defvar completion-to-accept)
 (defvar mwheel-scroll-down-function)    ; "mwheel"
 
+(declare-function delete-trailing-whitespace-mode "simple")
 (declare-function outline-invisible-in-p "hyperbole")
+(declare-function stripspace-local-mode "ext:stripspace")
 
 ;;; ************************************************************************
 ;;; Public variables
@@ -132,6 +134,19 @@ It provides the following keys:
 	  paragraph-separate
 	  paragraph-start
 	  selective-display-ellipses))
+  ;; Prevent 'delete-trailing-whitespace-mode' from deleting trailing
+  ;; whitespace from any lines within kcells.
+  (when (bound-and-true-p delete-trailing-whitespace-mode)
+    (delete-trailing-whitespace-mode 0))
+  ;; Prevent "stripspace" package from deleting trailing whitespace from the
+  ;; first line of cells which are blank and between paragraphs within a
+  ;; cell.  The first line of the cell needs to maintain spaces after the
+  ;; relative identifier to ensure proper editing.  Similarly, blank lines
+  ;; between paragraphs within a single cell must have an indent so that
+  ;; editing is always within a valid context.
+  (when (bound-and-true-p stripspace-local-mode)
+    (stripspace-local-mode 0))
+  ;; Fix any wrong label separators and line indents.
   ;; Enable Org Table editing minor mode so that necessary key binding
   ;; overrides are made.  If not desired, the user can disable it via
   ;; `kotl-mode-hook'.
@@ -719,14 +734,15 @@ With optional prefix argument TOP-P non-nil, refill all cells in the outline."
   ;; Temporarily expand, then refill cells lacking no-fill property.
   (kview:map-expanded-tree (lambda (_kview) (kotl-mode:fill-cell)) kotl-kview top-p))
 
-(defun kotl-mode:just-one-space ()
-  "Delete all spaces and tabs around point and leave one space."
+(defun kotl-mode:just-one-space (&optional n)
+  "Delete all spaces and tabs around point, leaving one or optional N spaces.
+Does not remove any newlines as `just-one-space' does when given a negative N."
   (interactive "*")
   (save-excursion
     (save-restriction
       (save-excursion
 	(narrow-to-region (kotl-mode:beginning-of-line) (kotl-mode:to-end-of-line)))
-      (just-one-space))))
+      (just-one-space n))))
 
 (defun kotl-mode:kill-line (&optional arg)
   "Kill ARG lines from point."
@@ -775,12 +791,14 @@ With optional COPY-FLAG equal to t, copy region to kill ring but does not
 kill it.  With COPY-FLAG any other non-nil value, return region as a
 string without affecting kill ring.
 
-If called interactively, `transient-mark-mode' is non-nil, and
-there is no active region, copy any delimited selectable thing at
-point; see `hui:delimited-selectable-thing'.
+If called interactively, `transient-mark-mode' is non-nil, there is no
+active region, and point is not on a whitespace character, then kill/copy
+the selectable thing at point including any delimiters; see
+`hui:selectable-thing-and-bounds'.
 
-If the buffer is read-only and COPY-FLAG is nil, the region will not be deleted
-but it will be copied to the kill ring and then an error will be signaled.
+If the buffer is read-only and COPY-FLAG is nil, the region will not be
+deleted but it will be copied to the kill ring and then an error will be
+signaled.
 
 If a completion is active, this aborts the completion only."
   (interactive
@@ -803,6 +821,7 @@ If a completion is active, this aborts the completion only."
 	    ((and (memq this-command kill-commands)
 		  transient-mark-mode
 		  (not (use-region-p))
+                  (not (looking-at "\\s-"))
 		  (setq thing-and-bounds (hui:selectable-thing-and-bounds)
 			thing (nth 1 thing-and-bounds)
 			start (nth 2 thing-and-bounds)
@@ -1435,13 +1454,18 @@ See also the command `yank-pop' (\\[yank-pop])."
 				   (t (1- arg)))))
 	 (indent (kcell-view:indent))
 	 (indent-str (make-string indent ?\ )))
-    ;; Convert all occurrences of newline to newline + cell indent.
-    ;; Then insert into buffer.
-    (insert-for-yank (replace-regexp-in-string
-		      "[\n\r]" (lambda (match) (concat match indent-str)) yank-text)))
+    (save-restriction
+      (narrow-to-region (kcell-view:start) (kcell-view:end-contents))
+      ;; Convert all occurrences of newline to newline + cell indent.
+      ;; Then insert into buffer.
+      (insert-for-yank (replace-regexp-in-string
+		        "[\n\r]" (lambda (match)
+                                   (concat match indent-str))
+                        yank-text))))
   (when (consp arg) (kotl-mode:exchange-point-and-mark))
-  ;; If we do get all the way thru, make this-command indicate that.
-  (when (eq this-command t) (setq this-command 'kotl-mode:yank))
+  ;; If we do get all the way thru, make `this-command' indicate that.
+  (when (eq this-command t)
+    (setq this-command 'kotl-mode:yank))
   nil)
 
 (defun kotl-mode:yank-pop (arg)
@@ -3033,8 +3057,12 @@ With optional universal ARG, {\\`C-u'}, the new cell is added as the child of
 the current cell.  Non-read-only attributes from the current cell are
 replicated in the new cell."
   (interactive "*P")
-  ;; delete any surrounding whitespace
-  (delete-horizontal-space)
+  (kotl-mode:to-valid-position)
+  (kcell-view:operate
+   (lambda ()
+     ;; delete any surrounding whitespace
+     (delete-horizontal-space)
+     (delete-region (point) (progn (skip-chars-backward "\n\r\t ") (point)))))
   (let ((new-cell-contents (kotl-mode:kill-region
 			    (point) (kcell-view:end-contents) 'string))
 	(start (kcell-view:start))
@@ -3373,7 +3401,8 @@ See also the documentation for `kotl-mode:cell-attributes'."
 	(hargs:iform-read
 	 (list 'interactive
 	       (format "+KDisplay properties of koutline %s: "
-		       (if (= arg 1) "cell" "tree"))))))
+		       (if (= arg 1) "cell" "tree")))
+         (list (kcell-view:label)))))
     (list current-prefix-arg)))
   (unless (integerp cells-flag)
     ;; If cells-flag is nil, this sets it to 1
@@ -3703,6 +3732,7 @@ but always operates upon the current view."
 (put 'outline 'reveal-toggle-invisible 'kotl-mode:reveal-toggle-invisible)
 (defun kotl-mode:isearch-open-invisible (_overlay)
   (kotl-mode:show-tree))
+
 ;; Adapted from outline-reveal-toggle-invisible; called by isearch.
 (defun kotl-mode:reveal-toggle-invisible (o hidep)
   (if (not (derived-mode-p 'kotl-mode))

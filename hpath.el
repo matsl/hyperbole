@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     1-Nov-91 at 00:44:23
-;; Last-Mod:     22-Mar-26 at 18:26:12 by Bob Weiner
+;; Last-Mod:      4-Aug-26 at 09:24:34 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -90,8 +90,10 @@ Group 3 is the 1-based line number.  Group 5 is the 0-based column number.")
 (defconst hpath:markup-link-anchor-regexp
   "\\`\\(#?[^#+]*[^#+.]\\)?\\(#\\)\\([^\]\[#+^{}<>\"`'\\\n\t\f\r]*\\)"
   "Regexp matching a filename followed by a hash (#) and an optional anchor name.
-The anchor is an in-file reference.  # is group 2.  Group 3 is the anchor
-name.")
+The optional filename is group 1, though if it ends with a # then that
+includes group 2.  The anchor is an in-file reference.  Its leading # is
+group 2.  Group 3 is the optional anchor name; if it is empty, then group 2
+is part of the filename.")
 
 (defvar hpath:path-variable-regexp "\\`\\$?[{(]?\\([-_A-Z]*path[-_A-Z]*\\)[)}]?\\'"
   "Regexp that matches exactly to a standalone path variable name reference.
@@ -151,6 +153,7 @@ The format is ${variable}.  Match grouping 1 is the name of the variable.")
 (declare-function kbd-key:key-series-to-events "hib-kbd")
 (declare-function kcell-view:indent "kcell-view")
 (declare-function klink:act "klink")
+(declare-function kotl-mode:to-valid-position "kotl-mode")
 (declare-function mm-mailcap-command "mm-decode")
 (declare-function org-element-property "org-element-ast")
 
@@ -328,10 +331,11 @@ Call this function manually if mount points change after Hyperbole is loaded."
                                 mount-points-to-add)))
 		      ;; Return a plist of MSWindows path-mounted mount-point pairs.
 		      ;; Next call will raise an error if default-directory is set to
-		      ;; a URL, e.g. in RFC buffers; just ignore it and return nil in
-		      ;; such a case.
-		      (ignore-errors
-			(split-string (shell-command-to-string (format "df -a -t drvfs 2> /dev/null | sort | uniq | grep -v '%s' | sed -e 's+ .*[-%%] /+ /+g'" hpath:posix-mount-points-regexp)))))
+		      ;; a URL, e.g. in RFC buffers or if tcsh shell is used; just
+                      ;; ignore it and return nil in such a case.
+		      (condition-case ()
+			  (split-string (shell-command-to-string (format "df -a -t drvfs 2> /dev/null | sort | uniq | grep -v '%s' | sed -e 's+ .*[-%%] /+ /+g'" hpath:posix-mount-points-regexp)))
+                        (error nil)))
       ;; Sort alist of (path-mounted . mount-point) elements from shortest
       ;; to longest path so that the longest path is selected first within
       ;; 'directory-abbrev-alist' (elements are added in reverse order).
@@ -690,15 +694,16 @@ Contains a %s for replacement of a specific anchor id.")
   "Regexp matching a Markdown anchor id definition.
 Contains a %s for replacement of a specific anchor id.")
 
-(defconst hpath:markdown-section-pattern "^[ \t]*\\(#+\\|\\*+\\)[ \t]+%s\\([\[<\({ \t[:punct:]]*\\)$"
-  "Regexp matching a Markdown section header.
-Contains a %s for replacement of a specific section name.")
+(defconst hpath:markdown-section-pattern "^[ \t]*\\(#+\\|\\*+\\)[ \t]*%s\\([\[<\({ \t[:punct:]]*\\)$"
+  "Bol-anchored regexp matching an exact Markdown section.
+Allows for both '#' and '*' section headers.  Contains a %s for replacement
+of a specific section name.")
 
 (defconst hpath:markdown-suffix-regexp "\\.[mM][dD]"
   "Regexp that matches to a Markdown file suffix.")
 
 (defconst hpath:outline-section-pattern "^\\(\\*+\\|#\\+TITLE:\\)[ \t]+%s[ \t]*\\([\[<\({[:punct:]]+\\|$\\)"
-  "Bol-anchored, no leading spaces regexp matching an Emacs outline section header.
+  "Bol-anchored, no leading spaces regexp matching an exact outline section.
 Also supports Org '#+TITLE:' lines and headings as sections.  Contains a %s
 for replacement of a specific section name.")
 
@@ -712,6 +717,11 @@ These are used to indicate how to display or execute the pathname.
 (defvar hpath:remote-regexp
   "\\`/[^/:]+:\\|\\`s?ftp[:.]\\|\\`www\\.\\|\\`https?:"
   "Regexp matching remote pathnames and urls which invoke remote file handlers.")
+
+(defconst hpath:shell-comment-pattern
+  "^[ \t]*#+[ \t]*%s\\([ \t]\\|\\([\[<\({ \t[:punct:]]\\)\\|$\\)"
+  "Bol-anchored regexp matching the first part of a shell comment.
+Contains a %s for replacement of the comment string.")
 
 (defconst hpath:shell-modes '(sh-mode csh-mode shell-script:mode)
   "List of modes for editing shell scripts where # is a comment character.")
@@ -968,9 +978,9 @@ or `~'."
       (setq path (string-trim path)))
     (when (and path (not non-exist)
 	       (string-match hpath:prefix-regexp path)
+	       (not (string-equal (match-string 0 path) path))
 	       (setq prefix (substring path 0 1)
-		     path (substring path 1))
-	       (not (string-equal (match-string 0 path) path)))
+		     path (substring path 1)))
       (setq non-exist t))
     (if (and path (not (string-empty-p path))
 	     (or (and non-exist prefix)
@@ -1184,7 +1194,10 @@ end-pos) or nil."
 	;; quote or surrounded by braces; if so, don't consider it a path.
 	;; Also ignore whitespace delimited root dirs, e.g. " / ".
 	(when (and (stringp p) (not (string-match-p "\\`{.*}\\'\\|\"\\|\\`[/\\]+\\'" p))
-		   (delq nil (mapcar (lambda (c) (/= (char-syntax ?.) (char-syntax c))) p)))
+		   (delq nil (mapcar (lambda (c)
+                                       (or (memq c '(?~ ?. ?/ ?* ?? ?\\))
+                                           (/= (char-syntax c) ?.)))
+                                     p)))
 	  ;; Prepend proper directory from cd, ls *, recursive ls or dir file
 	  ;; listings when needed.
 	  (setq p (string-trim p)
@@ -1245,57 +1258,61 @@ Optionally use symbol DISPLAY-WHERE or `hpath:display-where'."
 
 (defun hpath:expand (path &optional exists-flag)
   "Expand relative PATH using match in `hpath:auto-variable-alist'.
-Any single ${variable} within PATH is resolved.  Then PATH is
-expanded from the first file matching regexp in
-`hpath:auto-variable-alist'.
+Any single ${variable} within PATH is resolved.  Then PATH is expanded from
+the first file matching regexp in `hpath:auto-variable-alist'.
 
-Return expanded path if it exists or it contains file wildcards of
-'[]', '*', or '?'.
+With optional EXISTS-FLAG non-nil, return the expanded path if it exists or
+if it contains file wildcards of '[]', '*', or '?'; if neither of those
+cases, return nil.
 
-Return any absolute or invalid PATH unchanged unless optional
-EXISTS-FLAG is non-nil in which case, return the expanded path
-only if it exists, otherwise, return nil."
-
+Without EXISTS-FLAG, return the expanded path if it is a string else the
+original path."
   (when (stringp path)
     (unless (string-match-p hpath:variable-regexp path)
       ;; Replace any $VAR environment variable references
       (setq path (substitute-in-file-name path)))
-    (let (variable-path
-	  substituted-path
-	  expanded-path)
-      (setq
-       ;; Expand relative path from appropriate multi-path prefix variables
-       variable-path (hpath:expand-with-variable path)
-       ;; Substitute values for Emacs Lisp variables and environment variables in PATH.
-       substituted-path (hpath:substitute-value variable-path)
-       expanded-path
-       (cond ((or (null substituted-path) (string-empty-p substituted-path))
-	      path)
-	     ((and (string-match-p hpath:variable-regexp variable-path)
-		   (string-match-p hpath:variable-regexp substituted-path))
-	      ;; If a path is invalid, then a variable may have been prepended but
-	      ;; it will remain unresolved in `substituted-path', in which case we
-	      ;; want to return `path' without any further changes.
-	      path)
-	     ;; For compressed Elisp libraries, add any found compressed suffix to the path.
-	     ((string-match-p "\\.el\\(\\.\\|\\'\\)" substituted-path)
-	      (or (locate-library substituted-path t) path))
-	     ((or (string-match-p "\\`\\(#[^#+.]\\|([^\)\\/]+)\\|[^.\\/].*\\.[^.\\/]\\)" substituted-path)
-		  (string-match-p "[\\/~]" substituted-path))
-	      ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
-	      substituted-path)
-             ((and (null (file-name-directory substituted-path))
-                   ;; Could be an existing HyWikiWord
-                   (let ((page-file (cdr (hywiki-get-referent substituted-path))))
-                     (when page-file
-                       (setq substituted-path (expand-file-name page-file hywiki-directory))))))
-	     (t (expand-file-name substituted-path))))
-      (if (and (stringp expanded-path)
-	       (or (file-exists-p expanded-path)
-		   (string-match "[[*?]" (file-local-name expanded-path))))
-	  expanded-path
-	(unless exists-flag
-	  path)))))
+    ;; Don't expand if path is a "*Buffer Name*"
+    (let ((case-fold-search nil))
+      (if (string-match-p "\\`\\*[A-Z].*\\*\\'" path)
+          path
+        (let (variable-path
+	      substituted-path
+	      expanded-path)
+          (setq
+           ;; Expand relative path from appropriate multi-path prefix variables
+           variable-path (hpath:expand-with-variable path)
+           ;; Substitute values for Emacs Lisp variables and environment variables in PATH.
+           substituted-path (hpath:substitute-value variable-path)
+           expanded-path
+           (cond ((or (null substituted-path) (string-empty-p substituted-path))
+	          path)
+	         ((and (string-match-p hpath:variable-regexp variable-path)
+		       (string-match-p hpath:variable-regexp substituted-path))
+	          ;; If a path is invalid, then a variable may have been prepended but
+	          ;; it will remain unresolved in `substituted-path', in which case we
+	          ;; want to return `path' without any further changes.
+	          path)
+	         ;; For compressed Elisp libraries, add any found compressed suffix to the path.
+	         ((string-match-p "\\.el\\(\\.\\|\\'\\)" substituted-path)
+	          (or (locate-library substituted-path t) path))
+	         ((or (string-match-p "\\`\\(#[^#+.]\\|([^\)\\/]+)\\|[^.\\/].*\\.[^.\\/]\\)" substituted-path)
+		      (string-match-p "[\\/~]" substituted-path))
+	          ;; Don't expand if an Info path, URL, #anchor or has a directory prefix
+	          substituted-path)
+                 ((and (null (file-name-directory substituted-path))
+                       ;; Could be an existing HyWikiWord
+                       (let ((page-file (cdr (hywiki-get-referent substituted-path))))
+                         (when (stringp page-file)
+                           (setq substituted-path (expand-file-name page-file hywiki-directory))))))
+	         (t (expand-file-name substituted-path))))
+          (if exists-flag
+              (when (and (stringp expanded-path)
+	                 (or (file-exists-p expanded-path)
+		             (string-match "[[*?]" (file-local-name expanded-path))))
+	        expanded-path)
+            (if (stringp expanded-path)
+	        expanded-path
+	      path)))))))
 
 (defun hpath:expand-list (paths &optional match-regexp filter)
   "Return expansions of PATHS, a list of dirs or wildcarded file patterns.
@@ -1314,6 +1331,8 @@ ${variable} per path."
   (when (eq filter t) (setq filter #'file-exists-p))
 
   (setq paths (mapcan (lambda (path-pat-or-list)
+                        ;; In the next line, `path-pat-or-list' is
+                        ;; guaranteed to be a string
 			(setq path-pat-or-list (hpath:expand path-pat-or-list))
 			(when (setq path-pat-or-list
 				    (or (when (and path-pat-or-list find-file-wildcards)
@@ -1393,7 +1412,9 @@ If PATH is absolute, return it unchanged."
 	  ;; Path is either absolute, contains wildcards or is
 	  ;; relative to the current directory, so don't expand
 	  ;; into `hpath:auto-variable-alist' paths.
-	  (setq path (expand-file-name path))
+          ;; Expand only if not absolute.
+          (unless (file-name-absolute-p path)
+	    (setq path (expand-file-name path)))
 	(unless (or (file-name-absolute-p path)
 		    (hpath:url-p path)
 		    (string-match-p hpath:variable-regexp path))
@@ -1590,7 +1611,8 @@ but locational suffixes within the file are utilized."
 			   (string-to-number (match-string 3 path)))
 		 path (substring path 0 (match-beginning 0)))))
     (unless (file-exists-p path) ;; might be #autosave-file#
-      (when (string-match hpath:markup-link-anchor-regexp path)
+      (when (and (string-match hpath:markup-link-anchor-regexp path)
+                 (not (string-empty-p (match-string 3 path))))
 	(setq hash t
 	      anchor (match-string 3 path)
 	      anchor-start-pos (match-beginning 3)
@@ -1733,7 +1755,9 @@ but locational suffixes within the file are utilized."
   "Ignore HASH when ANCHOR is non-null and move point to ANCHOR string if found.
 Move point to beginning of buffer if HASH is non-nil and ANCHOR is null.
 With optional INSTANCE-NUM, go to that instance of ANCHOR from the start
-of the buffer."
+of the buffer.
+
+Trigger an error if the instance of the non-null anchor requested is not found."
   (let ((omin (point-min))
 	(omax (point-max)))
     (unwind-protect
@@ -1766,15 +1790,18 @@ of the buffer."
 								      (string-match-p "\\`[A-Z0-9][A-Z0-9_-]*\\'"
                                                                                       (file-name-nondirectory (hypb:buffer-file-name)))))
 							     hpath:outline-section-pattern)
-							    ((or (and (hypb:buffer-file-name)
-								      (string-match-p hpath:markdown-suffix-regexp (hypb:buffer-file-name)))
-								 (apply #'derived-mode-p hpath:shell-modes))
+							    ((and (hypb:buffer-file-name)
+								  (string-match-p hpath:markdown-suffix-regexp (hypb:buffer-file-name)))
 							     hpath:markdown-section-pattern)
+							    ((apply #'derived-mode-p hpath:shell-modes)
+							     hpath:shell-comment-pattern)
 							    ((derived-mode-p 'texinfo-mode)
 							     hpath:texinfo-section-pattern)
-							    ((or prog-mode (null (hypb:buffer-file-name))
-								 (apply #'derived-mode-p '(fundamental-mode text-mode)))
-							     "%s")
+							    (prog-mode
+							     (concat "^\\(" (regexp-quote comment-start) "\\)*" "[ \t]*%s"))
+							    ;; ((or (null (hypb:buffer-file-name))
+                                                            ;;     (apply #'derived-mode-p '(fundamental-mode text-mode)))
+                                                            ;; "^%s")
 							    (t hpath:outline-section-pattern))
 						      (regexp-quote anchor-name)))
 				    (referent-leading-spaces-regexp
@@ -2002,7 +2029,8 @@ form is what is returned for PATH."
 
 (defun hpath:org-normalize-title (title)
   "Return title in normalized form.
-Strip all priority, leading ':' or '-' separators, and stats from TITLE."
+Strip all priority, leading ':' or '-' separators, stats and Org emphasis
+characters from TITLE."
   (when title
     (let ((clean (copy-sequence title)))
       ;; Strip leading priority: [#B] or [#2} followed by ':' or '-' surrounded by any whitespace
@@ -2011,7 +2039,11 @@ Strip all priority, leading ':' or '-' separators, and stats from TITLE."
       ;; Matches: "- Title", ": Title", " - Title"
       (setq clean (string-trim (replace-regexp-in-string "\\`[ \t]*[-:][ \t]+" "" clean)))
        ;; Strip trailing statistics cookies [1/2] or [50%]
-      (setq clean (replace-regexp-in-string "\\(?: +\\[[0-9%+/]+\\]\\)+\\'" "" clean)))))
+      (setq clean (replace-regexp-in-string "\\(?: +\\[[0-9%+/]+\\]\\)+\\'" "" clean))
+      ;; Strip *bold*’, ‘/italic/’, ‘_underlined_’, ‘=verbatim=’ and ‘~code~’
+      ;; Org emphasis characters
+      (setq clean (replace-regexp-in-string "\\`[ \t]*[*/_=~]\\(.+\\)[*/_=~]"
+                                            "\\1" clean)))))
 
 (defun hpath:org-normalize-titles ()
   "Get all buffer Org titles in normalized form.
@@ -2268,13 +2300,13 @@ variable reference like ${variable}."
 	  (setq val (symbol-value var))
 	  (cond ((stringp val)
 		 (if (setq result
-			   (hpath:substitute-var-name var val path))
+			   (hpath:substitute-var-name var val (expand-file-name path)))
 		     (setq new-path result)))
 		((null val))
 		((listp val)
 		 (while (and val (null new-path))
 		   (when (setq result
-			       (hpath:substitute-var-name var (car val) path))
+			       (hpath:substitute-var-name var (car val) (expand-file-name path)))
 		     (setq new-path result))
 		   (setq val (cdr val))))
 		(t (error "(hpath:substitute-var): `%s' has invalid value for hpath:variables" var)))))
@@ -2868,21 +2900,20 @@ that returns a replacement string."
   "Replace with VAR-SYMBOL any occurrences of VAR-DIR-VAL in PATH.
 Replacement is done iff VAR-DIR-VAL is an absolute path.
 
-If VAR-SYMBOL is \\='hyperb:dir or \\='load-path, remove the matching PATH
-part rather than replacing it with the variable since it can be
+If VAR-SYMBOL is \\='load-path, remove the matching PATH part
+rather than replacing it with the variable since it can be
 resolved without attaching the variable name.
 
 If PATH is modified, return PATH, otherwise return nil."
   (when (and (stringp var-dir-val) (file-name-absolute-p var-dir-val))
     (let ((new-path (replace-regexp-in-string
-		     (regexp-quote (file-name-as-directory
-				    (or var-dir-val default-directory)))
+		     (concat "^" (regexp-quote (file-name-as-directory var-dir-val)))
 		     ;; Remove matching path rather than adding the
 		     ;; variable to the path when the variable is one
 		     ;; for Elisp file paths and path is to an Elisp
 		     ;; file.  These can be resolved without the
 		     ;; variable being included in the path.
-		     (if (and (memq var-symbol '(hyperb:dir load-path))
+		     (if (and (memq var-symbol '(load-path))
 			      (delq nil (mapcar (lambda (suffix) (string-suffix-p suffix path))
 						(get-load-suffixes))))
 			 ""

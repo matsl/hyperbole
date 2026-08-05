@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    15-Oct-91 at 20:13:17
-;; Last-Mod:     22-Mar-26 at 23:15:20 by Bob Weiner
+;; Last-Mod:     19-Jul-26 at 09:57:15 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -30,6 +30,7 @@
 (defvar hargs:reading-type)             ; "hargs.el"
 (defvar hbmap:dir-user)                 ; "hbmap.el"
 (defvar hbmap:filename)                 ; "hbmap.el"
+(defvar hsys-org-enable-smart-keys)     ; "hsys-org.el"
 (defvar hui:menu-highlight-flag)        ; "hui-mini.el"
 (defvar hui:menu-hywiki nil)            ; "hui-mini.el"
 (defvar hui:menu-mode-map)              ; "hui-mini.el"
@@ -41,9 +42,14 @@
 (defvar hywiki-mode)                    ; "hywiki.el"
 (defvar org-mode-map)                   ; "org.el"
 
-(declare-function hpath:find "hpath")
-(declare-function hmouse-update-smart-keys "hmouse-key")
 (declare-function hargs:at-p "hargs")
+(declare-function hkey-help-show "hmouse-drv")
+(declare-function hmouse-update-smart-keys "hmouse-key")
+(declare-function hpath:find "hpath")
+(declare-function hyperb:init-menubar "hinit")
+(declare-function hyperbole-mode "hyperbole")
+(declare-function hyrolo-add "hyrolo")
+(declare-function hyrolo-fgrep "hyrolo")
 (declare-function kbd-key:hyperbole-mini-menu-key-p "hib-kbd")
 
 ;;; ************************************************************************
@@ -602,7 +608,7 @@ potentially modified MENU-STR."
 	(mapc (lambda (c)
 		(cond ((= c ?>)
 		       (setq after-menu-name-flag t))
-		      ((= c ?\ )
+		      ((memq c '(?\n ?\r ?\ ))
 		       (setq after-word-capital-letter-flag nil))
 		      ((and after-menu-name-flag
 			    (not after-word-capital-letter-flag)
@@ -1058,7 +1064,10 @@ support underlined faces as well."
 	   '("BacklinkConsult" hywiki-consult-backlink
 	     "Use Consult to select a backlink (reference) to a prompted for HyWikiWord."))
 	 '("Create"         hywiki-word-create-and-display
-	    "Create and display a new or existing HyWikiWord referent, prompting with any existing referent names.")
+	    "Create and display a new or existing HyWikiWord referent, prompting with any existing referent names.
+With either `hywiki-referent-prompt-flag' set or optional prefix ARG,
+prompt for and choose a typed referent, otherwise, create and/or display
+a HyWiki page.  See `hywiki-referent-menu' for valid referent types.")
 	 '("DiredHyWiki"    hywiki-directory-edit
 	   "Display and edit HyWiki directory.")
 	 '("EditPage"       hywiki-find-page
@@ -1082,7 +1091,9 @@ With a prefix arg, insert a HyWikiWord instead.")
          '("Publish"        hywiki-publish-to-html
 	   "Publish modified pages in the HyWiki to HTML; prefix arg to publish all pages.")
 	 '("TagFind"        hywiki-tags-view
-	   "Find HyWiki Org tags.")))
+	   "Find HyWiki Org tags.")
+	 '("Yank"           hywiki-yank
+	   "Insert at point the first matching entry.")))
   "Hyperbole minibuffer HyWiki menu items of the form:
 \(LABEL-STRING ACTION-SEXP DOC-STR)."
   :set  (lambda (var value)
@@ -1113,7 +1124,8 @@ With a prefix arg, insert a HyWikiWord instead.")
 	 '("StringFind"       hyrolo-fgrep                  "Find entries containing a string.")
 	 '("TagFind"          hyrolo-tags-view              "Find HyRolo Org tags.")
 	 '("WordFind"         hyrolo-word                   "Find entries containing words.")
-	 '("Yank"             hyrolo-yank                   "Find an entry containing a string and insert it at point.")))
+	 '("Yank"             hyrolo-yank                   "Insert at point
+  the first matching entry.")))
   "Hyperbole minibuffer Rolo menu items of the form:
 \(LABEL-STRING ACTION-SEXP DOC-STR)."
   :set  (lambda (var value)

@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     2-Jul-16 at 14:54:14
-;; Last-Mod:     29-Mar-26 at 22:57:14 by Bob Weiner
+;; Last-Mod:     18-Jul-26 at 00:36:47 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -40,6 +40,7 @@
 (require 'org-element)
 (require 'org-fold nil t)
 (require 'org-macs)
+(require 'thingatpt)
 (require 'warnings)
 (require 'find-func)
 ;; Avoid any potential library name conflict by giving the load directory.
@@ -57,6 +58,7 @@
 
 (defvar hyperbole-mode-map)             ; "hyperbole.el"
 (defvar org--inhibit-version-check)     ; "org-macs.el"
+(defvar hywiki-org-link-type)           ; "hywiki.el"
 (defvar hywiki-org-link-type-required)  ; "hywiki.el"
 (defvar org-agenda-buffer-tmp-name)     ; "org-agenda.el"
 (defvar org-uuid-regexp)                ; "org-macs.el"
@@ -69,6 +71,9 @@
 (declare-function hsys-org-roam-tags-view "hsys-org")
 
 (declare-function org-babel-get-src-block-info "org-babel")
+(declare-function org-element--property "org-element-ast")
+(declare-function org-element-lineage "org-element-ast")
+(declare-function org-element-type "org-element-ast")
 (declare-function org-fold-show-context "org-fold")
 (declare-function org-id-find "org-id")
 (declare-function org-link-open-from-string "ol")
@@ -403,7 +408,7 @@ Search for optional REGEXP up to MAX-MATCHES in PATH-LIST or `org-directory'.
 Use ripgrep (rg) if found, otherwise, plain grep.  Initialize search with
 optional REGEXP and interactively prompt for changes.  Limit matches
 per file to the absolute value of MAX-MATCHES, if given and not 0.  If
-0, match to headlines only (lines that start with a '^[*#]+[ \t]+' regexp).
+0, match to headlines only (lines that start with a '^[*#]+' regexp).
 With optional PROMPT string, use this as the first part of the grep prompt;
 omit any trailing colon and space in the prompt."
   (interactive "i\nP")
@@ -522,6 +527,7 @@ Match to all todos if `keyword' is nil or the empty string."
     (let ((case-fold-search t))
       (looking-at org-babel-src-block-regexp))))
 
+;; Derived in part from `org-open-at-point-global' in "org.el"
 (defun hsys-org-link-at-p ()
   "Return (start . end) iff point is on a delimited Org mode link, else nil.
 Start and end are the buffer positions of the label of the link.  This
@@ -534,44 +540,75 @@ link (return nil); instead activate it as HyWikiWord reference.
 
 Assume caller has already checked that the current buffer is in
 `org-mode' or is looking for an Org link in a non-Org buffer type."
-  (unless (or (smart-eolp) (smart-eobp))
-    (let (label-start-end)
-      (if (derived-mode-p 'org-mode)
-	  ;; Must be in `org-mode' to use `org-element-property'
-	  (when (org-element-property :raw-link (org-element-context))
-	    ;; At an Org link
-	    (save-match-data
-	      ;; If this Org link matches a potential HyWikiWord, ignore it.
-	      (when (and (not (and (fboundp 'hywiki-word-at) (hywiki-word-at)))
-			 (setq label-start-end (hsys-org-link-label-start-end)))
-		(cons (nth 1 label-start-end) (nth 2 label-start-end)))))
-	;; Non-Org mode (can't call org-element (which
-	;; hsys-org-thing-at-p calls) outside of Org mode.
-	;; Check if point is inside a link.
-	(save-match-data
-	  ;; If any Org link matches a potential HyWikiWord, ignore it.
-	  (when (and (not (and (fboundp 'hywiki-word-at) (hywiki-word-at)))
-		     (setq label-start-end (hargs:delimited "[[" "]]" nil nil t)))
-	    (let* ((start (nth 1 label-start-end))
-		   (end (nth 2 label-start-end)))
-	      (cons start end))))))))
+  (unless (or (smart-eolp) (smart-eobp)
+              ;; The types below are handled by Hyperbole ibtypes
+              (let ((str (hpath:www-at-p)))
+    	        (and str
+                     ;; If a file link, don't consider a url unless has at
+                     ;; least 2 forward slashes after the :.
+                     (if (string-prefix-p "file:/" str)
+                         (string-prefix-p "file://" str)
+                       t)))
+	      (thing-at-point 'email))
+    (let (start-end)
+      (and
+       ;; Org will throw a warning that `org-element-property' must be
+       ;; used only within an `org-mode' buffer, but it works in buffers
+       ;; outside of `org-mode' when on an Org link, so just suppress any
+       ;; warning.  Using this allows recognition of Org links that are
+       ;; not surrounded by double sqare brackets,
+       ;; e.g. file:my-file::my-text.
+       (setq start-end
+             (with-suppressed-warnings
+	         ((org-element))
+               (or
+	        (org-in-regexp
+	         org-link-any-re
+	         (let ((origin (point)))
+	           (max
+	            (save-excursion
+	              (backward-paragraph)
+	              (count-lines
+	               (point)
+	               origin))
+	            (save-excursion
+	              (forward-paragraph)
+	              (count-lines origin
+			           (point))))))
+	        (org-in-regexp org-ts-regexp-both nil t)
+	        (org-in-regexp org-tsr-regexp-both nil t))))
+       ;; Don't treat this as an Org link if its entire description is a
+       ;; HyWikiWord, e.g. [[hy:WikiWord]], [[WikiWord]] or
+       ;; [[link][WikiWord]], as these are handled as implicit buttons.
+       (let* ((org-link (buffer-substring-no-properties (car start-end) (cdr start-end)))
+              (wikiword (and org-link (fboundp 'hywiki-word-at) (hywiki-word-at)))
+              (label-start-end (when wikiword (hsys-org-link-label-start-end)))
+              (label (car label-start-end)))
+         (when (and label (string-match-p (concat hywiki-org-link-type ":") label))
+           (setq label (substring label (1+ (length hywiki-org-link-type)))))
+         ;; If WikiWord is the entire label, ignore it and allow ibtype
+         ;; handling instead
+         (unless (and wikiword label (string-equal wikiword label))
+           start-end))))))
 
 (defun hsys-org-link-label-start-end ()
   "With point on an Org link, return the list of (<label> <start> <end>), else nil.
 <label> is either the optional link description or the link
 referent.  <start> and <end> are buffer positions where <label>
 starts and ends, excludes delimiters."
-  (let ((thing (org-element-context)))
-    (when thing
-      (let ((ol-desc-start (org-element-property :contents-begin thing))
-	    (ol-desc-end (org-element-property :contents-end thing)))
-	(if (and ol-desc-start ol-desc-end)
-	    (list (buffer-substring-no-properties ol-desc-start ol-desc-end)
-		  ol-desc-start ol-desc-end)
-	  (let ((ol-referent (org-element-property :raw-link thing))
-		(ol-referent-start (+ (org-element-property :begin thing) 2))
-		(ol-referent-end (- (org-element-property :end thing) 2)))
-	    (list ol-referent ol-referent-start ol-referent-end)))))))
+  (with-suppressed-warnings
+      ((org-element))
+    (let ((thing (org-element-context)))
+      (when thing
+        (let ((ol-desc-start (org-element-property :contents-begin thing))
+	      (ol-desc-end (org-element-property :contents-end thing)))
+	  (if (and ol-desc-start ol-desc-end)
+	      (list (buffer-substring-no-properties ol-desc-start ol-desc-end)
+		    ol-desc-start ol-desc-end)
+	    (let ((ol-referent (org-element-property :raw-link thing))
+		  (ol-referent-start (+ (org-element-property :begin thing) 2))
+		  (ol-referent-end (- (org-element-property :end thing) 2)))
+	      (list ol-referent ol-referent-start ol-referent-end))))))))
 
 ;; Assume caller has already checked that the current buffer is in org-mode.
 (defun hsys-org-heading-at-p (&optional _)

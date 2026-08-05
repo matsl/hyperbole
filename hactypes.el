@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    23-Sep-91 at 20:34:36
-;; Last-Mod:     28-Mar-26 at 13:03:44 by Bob Weiner
+;; Last-Mod:     14-Jul-26 at 00:15:46 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -24,14 +24,15 @@
 ;;; Public declarations
 ;;; ************************************************************************
 
-(declare-function kotl-mode:goto-cell "kotl-mode")
-(declare-function kotl-mode:beginning-of-buffer "kotl-mode")
-(declare-function kotl-mode:goto-cell-ref "kotl-mode")
 (declare-function kcell-view:indent "kcell-view")
-
+(declare-function kotl-mode:beginning-of-buffer "kotl-mode")
+(declare-function kotl-mode:goto-cell "kotl-mode")
+(declare-function kotl-mode:goto-cell-ref "kotl-mode")
 (declare-function org-fold-show-context "org-fold")
 (declare-function org-roam-id-find "‎ext:org-roam-id")
 (declare-function rmail:msg-to-p "hrmail")
+(declare-function smart-eobp "hui-mouse")
+(declare-function smart-tags-file-path "hmouse-tag")
 
 ;;; ************************************************************************
 ;;; Standard Hyperbole action types
@@ -315,9 +316,9 @@ If `mail-user-agent' is `browse-url', do this in the default web browser."
   (interactive "DDirectory to link to: ")
   (hpath:find directory))
 
-(defact link-to-ebut (key &optional key-file)
-  "Perform explicit button action specified by KEY and optional KEY-FILE.
-Interactively, KEY-FILE defaults to the current buffer's file name."
+(defact link-to-ebut (key &optional key-src)
+  "Perform explicit button action specified by KEY and optional KEY-SRC.
+Interactively, KEY-SRC defaults to the current buffer's file name."
   (interactive
    (let (but-lbl
          but-file)
@@ -340,17 +341,20 @@ Interactively, KEY-FILE defaults to the current buffer's file name."
                (beep))
              (ebut:label-to-key but-lbl))
            but-file)))
-  (let (but
-        normalized-file)
-    (if key-file
-        (setq normalized-file (hpath:normalize key-file))
-      (setq normalized-file (hypb:buffer-file-name)))
-
-    (if (setq but (when normalized-file (ebut:get key nil normalized-file)))
-        (hbut:act but)
+  (let* ((key-src-buf-flag (or (bufferp key-src)
+                               (and (stringp key-src) (get-buffer key-src))))
+         (but (if key-src-buf-flag
+                  (ebut:get key key-src)
+                (ebut:get key nil key-src))))
+    (if but
+        (ebut:act but)
+      (unless key-src-buf-flag
+        (setq key-src (if key-src
+                          (hpath:normalize key-src)
+                        (hbut:get-key-src t))))
       (hypb:error "(link-to-ebut): No button `%s' in `%s'"
                   (ebut:key-to-label key)
-                  key-file))))
+                  key-src))))
 
 (defact link-to-elisp-doc (symbol)
   "Display documentation for SYMBOL."
@@ -373,8 +377,8 @@ list item returned."
 	path-buf)
     (unwind-protect
 	(let* ((default-directory (or (hattr:get 'hbut:current 'dir)
-				      (file-name-directory
-				       (or (hattr:get 'hbut:current 'loc) ""))
+				      (and (stringp (hattr:get 'hbut:current 'loc))
+				           (file-name-directory (hattr:get 'hbut:current 'loc)))
 				      default-directory))
 	       (file-path (or (car hargs:defaults) default-directory))
 	       (file-point (cadr hargs:defaults))
@@ -481,9 +485,9 @@ LINE-NUM may be an integer or string."
 		  col-num)))
       (hpath:find-line path line-num col-num))))
 
-(defact link-to-gbut (key &optional _key-file)
+(defact link-to-gbut (key &optional _key-src)
   "Perform an action given by an existing global button, specified by KEY.
-Optional second arg, KEY-FILE, is not used but is for calling
+Optional second arg, KEY-SRC, is not used but is for calling
 compatibility with the `hlink' function."
   (interactive
    (let ((gbut-file (hpath:validate (hpath:substitute-value (gbut:file))))
@@ -517,9 +521,8 @@ suffix."
     (hypb:error "(link-to-Info-index-entry): Invalid Info index item: `%s'" index-item)))
 
 (defact link-to-Info-node (string)
-  "Display an Info node given by STRING.
-If not found, try to display it as an Info index item.
-STRING must be a string of the form \"(filename)name\" or
+  "Display an Info node, anchor or index position given by STRING.
+STRING must be of the form: \"(filename)name\" or
 \"filename.info#name\".  During button creation, completion for both
 filename and node names is available.  Filename may be given without
 the .info suffix in the format with parentheses."
@@ -533,11 +536,11 @@ the .info suffix in the format with parentheses."
       (id-info string)
     (hypb:error "(link-to-Info-node): Invalid Info node: `%s'" string)))
 
-(defact link-to-ibut (name-key &optional but-src point)
-  "Activate implicit button given by NAME-KEY, optional BUT-SRC and POINT.
+(defact link-to-ibut (name-key &optional key-src _point)
+  "Activate implicit button given by NAME-KEY, optional KEY-SRC and _POINT.
 NAME-KEY must be a normalized key for an ibut <[name]>.
-BUT-SRC defaults to the current buffer's file or if there is no
-attached file, then to its buffer name.  POINT defaults to the
+KEY-SRC defaults to the current buffer's file or if there is no
+attached file, then to its buffer name.  _POINT defaults to the
 current point.
 
 When the button with this action type is created, point must be
@@ -546,10 +549,11 @@ on the implicit button to which to link."
    (let ((ibut-name-key (ibut:at-p t)))
      (cond (ibut-name-key
 	    (list ibut-name-key (or (hypb:buffer-file-name) (buffer-name)) (point)))
-	   ;; !! TODO: If default is null below and are creating, rather than editing
-	   ;; the link, it would be better to throw an error than create
-	   ;; an invalid link, but it is difficult to tell which operation
-	   ;; is in progress, so ignore this for now.  -- RSW, 01-25-2020
+	   ;; !! TODO: If default is null below and are creating, rather
+	   ;; than editing the link, it would be better to throw an error
+	   ;; than create an invalid link, but it is difficult to tell which
+	   ;; operation is in progress, so ignore this for now.  -- RSW,
+	   ;; 01-25-2020
 
 	   ;; When not on an ibut and editing the link, use existing arguments
 	   ((and (bound-and-true-p hargs:defaults) (listp hargs:defaults) hargs:defaults)
@@ -559,30 +563,63 @@ on the implicit button to which to link."
 
   (unless name-key
     (hypb:error "(link-to-ibut): Point must be on an implicit button to create a link-to-ibut"))
-  (let (but
-	normalized-file)
-    (if but-src
-	(unless (and (get-buffer but-src)
-		     (not (hypb:buffer-file-name (get-buffer but-src))))
-	  (setq normalized-file (hpath:normalize but-src)))
-      (setq normalized-file (hpath:normalize (hypb:buffer-file-name))))
-    (when but-src
-      (set-buffer (or (get-buffer but-src) (get-file-buffer normalized-file))))
-    (widen)
-    (when (or (not normalized-file) (hmail:editor-p) (hmail:reader-p))
-      (hmail:msg-narrow))
-    (when (integerp point)
-      (goto-char (min point (point-max))))
-    (setq but (ibut:to-text name-key))
-    (cond (but
-	   (setq but (ibut:at-p))
-	   (hbut:act but))
-	  (name-key
-	   (hypb:error "(link-to-ibut): No implicit button named `%s' found in `%s'"
-		       (ibut:key-to-label name-key)
-		       (or but-src (buffer-name))))
-	  (t
-	   (hypb:error "(link-to-ibut): Link reference is null/empty")))))
+
+  (let* ((key-src-buf-flag (or (bufferp key-src)
+                               (and (stringp key-src)
+                                    (setq key-src (or (get-buffer key-src)
+                                                      key-src))
+                                    (bufferp key-src))))
+         (but (if key-src-buf-flag
+                  (ibut:get name-key key-src)
+                (ibut:get name-key nil key-src)))
+         actype
+	 ;; normalized-file
+         )
+    (if but
+        (progn (setq actype (actype:def-symbol (hattr:get but 'actype)))
+               (if (eq actype 'link-to-ibut)
+                   (hypb:error "(link-to-ibut): No button `%s' in `%s'"
+                               (ibut:key-to-label name-key)
+     	                       (or key-src (buffer-name)))
+                 (ibut:act but)))
+      (unless key-src-buf-flag
+        (setq key-src (if key-src
+                          (hpath:normalize key-src)
+                        (hbut:get-key-src t))))
+      (hypb:error "(link-to-ibut): No button `%s' in `%s'"
+                  (ibut:key-to-label name-key)
+                  key-src))))
+
+    ;; !! Left over code from an earlier version of `link-to-ibut' in case
+    ;; is ever needed for reference.  rsw - 2026-06-18
+    ;;
+    ;; (if key-src
+    ;;     (unless (and (get-buffer key-src)
+    ;;     	     (not (hypb:buffer-file-name (get-buffer key-src))))
+    ;;       (setq normalized-file (hpath:normalize key-src)))
+    ;;   (setq normalized-file (hpath:normalize (hypb:buffer-file-name))))
+    ;; (when key-src
+    ;;   (set-buffer (or (get-buffer key-src) (get-file-buffer normalized-file))))
+    ;; (widen)
+    ;; (when (or (not normalized-file) (hmail:editor-p) (hmail:reader-p))
+    ;;   (hmail:msg-narrow))
+    ;; (when (integerp point)
+    ;;   (goto-char (min point (point-max))))
+    ;; (setq but (ibut:to-text name-key))
+    ;; (cond (but
+    ;;        (setq actype (actype:def-symbol (hattr:get but 'actype)))
+    ;;        (if (eq actype 'link-to-ibut)
+    ;;            (hypb:error "(link-to-ibut): Failed to find implicit button named `%s' in `%s'"
+    ;;     	           (ibut:key-to-label name-key)
+    ;;     	           (or key-src (buffer-name)))
+    ;;          (apply #'actype:act (hattr:get but 'actype)
+    ;;                 (hattr:get but 'args))))
+    ;;       (name-key
+    ;;        (hypb:error "(link-to-ibut): No implicit button named `%s' found in `%s'"
+    ;;     	       (ibut:key-to-label name-key)
+    ;;     	       (or key-src (buffer-name))))
+    ;;       (t
+    ;;        (hypb:error "(link-to-ibut): Link reference is null/empty")))))
 
 (defact link-to-kcell (file cell-ref)
   "Display FILE with kcell given by CELL-REF at window top.
@@ -702,14 +739,14 @@ Return t if found, nil if not."
   (funcall (actype:action 'link-to-regexp-match)
 	   (regexp-quote string) n source buffer-p))
 
-(defact link-to-texinfo-node (file node)
-  "Display the Texinfo FILE and NODE (a string).
+(defact link-to-texinfo-node (file node-or-anchor)
+  "Display the Texinfo FILE and NODE-OR-ANCHOR (a string).
 FILE may be a string or nil, in which case the current buffer is used."
-  (interactive "fTexinfo file to link to: \nsNode within file to link to: ")
-  (if (stringp node)
-      ;; Remove any tabs or newlines that might be in node name.
-      (setq node (replace-regexp-in-string "[ \t\n\r\f]+" " " (string-trim node) t t))
-    (setq node "Top"))
+  (interactive "fTexinfo file to link to: \nsNode or anchor within file to link to: ")
+  (if (stringp node-or-anchor)
+      ;; Remove any tabs or newlines that might be in node-or-anchor name.
+      (setq node-or-anchor (replace-regexp-in-string "[ \t\n\r\f]+" " " (string-trim node-or-anchor) t t))
+    (setq node-or-anchor "Top"))
   (let (node-point)
     (when (equal file "hyperbole.texi")
       (setq file (expand-file-name file (hpath:expand "${hyperb:dir}/man/"))))
@@ -718,17 +755,18 @@ FILE may be a string or nil, in which case the current buffer is used."
       (setq file (hypb:buffer-file-name)))
     (save-excursion
       (goto-char (point-min))
-      (if (re-search-forward (format "^@node[ \t]+%s *[,\n\r]" node) nil t)
-	  (setq node-point (match-beginning 0))
-	(hypb:error "(link-to-texinfo-node): Non-existent node: \"%s%s\""
-                    (if file
-                        (format "(%s)" (file-name-nondirectory file))
-                      "")
-		    node)))
+      (cond ((or (re-search-forward (format "^@node[ \t]+%s *[,\n\r]" node-or-anchor) nil t)
+                 (re-search-forward (format "^@anchor{%s}" node-or-anchor) nil t))
+	      (setq node-point (match-beginning 0)))
+	    (t (hypb:error "(link-to-texinfo-node): Non-existent location: \"%s%s\""
+                           (if file
+                               (format "(%s)" (file-name-nondirectory file))
+                             "")
+		           node-or-anchor))))
     (if file
         (hact 'link-to-file file node-point)
-      (hypb:error "(link-to-texinfo-node): Non-existent node: \"%s\""
-		  node))))
+      (hypb:error "(link-to-texinfo-node): Non-existent location: \"%s\""
+		  node-or-anchor))))
 
 (defact link-to-web-search (service-name search-term)
   "Search web SERVICE-NAME for SEARCH-TERM.

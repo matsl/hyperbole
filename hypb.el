@@ -3,7 +3,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     6-Oct-91 at 03:42:38
-;; Last-Mod:     29-Mar-26 at 22:47:54 by Bob Weiner
+;; Last-Mod:     30-Jul-26 at 13:16:39 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -60,9 +60,36 @@
 (declare-function hkey-either "hmouse-drv")
 (declare-function hycontrol-frame-to-right-center "hycontrol")
 
+(defvar hsys-org-enable-smart-keys)     ; "hsys-org.el"
+(declare-function kview:char-invisible-p "kotl/kview")
+(declare-function smart-ancestor-tag-files "hmouse-tag")
+(declare-function smart-eobp "hui-mouse")
+
 ;;; ************************************************************************
 ;;; Public variables
 ;;; ************************************************************************
+
+(defvar hypb:exclude-major-modes nil
+  "List of major modes to exclude from HyWikiWord and mail address recognition.
+Any `special' major mode, like Dired, is automatically excluded unless
+included in the list, `hypb:include-major-modes'.")
+
+(defvar hypb:include-major-modes
+  '(csv-mode
+    elfeed-search-mode elfeed-show-mode
+    eww-mode
+    gnus-article-edit-mode gnus-article-mode
+    kotl-mode
+    mh-letter-mode mh-show-mode
+    mu4e-headers-mode mu4e-main-mode
+    prog-mode
+    rmail-edit-mode rmail-mode
+    text-mode)
+  "List of major modes with HyWikiWord and mail address recognition.
+If the value is nil, then include all major modes.
+
+By default, all special modes, like Dired, are excluded.  A major mode
+included here will override its inclusion in `hypb:exclude-major-modes'.")
 
 (defconst hypb:help-buf-prefix "*Help: Hyperbole "
   "Prefix attached to all native Hyperbole help buffer names.
@@ -88,10 +115,10 @@ delimiter."
   :type 'sexp
   :group 'hyperbole-commands)
 
-(defvar hypb:mail-address-mode-list
-  '(fundamental-mode prog-mode text-mode)
-  "List of major modes in which mail address implicit buttons are active.
-Also active in any Decendent modes of those listed.")
+(defcustom hypb:ask-to-install-package-flag t
+  "Non-nil means `hypb:require-package' queries the user before installing it."
+  :type 'boolean
+  :group 'hyperbole-commands)
 
 (defconst hypb:mail-address-tld-regexp
   (format "\\.%s\\'"
@@ -176,8 +203,7 @@ Uses the newer \"nadvice\" elisp library, not \"advice\"."
 This displays a clean log of Emacs keys used and commands executed."
   (interactive)
   ;; Ensure package is installed
-  (unless (package-installed-p 'interaction-log)
-    (package-install 'interaction-log))
+  (hypb:require-package 'interaction-log)
 
   ;; Ensure interaction-log-mode is disabled to removes its command
   ;; hooks which are replaced below.
@@ -196,8 +222,8 @@ This displays a clean log of Emacs keys used and commands executed."
   (mapc (lambda (cmd-str) (cl-pushnew (format "^%s$" cmd-str) ilog-self-insert-command-regexps))
         '("hyperbole" "hui:menu-enter"))
 
-  ;; Redefine the mode to display commands on post-command-hook rather
-  ;; than pre-command-hook since Hyperbole rewrites some command names
+  ;; Redefine the mode to display commands on `post-command-hook' rather
+  ;; than `pre-command-hook' since Hyperbole rewrites some command names
   ;; and key sequences.
   (define-minor-mode interaction-log-mode
     "Global minor mode logging keys, commands, file loads and messages.
@@ -278,7 +304,7 @@ name differs at the start and end of BODY."
 
 ;;;###autoload
 (defun hypb:buffer-file-name (&optional buffer)
-  "Return name of file BUFFER or current buffer is visiting; nil if none.
+  "Return name of file that BUFFER or current buffer is visiting; nil if none.
 No argument or nil as argument means use the current buffer.
 Produces the correct file name for indirect buffers as well."
    (buffer-file-name (or (buffer-base-buffer buffer) buffer)))
@@ -504,10 +530,12 @@ This will install the Emacs devdocs package if not yet installed."
 		       dname))))
       (concat "@" dname))))
 
-(defun hypb:empty-file-p ()
-  "Return non-nil if the current buffer has an attached file of zero size."
-  (when (and (hypb:buffer-file-name) (file-readable-p (hypb:buffer-file-name)))
-    (= (file-attribute-size (file-attributes buffer-file-name)) 0)))
+(defun hypb:empty-file-p (&optional file)
+  "Return non-nil if the current buffer's file or optional FILE is empty."
+  (unless (stringp file)
+    (setq file (hypb:buffer-file-name)))
+  (when (and file (file-readable-p file))
+    (zerop (file-attribute-size (file-attributes file)))))
 
 (defun hypb:error (&rest args)
   "Signal an error typically to be caught by `hyperbole'.
@@ -562,8 +590,10 @@ the `format' function."
 Listing is asynchronous.  A press of RET, the Action Key or the
 Assist Key on any log line will display its committed changes."
   (interactive "sFgrep git commits containing: ")
-  (compile (format "git log -S'%s' --line-prefix='commit ' --oneline" string)
-	   #'hypb:fgrep-git-log-mode))
+  (let ((default-directory (or (car (smart-ancestor-tag-files "./" ".git"))
+                               hyperb:dir)))
+    (compile (format "git log -S'%s' --line-prefix='commit ' --oneline" string)
+	     #'hypb:fgrep-git-log-mode)))
 
 (defun hypb:fgrep-git-log-activate (_ignore1 &optional _ignore2)
   "Display git commit for the current line when `compile-goto-error' {RET} is used.
@@ -737,19 +767,24 @@ This will this install the Emacs helm package when needed."
 	     help-file))))
 
 (defun hypb:in-string-p (&optional max-lines range-flag)
-  "Return (is-in-string start end) for point, cached by buffer & modified time.
-Return non-nil iff point is within a string and not on the closing quote.
+  "Return non-nil iff point is within a string.
+Point is within the string if it is after the end of the opening
+quote and before the start of the closing quote, not on it.  This
+is cached by buffer & modified time for speed.
 
 With optional MAX-LINES, an integer, match only within that many
 lines from point.  With optional RANGE-FLAG when there is a
 match, return list of (in-string-flag start-pos end-pos), where
-in-string-flag is t or nil and the positions exclude the delimiters.
+in-string-flag is t or nil and the positions exclude the delimiters;
+the difference between end and start is the length of the string.
 
-To prevent searching back to the buffer start and producing slow
-performance, this limits its count of quotes found prior to point
-to the beginning of the first line prior to point that contains a
-non-backslashed quote mark and limits string length to a maximum
-of 9000 characters.
+When no buffer edits have occurred, this uses cached results to
+determine whether in or outside of a string.  When no cache hit is
+found, to prevent searching back to the buffer start and producing
+slow performance, this limits its count of quotes found prior to
+point to the beginning of the first line prior to point that
+contains a non-backslashed quote mark and limits string length to a
+maximum of 9000 characters.
 
 Quoting conventions recognized are:
   double-quotes:                 \"str\";
@@ -771,7 +806,7 @@ Quoting conventions recognized are:
         (puthash buf cache-entry hypb:in-string-cache))
 
       ;; Check for a cache match range.  The cdr of `cache-entry' is a list of
-      ;; (in-str start end) ranges.
+      ;; (in-str-flag start end) ranges.
       (let ((match (cl-find-if (lambda (r)
                                  (and (>= pos (or (nth 1 r) (point-max)))
                                       (<= pos (or (nth 2 r) (point-min)))))
@@ -794,11 +829,11 @@ Quoting conventions recognized are:
                             ;; to be used in the cache.
                             ;; To call it with the buffer narrowed to
                             ;; according to `max-lines', use:
-                            ;; (hypb:narrow-to-max-lines max-lines #'hypb:in-string-check t)
-                            (hypb:in-string-check t)))
+                            ;; (hypb:narrow-to-max-lines max-lines #'hypb:in-string-no-cache-p t)
+                            (hypb:in-string-no-cache-p t)))
                  (in-str (nth 0 entry))
-                 (str-start (nth 1 entry))
-                 (str-end (nth 2 entry)))
+                 (str-start (max (point-min) (or (nth 1 entry) 0)))
+                 (str-end (min (point-max) (or (nth 2 entry) 0))))
             (cond ((and (not match) (not hypb:in-string-cache-disable))
                    ;; Add the new range into the buffer's cache
                    (setcdr cache-entry (cons entry (cdr cache-entry))))
@@ -854,17 +889,18 @@ prior point."
 			    (line-end-position (1+ max-lines)))))
       (apply func args))))
 
-(defun hypb:in-string-check (&optional range-flag)
+(defun hypb:in-string-no-cache-p (&optional range-flag)
   "Return non-nil iff point is within a string and not on the closing quote.
 
 With optional RANGE-FLAG when there is a match, return list of (in-string-flag
 start-pos end-pos), where in-string-flag is t or nil and the positions exclude
 the delimiters.
 
-To prevent searching back to the buffer start and producing slow
-performance, this limits its count of quotes found prior to point to the
-beginning of the first line prior to point that contains a non-backslashed
-quote mark and limits string length to a maximum of 9000 characters.
+This does not use caching.  To prevent searching back to the buffer start
+and producing slow performance, this limits its count of quotes found prior
+to point to the beginning of the first line prior to point that contains a
+non-backslashed quote mark and limits string length to a maximum of 9000
+characters.
 
 Quoting conventions recognized are:
   double-quotes:                 \"str\";
@@ -1162,19 +1198,46 @@ WINDOW pixelwise."
 	     (string-join unreadable-dirs "\n"))))
   dirs)
 
+(defun hypb:users-package-manager ()
+  "Return the package manager in use.
+Current supported package managers are `straight', `elpaca', and `package'."
+  (cond ((featurep 'straight) 'straight)
+        ((featurep 'elpaca) 'elpaca)
+        (t 'package)))
+
+(defun hypb:package-el-install (package)
+  "Install PACKAGE using the default package manager `package.el'.
+If `hypb:ask-to-install-package-flag' is non-nil query user if package should
+be installed."
+  (when (or (not hypb:ask-to-install-package-flag)
+            (y-or-n-p (format "Install `%s' to enable this feature? " package)))
+    (package-install package)
+    (require package)))
+
+(defun hypb:notify-manual-install-needed (package manager)
+  "Prompt with an error that PACKAGE must be manually installed using MANAGER."
+  (user-error "Package '%s' is required by this command.  Use your package manager '%s' to install it" package manager))
+
+(defun hypb:ensure-dependency (package)
+  "Return non-nil if PACKAGE is installed and ready for use.
+If PACKAGE is not installed and the package.el package manager is in
+use, an install attempt may be made.  When any other package manager is
+in use, an error is triggered prompting to manually install the PACKAGE."
+  (or (require package nil t)
+      (pcase (hypb:users-package-manager)
+        ('package (hypb:package-el-install package))
+        (manager (hypb:notify-manual-install-needed package manager)))))
+
 ;;;###autoload
-(defun hypb:require-package (package-name)
-  "Prompt user to install, if necessary, and require the Emacs PACKAGE-NAME.
-PACKAGE-NAME may be a symbol or a string."
-  (when (stringp package-name)
-    (setq package-name (intern package-name)))
-  (unless (symbolp package-name)
-    (error "(hypb:require-package): package-name must be a symbol or string, not '%s'" package-name))
-  (unless (package-installed-p package-name)
-    (if (y-or-n-p (format "Install package `%s' required by this command?" package-name))
-	(package-install package-name)
-      (keyboard-quit)))
-  (require package-name))
+(defun hypb:require-package (package)
+  "Prompt user to install, if necessary, and require the Emacs PACKAGE.
+PACKAGE may be a symbol or a string."
+  (when (stringp package)
+    (setq package (intern package)))
+  (unless (symbolp package)
+    (error "(hypb:require-package): package must be a symbol or string, not '%s'" package))
+  (unless (hypb:ensure-dependency package)
+    (error "(hypb:require-package): package '%s' could not be found" package)))
 
 ;; Adapted from cl--do-remf in "cl-extra.el" but uses 'equal' for comparisons.
 ;;;###autoload
@@ -1233,6 +1296,17 @@ Removes any trailing newline at the end of the output."
 
 ;;;###autoload
 (defalias 'hypb:rgrep 'hui-select-rgrep)
+
+;;;###autoload
+(defun hypb:save-buffer-silently ()
+  "Silently save the current buffer whether modified or not."
+  (when (buffer-modified-p)
+    (let (
+          ;; Prevent output to the echo area / stdout
+          (inhibit-message t)
+          ;; Prevent writing to the *Messages* buffer
+          (message-log-max nil))
+      (basic-save-buffer))))
 
 (defun hypb:save-lines (regexp)
   "Save only lines containing match for REGEXP.
@@ -1536,6 +1610,17 @@ Without file, the banner is prepended to the current buffer."
 			       (- o ?0)))))
 	  oct-str)
     dec-num))
+
+(defun hypb:remove-from-in-string-cache ()
+  "Remove current buffer from `hypb:in-string-cache'.
+Use this as a `kill-buffer-hook'."
+  (remhash (current-buffer) hypb:in-string-cache))
+
+;;; ************************************************************************
+;;; Public initializations
+;;; ************************************************************************
+
+(add-hook 'kill-buffer-hook 'hypb:remove-from-in-string-cache)
 
 (provide 'hypb)
 

@@ -3,7 +3,7 @@
 ;; Author:       Mats Lidell
 ;;
 ;; Orig-Date:    13-Jul-25 at 19:50:37
-;; Last-Mod:     18-Jan-26 at 08:45:21 by Bob Weiner
+;; Last-Mod:      4-Jul-26 at 20:20:06 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -136,23 +136,22 @@ Inserts tags for highlighted areas as well as point."
 
 (ert-deftest hywiki--verify-get-buffer-text-with-point-and-highlight-compact ()
   "Verify proper highlighting after different editing actions.
-Actions can be move, insertion, killing and deletion.
+Actions can be move, insert, kill and delete.
 
-Each test is constructed as three phases:
+Each test is constructed in three phases:
 
-* First phase, pre:, empties the buffer from any previous test and then
-  prepares the text and sets the point.  Hywiki-mode is activated in the
-  prepare phase in order to set any initial
-  highlighting.
+* The first phase, pre:, empties the buffer from any previous test,
+  prepares the text and sets point.  Hywiki-mode is activated in the
+  prepare phase to set any initial highlighting.
 
 * The second phase performs some action.  It can be insertion, killing
   or deletion.  The action should call the pre- and post-command-hooks
-  in order for the highlighting overlays to be constructed.
+  in order for the highlighting to occur.
 
 * The third phase, post:, does a verification.  A representation of the
-  `buffer-string' as a string is constructed where chars are used for
-  point, and start and stop of the highlighting with angle brackets.
-  That is then compared to the expected string."
+  `buffer-string' as a string is constructed where the ^ char represents
+  the position of point and the WikiWord highlight range is delimited with
+  angle brackets.  This string is then compared to the expected string."
   (hywiki-tests--preserve-hywiki-mode
    (let* ((wikiHi (cdr (hywiki-add-page "Hi")))
           (wikiHo (cdr (hywiki-add-page "Ho"))))
@@ -166,20 +165,27 @@ Each test is constructed as three phases:
                   (should (string= stop (hywiki-test--get-buffer-text-with-point-and-highlight)))))
        (unwind-protect
            (progn
-             (ert-info ("1" :prefix "Verify point, no highlighting:")
-               (pre: "non^wikiword")
-               (post: "non^wikiword"))
+             ;; PASS: "WikiWord#section"<delete-char-backwards> -> no
+             ;; highlight change "{WikiWord#section}
+             (ert-info ("1" :prefix "Verify highlighting: ")
+               (pre: "\"WikiWord#section\"^")
+               (exec: #'backward-delete-char-untabify 1)
+               (post: "\"<WikiWord#section>^"))
+
              (ert-info ("2" :prefix "Verify point, no highlighting: ")
                (pre: "non^wikiword")
                (forward-char 1)
                (pre: "nonw^ikiword"))
+
              (ert-info ("3" :prefix "Verify highlighting: ")
                (pre: "^Hi")
                (post: "^<Hi>"))
+
              (ert-info ("4" :prefix "Verify highlighting: ")
                (pre: "Hi^Ho")
                (hywiki-tests--insert-by-char "text ")
                (post: "Hitext ^<Ho>"))
+
              (ert-info ("5" :prefix "Verify highlighting: ")
                (pre: "Hi^Ho")
                (hywiki-tests--insert-by-char " text ")
@@ -203,12 +209,6 @@ Each test is constructed as three phases:
                (del:      "#section")
                (post: "<Wiki^Word>"))
 
-             ;; PASS: WikiWord -> dehighlight "WikiWo<kill-word>rd"
-             (ert-info ("8" :prefix "Verify highlighting: ")
-               (pre: "WikiWo^kill-wordrd")
-               (del:        "kill-word")
-               (post: "<WikiWo^rd>"))
-
              ;; PASS: "WikiWord#section with spaces" -> shrink highlight
              ;;        to {WikiWord#section} with this operation:
              ;;        <delete-char>"WikiWord#section with spaces"
@@ -217,12 +217,9 @@ Each test is constructed as three phases:
                (exec: #'delete-char 1)
                (post: "^<WikiWord#section> with spaces\""))
 
-             ;; PASS: "WikiWord#section"<delete-char-backwards> -> no
-             ;; highlight change "{WikiWord#section}
-             (ert-info ("10" :prefix "Verify highlighting: ")
-               (pre: "\"WikiWord#section\"^")
-               (exec: #'backward-delete-char-untabify 1)
-               (post: "\"<WikiWord#section>^"))
+             (ert-info ("10" :prefix "Verify point, no highlighting:")
+               (pre: "non^wikiword")
+               (post: "non^wikiword"))
 
              ;; PASS: "WikiWord#section with spaces"<delete-char-backwards>
              ;; -> shrink highlight to "{WikiWord#section} with spaces
@@ -253,7 +250,13 @@ Each test is constructed as three phases:
              (ert-info ("15" :prefix "Verify highlighting: ")
                (pre: "WikiWord ^<abc> abc WikiWord")
                (del:           "<abc> abc")
-               (post: "<WikiWord> ^ <WikiWord>")))
+               (post: "<WikiWord> ^ <WikiWord>"))
+
+             ;; PASS: WikiWord -> dehighlight "WikiWo<kill-word>rd"
+             (ert-info ("16" :prefix "Verify highlighting: ")
+               (pre: "WikiWo^kill-wordrd")
+               (del:        "kill-word")
+               (post: "<WikiWo^rd>")))
 
          (hy-delete-files-and-buffers (list wikiHi wikiHo)))))))
 

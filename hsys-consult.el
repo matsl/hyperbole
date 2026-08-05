@@ -2,7 +2,7 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:     4-Jul-24 at 09:57:18
-;; Last-Mod:     28-Feb-26 at 10:15:27 by Bob Weiner
+;; Last-Mod:     20-Jul-26 at 01:52:39 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -38,11 +38,6 @@
 ;;; Public declarations
 ;;; ************************************************************************
 
-(declare-function hyrolo-at-tags-p "hyrolo")
-(declare-function hywiki-at-tags-p "hywiki")
-(declare-function hsys-org-directory-at-tags-p "hsys-org")
-(declare-function hsys-org-at-tags-p "hsys-org")
-
 (declare-function consult--async-command "ext:consult")
 (declare-function consult--grep "ext:consult")
 (declare-function consult--grep-make-builder "ext:consult")
@@ -51,6 +46,13 @@
 (declare-function consult--ripgrep-make-builder "ext:consult")
 (declare-function consult-grep "ext:consult")
 (declare-function consult-ripgrep "ext:consult")
+(declare-function hsys-org-at-tags-p "hsys-org")
+(declare-function hsys-org-consult-grep "hsys-org")
+(declare-function hsys-org-directory-at-tags-p "hsys-org")
+(declare-function hyrolo-at-tags-p "hyrolo")
+(declare-function hyrolo-consult-grep "hyrolo")
+(declare-function hywiki-at-tags-p "hywiki")
+(declare-function hywiki-consult-grep "hywiki")
 (declare-function org-roam-db-autosync-mode "ext:org-roam")
 (declare-function org-roam-node-find "ext:org-roam")
 (declare-function org-roam-node-level "ext:org-roam")
@@ -67,17 +69,19 @@
 ;;; Public variables
 ;;; ************************************************************************
 
+(defvar hsys-consult-entry-regexp "^[*#]+ "
+   "Regexp prefix to match to multi-line entries with `consult-grep'.")
+
 (defvar hsys-consult-exit-value nil
   "Value from a user-defined exit-hook sent to `hsys-consult-get-exit-value'.")
 
 (defcustom hsys-consult-flag t
   "Non-nil means use the consult package with vertico for filtering searches.
-When non-nil and interactively calling non-consult-specific
-Hyperbole search and yank commands, if consult is installed it
-will be used to filter to matching file lines.  For Hyperbole
-consult-specific commands, when this is non-nil and consult is
-not installed, automatically install it and then run the command.
-When nil, trigger an error that consult is not installed."
+When non-nil and interactively calling non-consult-specific Hyperbole search
+and yank commands, if consult is installed it will be used to filter to
+matching file lines.  For Hyperbole consult-specific commands, when this is
+non-nil and consult is not installed, automatically install it and then run
+the command.  When nil, trigger an error that consult is not installed."
   :type 'boolean
   :group 'hyperbole-commands)
 
@@ -93,8 +97,8 @@ When nil, trigger an error that consult is not installed."
 ;;;###autoload
 (defun hsys-consult-apropos (&optional include-all-flag)
   "Summarize all meaningful symbols matching interactively chosen terms.
-With optional INCLUDE-ALL-FLAG (prefix arg interactively) non-nil,
-include all bound symbols.
+With optional INCLUDE-ALL-FLAG (prefix arg interactively) non-nil, include
+all bound symbols.
 
 Requires use of `vertico' for completions."
   (interactive "P")
@@ -114,13 +118,11 @@ Requires use of `vertico' for completions."
 Install `consult' package if not yet installed."
   (unless hsys-consult-flag
     (error "`%s' command requires `hsys-consult-flag' set to t" this-command))
-  (unless (package-installed-p 'consult)
-    (package-install 'consult))
-  (require 'consult)
+  (hypb:require-package 'consult)
   (let ((consult-version (hsys-consult-get-version)))
     ;; Multi-file support added after consult version "0.32"
     (when (not (and consult-version (string-greaterp consult-version "0.32")))
-      (error "(hsys-consult-grep): consult package version is %s; update required"
+      (error "(hsys-consult-grep): consult package version is %s; update required to 0.35 minimum"
 	     consult-version))))
 
 ;;;###autoload
@@ -131,7 +133,12 @@ Install `consult' package if not yet installed."
 	 (buffer-modified (when buffer-existed (buffer-modified-p buffer-existed)))
 	 (buf (or buffer-existed (find-file-noselect consult-file))))
     (with-current-buffer buf
-      (prog1 (package-get-version)
+      (prog1 (save-excursion
+               (widen)
+               (goto-char (point-min))
+               (if (re-search-forward "Version:[ \t]+\\([.0-9]+\\)" nil t)
+                   (match-string-no-properties 1)
+                 ""))
 	(unless buffer-modified
 	  (kill-buffer buf))))))
 
@@ -140,13 +147,13 @@ Install `consult' package if not yet installed."
 					path-list prompt)
   "Interactively search PATH-LIST with a consult package grep command.
 
-With GREP-INCLUDES or RIPGREP-GLOBS file suffixes to include, search
-for optional REGEXP up to MAX-MATCHES in PATH-LIST.
+With GREP-INCLUDES or RIPGREP-GLOBS file suffixes to include, search for
+optional REGEXP up to MAX-MATCHES in PATH-LIST.
 
 Use ripgrep (rg) if found, otherwise, plain grep.  Initialize search with
-optional REGEXP and interactively prompt for changes.  Limit matches
-per file to the absolute value of MAX-MATCHES, if given and not 0.  If
-0, match to headlines only (lines that start with a '^[*#]+[ \t]+' regexp).
+optional REGEXP and interactively prompt for changes.  Limit matches per
+file to the absolute value of MAX-MATCHES, if given and not 0.  If 0, match
+to headlines only (lines that start with a '^[*#]+' regexp).
 
 With optional PROMPT string, use this as the first part of the grep prompt;
 omit any trailing colon and space in the prompt."
@@ -172,25 +179,24 @@ omit any trailing colon and space in the prompt."
     (hsys-consult--grep-paths paths regexp max-matches prompt)))
 
 (defun hsys-consult-grep-headlines-with-prompt (grep-function prompt
-					        &optional regexp)
+					        &optional regexp path-list)
   "Call Hyperbole consult GREP-FUNCTION over headlines with PROMPT.
-Optional REGEXP is the initial pattern for the grep.
-Suppress preview and return the selected \"file:line:line-contents\".
+Optional REGEXP is the initial pattern for the grep.  Suppress preview and
+return the selected \"file:line:line-contents\".
 
 GREP-FUNCTION must take these arguments: regexp max-matches path-list
 prompt."
   (let ((consult-preview-key nil))
-    (funcall grep-function regexp 0 nil prompt)))
+    (funcall grep-function regexp 0 path-list prompt)))
 
 (defun hsys-consult-grep-headlines-read-regexp (grep-function prompt
-						&optional regexp)
-  "With `consult', use GREP-FUNCTION and PROMPT to completing read.
-The optional REGEXP is an initial pattern for the grep.  Suppress
-preview and return the selected \"file:line:line-contents\".
-GREP-FUNCTION must take these arguments: regexp max-matches path-list
-prompt.
+						&optional regexp path-list)
+  "With `consult', use GREP-FUNCTION and PROMPT for completing read.
+The optional REGEXP is an initial pattern for the grep.  Suppress preview
+and return the selected \"file:line:line-contents\".  GREP-FUNCTION must
+take these arguments: regexp max-matches path-list prompt.
 
-Without `consult', just read a REGEXP with PROMPT."
+Without `consult', just read a match for REGEXP with PROMPT."
   (if (hsys-consult-active-p)
       (substring-no-properties
        (hsys-consult-get-exit-value
@@ -198,32 +204,33 @@ Without `consult', just read a REGEXP with PROMPT."
 	#'hsys-consult-grep-headlines-with-prompt
 	grep-function
 	prompt
-	regexp))
+	regexp
+        path-list))
     (read-regexp (concat prompt ": ") regexp)))
 
 (defun hsys-consult-grep-tags (org-consult-grep-function)
   "When on an Org tag, call ORG-CONSULT-GREP-FUNCTION to find matches.
-If on a colon, match to sections with all tags around point;
-otherwise, just match to the single tag around point.
+If on a colon, match to sections with all tags around point; otherwise, just
+match to the single tag around point.
 
-The function determines the org files searched for matches and is
-given two arguments when called: a regexp of tags to match and a 0
-max-count which finds all matches within headlines only."
+The function determines the org files searched for matches and is given two
+arguments when called: a regexp of tags to match and a 0 max-count which
+finds all matches within headlines only."
   (interactive)
   (when (and hsys-consult-flag (hsys-org-at-tags-p))
     (funcall org-consult-grep-function (hsys-consult--org-grep-tags-string) 0)))
 
 (defun hsys-consult-hyrolo-grep-tags ()
   "When on a HyRolo tag, use `consult-grep' to list all HyRolo tag matches.
-If on a colon, match to sections with all tags around point;
-otherwise, just match to the single tag around point."
+If on a colon, match to sections with all tags around point; otherwise, just
+match to the single tag around point."
   (interactive)
   (hsys-consult-grep-tags #'hyrolo-consult-grep))
 
 (defun hsys-consult-hywiki-grep-tags ()
   "When on a HyWiki tag, use `consult-grep' to list all HyWiki tag matches.
-If on a colon, match to sections with all tags around point;
-otherwise, just match to the single tag around point."
+If on a colon, match to sections with all tags around point; otherwise, just
+match to the single tag around point."
   (interactive)
   (hsys-consult-grep-tags #'hywiki-consult-grep))
 
@@ -244,27 +251,26 @@ call."
 
 (defun hsys-consult-org-grep-tags ()
   "When on an `org-directory' tag, use `consult-grep' to list dir tag matches.
-If on a colon, match to sections with all tags around point;
-otherwise, just match to the single tag around point."
+If on a colon, match to sections with all tags around point; otherwise, just
+match to the single tag around point."
   (interactive)
   (hsys-consult-grep-tags #'hsys-org-consult-grep))
 
 (defun hsys-consult-org-roam-grep-tags ()
   "When on an `org-roam-directory' tag, use `consult-grep' to list tag matches.
-If on a colon, match to sections with all tags around point;
-otherwise, just match to the single tag around point."
+If on a colon, match to sections with all tags around point; otherwise, just
+match to the single tag around point."
   (interactive)
   (hsys-consult-grep-tags #'hsys-org-roam-consult-grep))
 
 ;;;###autoload
 (defun hsys-consult-org-roam-grep (&optional regexp max-matches)
   "Interactively narrow and select Org Roam nodes by line.
-Use ripgrep (rg) if found, otherwise, plain grep to search Org
-files within `org-roam-directory'.  Initialize search with
-optional REGEXP and interactively prompt for changes.  Limit
-matches per file to the absolute value of MAX-MATCHES, if given
-and not 0.  If 0, match to the start of headline text only (lines
-that start with the '^[*#]+[ \t]*' regexp)."
+Use ripgrep (rg) if found, otherwise, plain grep to search Org files within
+`org-roam-directory'.  Initialize search with optional REGEXP and
+interactively prompt for changes.  Limit matches per file to the absolute
+value of MAX-MATCHES, if given and not 0.  If 0, match to the start of
+headline text only (lines that start with the '^[*#]+' regexp)."
   (interactive "i\nP")
   (hsys-consult--org-roam-call-function
    (lambda ()
@@ -290,12 +296,12 @@ that start with the '^[*#]+[ \t]*' regexp)."
 ;;;###autoload
 (defun hsys-consult-get-exit-value (exit-value consult-function &rest args)
   "With minibuffer EXIT-VALUE, call CONSULT-FUNCTION with rest of ARGS.
-If EXIT-VALUE is non-nil, i.e. an sexpression or function of no
-arguments, store and return its result value into `hsys-consult-exit-value',
-Otherwise, return the selection from CONSULT-FUNCTION."
+If EXIT-VALUE is non-nil, i.e. an sexpression or function of no arguments,
+store and return its result value into `hsys-consult-exit-value', Otherwise,
+return the selection from CONSULT-FUNCTION."
   (unless hsys-consult-flag
     (error "`%s' command requires `hsys-consult-flag' set to t" this-command))
-  (unless (functionp consult-function)
+  (unless (hypb:function-p consult-function)
     (user-error "(hsys-consult-get-exit-value): First arg must be a function, not `%s'"
 		consult-function))
 
@@ -320,25 +326,24 @@ Otherwise, return the selection from CONSULT-FUNCTION."
 
 (defun hsys-consult--grep-paths (paths &optional regexp max-matches prompt)
   "Interactively search PATHS with a consult package grep command.
-Use ripgrep (rg) if found, otherwise, plain grep.  Interactively
-show all matches from PATHS; see the documentation for the `dir'
-argument in `consult-grep' for valid values of PATHS.
+Use ripgrep (rg) if found, otherwise, plain grep.  Interactively show all
+matches from PATHS; see the documentation for the `dir' argument in
+`consult-grep' for valid values of PATHS.
 
-Initialize search with optional REGEXP and interactively prompt
-for changes.  Limit matches per file to the absolute value of
-optional MAX-MATCHES, if given and not 0.  If 0, match to the
-start of headline text only (lines that start with a '^[*#]+[
-\t]*' regexp).
+Initialize search with optional REGEXP and interactively prompt for changes.
+Limit matches per file to the absolute value of optional MAX-MATCHES, if
+given and not 0.  If 0, match to the start of headline text only (lines that
+start with the `hsys-consult-entry-regexp').
 
-With optional PROMPT string, use this as the first part of the
-grep prompt; omit any trailing colon and space in the prompt."
+With optional PROMPT string, use this as the first part of the grep prompt;
+omit any trailing colon and space in the prompt."
   (hsys-consult-require-version)
   (when max-matches
     (setq max-matches (prefix-numeric-value max-matches)))
   (when (and (integerp max-matches) (zerop max-matches))
     ;; Final space in leading regexp in next line makes it work with
     ;; the Orderless package.
-    (setq regexp (concat "^[*#]+[ \t]* " (or regexp ""))))
+    (setq regexp (concat hsys-consult-entry-regexp (or regexp ""))))
   (let ((consult-grep-args (if (and (integerp max-matches) (not (zerop max-matches)))
 			       (if (listp consult-grep-args)
 				   (append consult-grep-args
@@ -396,9 +401,7 @@ tag around point."
   "Install Org Roam if necessary and then call an Org Roam FUNC."
   (unless hsys-consult-flag
     (error "`%s' command requires `hsys-consult-flag' set to t" this-command))
-  (unless (package-installed-p 'org-roam)
-    (package-install 'org-roam))
-  (require 'org-roam)
+  (hypb:require-package 'org-roam)
   (unless (file-readable-p org-roam-directory)
     (make-directory org-roam-directory))
   (unless org-roam-db-autosync-mode

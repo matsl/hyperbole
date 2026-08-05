@@ -3,18 +3,16 @@
 ;; Author:       Mats Lidell <matsl@gnu.org>
 ;;
 ;; Orig-Date:    20-Feb-21 at 23:45:00
-;; Last-Mod:     17-Mar-26 at 17:53:55 by Bob Weiner
+;; Last-Mod:     30-Jul-26 at 14:28:21 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 2021-2025  Free Software Foundation, Inc.
+;; Copyright (C) 2021-2026  Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
 
 ;;; Commentary:
-
-;; Helper functions
 
 ;;; Code:
 
@@ -30,12 +28,14 @@
 ;; Mail address
 (ert-deftest mail-address-at-p-test ()
   (with-temp-buffer
+    (text-mode)
     (insert "someone@example.org")
     (goto-char 4)
     (should (mail-address-at-p))))
 
 (ert-deftest mail-address-at-p-no-mail-should-fail-test ()
   (with-temp-buffer
+    (text-mode)
     (insert "someone@example.test")
     (goto-char 4)
     (should (not (mail-address-at-p)))))
@@ -43,6 +43,7 @@
 (ert-deftest ibtypes::mail-address-test ()
   (unwind-protect
       (with-temp-buffer
+        (text-mode)
         (insert "receiver@mail.org")
         (goto-char 2)
         (let ((mail-user-agent 'sendmail-user-agent))
@@ -295,9 +296,9 @@
       (kill-buffer "MANIFEST")
       (kill-buffer "HY-ABOUT"))))
 
-;; hib-debug
+;; hib-debug !!FIXME: Add tests.
 
-;; hib-kbd
+;; hib-kbd !!FIXME: Add tests.
 
 ;; rfc
 (ert-deftest ibtypes::rfc-test ()
@@ -319,17 +320,154 @@
      (mock (man "rm(1)") => t)
      (ibtypes::man-apropos))))
 
-;; klink
+;; klink !!FIXME: Add tests.
 
-;; hlink
+;; hlink !!FIXME: Add tests.
 
 ;; elink
+(ert-deftest ibtypes::elink-test ()
+  "Verify link to ebut in the same buffer."
+  (let ((file (make-temp-file "elink")))
+    (unwind-protect
+        (progn
+          (find-file file)
+          (insert "<elink: Button >\n")
+          (ebut:program "Button" 'eval-elisp '(message "EBUT"))
+          (goto-char 4)
+          (should (string= "EBUT" (ibtypes::elink)))
+
+          (goto-char (point-min))
+          (insert "<elink: Other >\n")
+          (goto-char 4)
+          (let ((err (should-error (ibtypes::elink))))
+            (should
+             ;; Error message actually is: "No button ‘Other’ in ‘nil’"
+             ;; Nil looks wrong for the file name.
+             (string-match-p (rx "No button " (any punct) "Other" (any punct))
+                             (cadr err)))))
+      (hy-delete-files-and-buffers (list file)))))
+
+(ert-deftest ibtypes::elink-ebut-in-other-file ()
+  "Verify link to ebut in other file."
+  (let ((file (make-temp-file "elink")))
+    (unwind-protect
+        (progn
+          (find-file file)
+          (ebut:program "Button" 'eval-elisp '(message "EBUT"))
+
+          (save-excursion
+            (with-temp-buffer
+              (insert (format "<elink: Button:\"%s\">\n" file))
+              (goto-char 4)
+              (should (string= "EBUT" (ibtypes::elink)))
+
+              (goto-char (point-min))
+              (insert (format "<elink: Other:\"%s\">\n" file))
+              (goto-char 4)
+              (let ((err (should-error (ibtypes::elink))))
+                (should
+                 (string-match-p (rx "No button " (any punct) "Other" (any punct))
+                                 (cadr err)))))))
+      (hy-delete-files-and-buffers (list file)))))
 
 ;; glink
+(ert-deftest ibtypes::glink-test ()
+  "Verify link to global button."
+  (let ((file (make-temp-file "glink")))
+    (unwind-protect
+        (progn
+          (find-file file)
+          (insert "\
+<glink: Button >
+<[Button]> <identity \"ARG\">
+")
+          (goto-char 4)
+          (with-mock
+            (mock (gbut:act "Button") => "ARG")
+            (should (string= "ARG" (ibtypes::glink))))
+
+          (with-mock
+            (mock (gbut:get "Button") => nil)
+            (let ((err (should-error (ibtypes::glink) :type 'error)))
+              (should
+               (string-match-p "No global button found for label: Button"
+                               (cadr err))))))
+      (hy-delete-file-and-buffer file))))
 
 ;; ilink
+(ert-deftest ibtypes::ilink-test ()
+  "Verify link to ibut in same buffer."
+  (let ((file (make-temp-file "ilink-test")))
+    (unwind-protect
+        (progn
+          (find-file file)
+          (insert "<ilink: Button1 >\n<[Button1]> <identity 1>")
+          (goto-char 4)
+          (should (ibtype:test-p 'ilink))
+          (should (= (ibut:act) 1))
 
-;; ipython-stack-frame
+          ;; ilink with file name
+	  (erase-buffer)
+          (insert "<[Button2]> <identity 2>")
+          (save-excursion
+            (with-temp-buffer
+              (insert (format "<ilink: Button2:\"%s\">\n" file))
+              (goto-char 4)
+              (should (ibtype:test-p 'ilink))
+              (should (= (ibut:act) 2))))
+
+          (erase-buffer)
+          (insert "<ilink: Button3 >\n<[Other]> <identity 3>")
+          (goto-char 4)
+          (let ((err (should-error (ibtypes::ilink))))
+            (should
+             (string-match-p (rx "No button " (any punct) "Button3" (any punct) " in")
+                             (cadr err)))))
+      (hy-delete-file-and-buffer file))))
+
+(ert-deftest ibtypes::ilink-ibut-in-other-file ()
+  "Verify link to ibut in other file."
+  (let ((file (make-temp-file "ilink.txt")))
+    (unwind-protect
+        (progn
+          (find-file file)
+
+          (insert "<[Button]> <identity 1>\n")
+          (save-excursion
+            (with-temp-buffer
+              (insert (format "<ilink: Button:\"%s\">\n" file))
+              (goto-char 4)
+              (should (= 1 (ibtypes::ilink)))))
+
+          (insert "<[ABC]> <identity 2>\n")
+          (save-excursion
+            (with-temp-buffer
+              (insert (format "<ilink: ABC:\"%s\">\n" file))
+              (goto-char 4)
+              (should (= 2 (ibtypes::ilink)))))
+
+          (insert "<[DEF]> <identity 3>\n")
+          (save-excursion
+            (with-temp-buffer
+              (insert (format "<ilink: XYZ:\"%s\">\n" file))
+              (goto-char 4)
+              (let ((err (should-error (ibtypes::ilink))))
+                (should
+                 (string-match-p (rx "No button " (any punct) "XYZ" (any punct) " in")
+                                 (cadr err))))))
+
+          (insert "<[GHI]> <identity 1234>\n")
+          (save-excursion
+            (with-temp-buffer
+              (insert (format "<ilink: XYZ : \"%s\">\n" file))
+              (goto-char 4)
+              (let ((err (should-error (ibtypes::ilink))))
+                (should
+                 (string-match-p (rx "No button " (any punct) "XYZ" (any punct) " in")
+                                 (cadr err)))))))
+      (hy-delete-file-and-buffer file))))
+
+;; ipython-stack-frame !!FIXME: Add tests.
 
 ;; ripgrep-msg
 (ert-deftest ibtypes::ripgrep-msg-test ()
@@ -371,8 +509,50 @@
       (should (ibtypes::grep-msg)))))
 
 ;; debugger-source
+(ert-deftest hibtypes-tests--hib-python-traceback ()
+  "Verify `hib-python-traceback' finds expected matches.
+Used in debugger-source for Python pdb or traceback, pytype error."
+  (with-temp-buffer
+    (ert-info ("Python traceback and pytype error")
+      (insert "\
+Traceback (most recent call last):
+  File \"test.py\", line 1, in <module>
+    5/0
+    ~^~
+ZeroDivisionError: division by zero
+")
+      (goto-char (point-min))
+      (forward-line 1)
+      (with-mock
+       (mock (hact 'link-to-file-line "test.py" 1) => 'hact)
+       (should (equal 'hact (hib-python-traceback)))
+       (should (string= "test.py:1" (hattr:get 'hbut:current 'lbl-key)))))
 
-;; pathname-line-and-column
+    (ert-info ("pdb")
+      (erase-buffer)
+      (insert "\
+ZeroDivisionError: division by zero
+> test.py(1)<module>()
+-> 5/0
+")
+      (goto-char (point-min))
+      (forward-line 1)
+      (with-mock
+       (mock (hact 'link-to-file-line "test.py" 1) => 'hact)
+       (should (equal 'hact (hib-python-traceback)))
+       (should (string= "test.py:1" (hattr:get 'hbut:current 'lbl-key)))))
+
+    (ert-info ("Negative test: Second line on ibut name")
+      (erase-buffer)
+      (insert "\
+<[My
+  Name]> - ls(1)
+")
+      (goto-char (point-min))
+      (forward-line 1)
+      (should-not (hib-python-traceback)))))
+
+;; pathname-line-and-column !!FIXME: Add tests.
 
 ;; elisp-compiler-msg
 (ert-deftest elisp-compiler-msg-test ()
@@ -405,9 +585,9 @@ file.el:10:20: Warning: Message
         (mocklet (((actypes::link-to-regexp-match "^(def[a-z \11]+hyperbole-test[ \11\n\15(]" 1 "/home/user/file.el" nil) => t))
           (should (ibtypes::elisp-compiler-msg)))))))
 
-;; patch-msg
+;; patch-msg !!FIXME: Add tests.
 
-;; texinfo-ref
+;; texinfo-ref !!FIXME: Add tests.
 
 ;; info-node
 (ert-deftest ibtypes::info-node-test ()
@@ -420,13 +600,13 @@ file.el:10:20: Warning: Message
         (should (string= "*info*" (buffer-name))))
     (kill-buffer "*info*")))
 
-;; hyp-address
+;; hyp-address !!FIXME: Add tests.
 
-;; hyp-source
+;; hyp-source !!FIXME: Add tests.
 
-;; action
+;; action !!FIXME: Add tests.
 
-;; completion
+;; completion !!FIXME: Add tests.
 
 (ert-deftest ibtypes:org-id-test ()
   "Verify `org-id' ibut."

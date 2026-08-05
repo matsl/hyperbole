@@ -3,11 +3,11 @@
 ;; Author:       Bob Weiner
 ;;
 ;; Orig-Date:    19-Sep-91 at 20:45:31
-;; Last-Mod:     28-Mar-26 at 13:02:39 by Bob Weiner
+;; Last-Mod:     30-Jul-26 at 11:50:17 by Bob Weiner
 ;;
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; Copyright (C) 1991-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1991-2026 Free Software Foundation, Inc.
 ;; See the "HY-COPY" file for license information.
 ;;
 ;; This file is part of GNU Hyperbole.
@@ -68,11 +68,15 @@
 (declare-function hyperb:stack-frame "hversion")
 (declare-function hyrolo-get-file-list "hyrolo")
 (declare-function hywiki-active-in-current-buffer-p "hywiki")
+(declare-function hywiki-add-spec wikiword "hywiki")
 (declare-function hywiki-get-existing-page-file "hywiki")
 (declare-function hywiki-get-singular-wikiword "hywiki")
 (declare-function hywiki-highlight-word-get-range "hywiki")
+(declare-function hywiki-message-spec wikiword "hywiki")
 (declare-function hywiki-referent-exists-p "hywiki")
+(declare-function hywiki-word-create-and-display "hywiki")
 (declare-function hywiki-word-from-reference "hywiki")
+(declare-function hywiki-non-hook-context-p "hywiki")
 (declare-function markdown-footnote-goto-text "ext:markdown")
 (declare-function markdown-footnote-marker-positions "ext:markdown")
 (declare-function markdown-footnote-return "ext:markdown")
@@ -115,8 +119,9 @@
 
 (defib hywiki-word ()
   "When on a non-existing HyWikiWord, create it and display its referent.
-A call to (hywiki-active-in-current-buffer-p) must return non-nil
-for this to activate.
+This is the Action Key function that activates HyWikiWords.  A call
+to (hywiki-active-in-current-buffer-p) must return non-nil for this to
+activate.
 
 If the associated HyWiki referent is a page, create it automatically
 unless it is the first HyWiki page to be created, in which case,
@@ -125,7 +130,8 @@ use.
 
 Existing HyWikiWords are handled by the implicit button type
 `hywiki-existing-word'."
-  (when (hywiki-active-in-current-buffer-p)
+  (when (and (hywiki-active-in-current-buffer-p)
+             (not (hywiki-non-hook-context-p)))
     (let* ((wikiword-start-end (hywiki-highlight-word-get-range))
 	   (wikiword (nth 0 wikiword-start-end))
 	   (start    (nth 1 wikiword-start-end))
@@ -135,6 +141,40 @@ Existing HyWikiWords are handled by the implicit button type
 		    (ibtypes::pathname))
 	  (ibut:label-set wikiword start end)
 	  (hact 'hywiki-word-create-and-display wikiword))))))
+
+(defun hywiki-word:help (ibut)
+  "Dispatch to desired HyWikiWord Assist Key function based on prefix arg.
+
+This table summarizes the function run for each prefix argument:
+|--------------------------------------+-------------------------------------|
+| Function                             | Key Binding                         |
+|--------------------------------------+-------------------------------------|
+| 1. Set Referent Type and Display     | {M-0 M-RET} or {C-u C-u M-RET}      |
+| 2. Create a WikiWord Spec            | {M-1 M-RET} or {M-0 M-RET s}        |
+|    (Set Referent on Activation)      |                                     |
+| 3. Show Assist Key Help for WikiWord | {C-u M-RET} or any other prefix arg |
+|--------------------------------------+-------------------------------------|
+
+#1 prompts for a referent type, creates and displays the wikiword's
+referent.  With an Assist Key press on a non-existing wikiword, it prompts
+for its wikiword referent type, then creates and displays it.  A call
+to (hywiki-active-in-current-buffer-p) must return non-nil for this to
+activate.
+
+#2 creates a wikiword spec that when activated via the Action Key with
+{M-RET} prompts for and replaces the spec with the chosen referent type
+and associated attributes (it follows the procedure in #2 above).
+
+#3 shows the wikiword attributes and this doc string."
+  (pcase current-prefix-arg
+    ((or '(16) 0) (hywiki-word-create-and-display
+                   (ibut:key-to-label (hattr:get ibut 'lbl-key))
+                   t))
+    (1 (let ((wikiword (ibut:key-to-label (hattr:get ibut 'lbl-key))))
+         (hywiki-add-spec wikiword)
+         (hywiki-message-spec wikiword)))
+    ;; Any other prefix arg, show wikiword attributes and the doc string.
+    (_ (hkey-help t))))
 
 ;;; ========================================================================
 ;;; Jumps to source line from Python traceback lines
@@ -147,7 +187,8 @@ reference line so since not on a Hyperbole button, move back a
 line and check for a source reference line again."
   (save-excursion
     (unless (/= (forward-line -1) 0)
-      (ibut:label-set "temp") ;; Real value set in action call below
+      ;; Set temp label value here; real label value is set in action call below
+      (ibut:label-set)
       (hib-python-traceback))))
 
 ;;; ========================================================================
@@ -251,16 +292,16 @@ To restore to using Emacs to compose mail:
   (setq mail-user-agent \\='message-user-agent)
 
 This implicit button type applies in any major mode listed in
-`hypb:mail-address-mode-list', the HyRolo match buffer, any buffer
+`hypb:include-major-modes', the HyRolo match buffer, any buffer
 attached to a file in `hyrolo-file-list', or any buffer with \"mail\" or
 \"rolo\" (case-insensitive) within its name.
 
-If `hypb:mail-address-mode-list' is set to nil, this button type is active
+If `hypb:include-major-modes' is set to nil, this button type is active
 in all buffers."
   (when (let ((case-fold-search t))
           (or
-           (and (or (null hypb:mail-address-mode-list)
-		    (apply #'derived-mode-p hypb:mail-address-mode-list))
+           (and (or (null hypb:include-major-modes)
+		    (apply #'derived-mode-p hypb:include-major-modes))
                 (not (string-match "-Elements\\'" (buffer-name)))
                 ;; Don't want this to trigger within an OOBR-FTR buffer.
                 (not (string-match "\\`\\(OOBR.*-FTR\\|oobr.*-ftr\\)"
@@ -355,7 +396,7 @@ display options."
           ;; Match PATH-related Environment and Lisp variable names and
 	  ;; Emacs Lisp and Info files without any directory component.
           (when (setq path orig-path)
-            (cond ((string-match "\\`#[^#]+" path)
+            (cond ((string-match "\\`#[^\]\[#+^{}<>\"`'\\\n\t\f\r]+" path)
                    (apply #'ibut:label-set path (hpath:start-end path))
 		   (hact 'link-to-file path))
                   ((and (string-match hpath:path-variable-regexp path)
@@ -854,7 +895,7 @@ other buffers."
           start
           end
           topic)
-      (when (looking-at (concat "\\(" nm "\\)[ \t]*\\(([-0-9a-zA-z]+)\\)"))
+      (when (looking-at (concat "\\(" nm "\\)[ \t]*\\(([1-9][-0-9a-zA-z]*)\\)"))
         (setq start (match-beginning 0)
               end   (match-end 0))
         (require 'man)
@@ -865,108 +906,6 @@ other buffers."
 	  ;; can follow cross-references within the same window when
 	  ;; Hyperbole is set to display other referents in another window.
           (hact 'man topic))))))
-
-;;; ========================================================================
-;;; Follows links to Hyperbole Koutliner cells.
-;;; ========================================================================
-
-(load "klink" nil t)
-
-;;; ========================================================================
-;;; Links to Hyperbole button types
-;;; ========================================================================
-
-(defun hlink (link-actype label-prefix start-delim end-delim)
-  "Call LINK-ACTYPE and use LABEL-PREFIX if point is within an implicit button.
-LINK-ACTYPE is the action type and button is prefixed with
-LABEL-PREFIX.  The button must be delimited by START-DELIM and
-END-DELIM."
-  ;; Used by e/g/ilink implicit buttons."
-  (let* ((label-start-end (hbut:label-p t start-delim end-delim t t))
-         (label-and-file (nth 0 label-start-end))
-         (start-pos (nth 1 label-start-end))
-         (end-pos (nth 2 label-start-end))
-         but-key lbl-key key-file partial-lbl)
-    (when label-and-file
-      (setq label-and-file (hlink:parse-label-and-file label-and-file)
-            partial-lbl (nth 0 label-and-file)
-            but-key (hbut:label-to-key partial-lbl)
-            key-file (nth 1 label-and-file)
-            lbl-key (when but-key (concat label-prefix but-key)))
-      (ibut:label-set (hbut:key-to-label lbl-key) start-pos end-pos)
-      (hact link-actype but-key key-file))))
-
-(defun hlink:parse-label-and-file (label-and-file)
-  "Parse colon-separated string LABEL-AND-FILE into a list of label and file path."
-  ;; Can't use split-string here because file path may contain colons;
-  ;; we want to split only on the first colon.
-  (let ((i 0)
-        (len (length label-and-file))
-        label
-        file)
-    (while (< i len)
-      (when (= ?: (aref label-and-file i))
-        (when (zerop i)
-          (error "(hlink:parse-label-and-file): Missing label: '%s'" label-and-file))
-        (setq label (hpath:trim (substring label-and-file 0 i))
-              file (hpath:trim (substring label-and-file (1+ i))))
-        (when (string-empty-p label) (setq label nil))
-        (when (string-empty-p file) (setq file nil))
-        (setq i len))
-      (setq i (1+ i)))
-    (unless (or label (string-empty-p label-and-file))
-      (setq label label-and-file))
-    (delq nil (list label file))))
-
-(defconst elink:start "<elink:"
-  "String matching the start of a link to a Hyperbole explicit button.")
-(defconst elink:end   ">"
-  "String matching the end of a link to a Hyperbole explicit button.")
-
-(defib elink ()
-  "At point, activate a link to an explicit button.
-This executes the linked to explicit button's action in the
-context of the current buffer.
-
-Recognizes the format '<elink:' button_label [':' button_file_path] '>',
-where : button_file_path is given only when the link is to another file,
-e.g. <elink: project-list: ~/projs>."
-  (progn
-    (ibut:label-set "temp") ;; Real value set in action call below
-    (hlink 'link-to-ebut "" elink:start elink:end)))
-
-(defconst glink:start "<glink:"
-  "String matching the start of a link to a Hyperbole global button.")
-(defconst glink:end   ">"
-  "String matching the end of a link to a Hyperbole global button.")
-
-(defib glink ()
-  "At point, activates a link to a global button.
-This executes the linked to global button's action in the context
-of the current buffer.
-
-Recognizes the format '<glink:' button_label '>',
-e.g. <glink: open todos>."
-  (progn
-    (ibut:label-set "temp") ;; Real value set in action call below
-    (hlink 'link-to-gbut "" glink:start glink:end)))
-
-(defconst ilink:start "<ilink:"
-  "String matching the start of a link to a Hyperbole implicit button.")
-(defconst ilink:end   ">"
-  "String matching the end of a link to a Hyperbole implicit button.")
-
-(defib ilink ()
-  "At point, activate a link to a labeled implicit button.
-This executes the linked to implicit button's action in the context of the
-current buffer.
-
-Recognizes the format '<ilink:' button_label [':' button_file_path] '>',
-where button_file_path is given only when the link is to another file,
-e.g. <ilink: my series of keys: ${hyperb:dir}/HYPB>."
-  (progn
-    (ibut:label-set "temp") ;; Real value set in action call below
-    (hlink 'link-to-ibut "" ilink:start ilink:end)))
 
 ;;; ========================================================================
 ;;; Displays files at specific lines and optional column number
@@ -1207,7 +1146,7 @@ in grep and shell buffers."
 (defun hib-python-traceback ()
 "Test for and jump to line referenced in Python pdb, traceback, or pytype error."
   (when (or (looking-at "\\(^\\|.+ \\)File \"\\([^\"\t\f\n\r]+\\S-\\)\", line \\([0-9]+\\)")
-            (looking-at ">?\\(\\s-+\\)\\([^\"()\t\f\n\r]+\\S-\\)(\\([0-9]+\\))\\S-"))
+            (looking-at ">?\\(\\s-+\\)\\([^][\"<>{}()\t\f\n\r]+\\S-\\)(\\([0-9]+\\))\\S-"))
     (let* ((file (match-string-no-properties 2))
            (line-num (match-string-no-properties 3))
            (but-label (concat file ":" line-num)))
@@ -1224,8 +1163,9 @@ xdb.  Such lines are recognized in any buffer."
     (beginning-of-line)
     (cond
      ;; Python pdb or traceback, pytype error
-     ((progn (ibut:label-set "temp") ;; Real value set in action call below
-	     (hib-python-traceback)))
+     ((progn ;; Set temp label value here; real label value is set in action call below
+        (ibut:label-set)
+	(hib-python-traceback)))
 
      ;; JavaScript traceback
      ((or (looking-at "[a-zA-Z0-9-:.()? ]+? +at \\([^() \t]+\\) (\\([^:, \t()]+\\):\\([0-9]+\\):\\([0-9]+\\))$")
@@ -1440,10 +1380,12 @@ Patch applies diffs to source code."
 Supported Texinfo constructs are node, menu item, @xref, @pxref,
 @ref, @code, @findex, @var or @vindex.
 
-If point is within the braces of a cross-reference, the associated
-Info node is shown.  If point is to the left of the braces but after
-the @ symbol and the reference is to a node within the current
-Texinfo file, then the Texinfo node is shown.
+If poin is on a reference to a node or anchor outside of the current Texinfo
+manual, then the associated Info node is shown.  Otherwise, if point is
+within the braces of a cross-reference, the associated Info node is shown.
+If point is to the left of the braces but after the @ symbol and the
+reference is to a node or anchor within the current Texinfo file, then the
+Texinfo node or anchor is shown.
 
 For @code, @findex, @var and @vindex references, the associated
 documentation string is displayed."
@@ -1563,7 +1505,11 @@ if point is within the first line of the Info reference."
          (node-ref (and (stringp ref)
 			(setq ref (hpath:to-Info-ref ref))
                         (or (string-match-p "\\`([^\): \t\n\r\f]+)\\'" ref)
-                            (string-match-p "\\`([^\): \t\n\r\f]+)[^ :;\"'`]" ref))
+                            ;; Allow for whitespace between the closing
+                            ;; paren of an Info file name and the node,
+                            ;; index or anchor name, as the GNU project
+                            ;; writes Info refs this way.
+                            (string-match-p "\\`([^\): \t\n\r\f]+)[ \t\n\r]*[^ :;\"'`]" ref))
 			;; Below handle decoding of Info node names in
 			;; Hyperbole Help buffer lbl-key: lines,
 			;; eliminating excess underscores.
@@ -1788,6 +1734,105 @@ If a boolean function or variable, display its value."
 	(error "(action:help): No action button labeled: %s" label)))))
 
 ;;; ========================================================================
+;;; Follows links to Hyperbole Koutliner cells.
+;;; ========================================================================
+
+(load "klink" nil t)
+
+;;; ========================================================================
+;;; Links to Hyperbole button types
+;;; ========================================================================
+
+(defun hlink (link-actype label-prefix start-delim end-delim)
+  "Call LINK-ACTYPE and use LABEL-PREFIX if point is within an implicit button.
+LINK-ACTYPE is the action type and button is prefixed with
+LABEL-PREFIX.  The button must be delimited by START-DELIM and
+END-DELIM."
+  ;; Used by e/g/ilink implicit buttons."
+  (let* ((label-start-end (hbut:label-p t start-delim end-delim t t))
+         (label-and-loc (nth 0 label-start-end))
+         (start-pos (nth 1 label-start-end))
+         (end-pos (nth 2 label-start-end))
+         but-key lbl-key key-src partial-lbl)
+    (when label-and-loc
+      (setq label-and-loc (hlink:parse-label-and-loc label-and-loc)
+            partial-lbl (nth 0 label-and-loc)
+            but-key (hbut:label-to-key partial-lbl)
+            key-src (nth 1 label-and-loc)
+            lbl-key (when but-key (concat label-prefix but-key)))
+      (ibut:label-set (hbut:key-to-label lbl-key) start-pos end-pos)
+      (hact link-actype but-key key-src))))
+
+(defun hlink:parse-label-and-loc (label-and-loc)
+  "Parse colon-separated string LABEL-AND-LOC into a list of label and src loc."
+  (let (i
+        label
+        file)
+    (when (and (stringp label-and-loc) (setq i (seq-position label-and-loc ?: '=)))
+      (when (zerop i)
+        (error "(hlink:parse-label-and-loc): Missing label: '%s'" label-and-loc))
+      (setq label (hpath:trim (substring label-and-loc 0 i))
+            file (hpath:trim (substring label-and-loc (1+ i))))
+      (when (string-empty-p label) (setq label nil))
+      (when (string-empty-p file) (setq file nil)))
+    (unless (or label (string-empty-p label-and-loc))
+      (setq label label-and-loc))
+    (delq nil (list label file))))
+
+(defconst elink:start "<elink:"
+  "String matching the start of a link to a Hyperbole explicit button.")
+(defconst elink:end   ">"
+  "String matching the end of a link to a Hyperbole explicit button.")
+
+(defib elink ()
+  "At point, activate a link to an explicit button.
+This executes the linked to explicit button's action in the
+context of the current buffer.
+
+Recognizes the format '<elink:' button-label [':' button-location] '>',
+where : button-location is given only when the link is to another file,
+e.g. <elink: project-list: ~/projs>."
+  (progn
+    ;; Set temp label value here; real label value is set in action call below
+    (ibut:label-set)
+    (hlink 'link-to-ebut "" elink:start elink:end)))
+
+(defconst glink:start "<glink:"
+  "String matching the start of a link to a Hyperbole global button.")
+(defconst glink:end   ">"
+  "String matching the end of a link to a Hyperbole global button.")
+
+(defib glink ()
+  "At point, activates a link to a global button.
+This executes the linked to global button's action in the context
+of the current buffer.
+
+Recognizes the format '<glink:' button-label '>',
+e.g. <glink: open todos>."
+  (progn
+    ;; Set temp label value here; real label value is set in action call below
+    (ibut:label-set)
+    (hlink 'link-to-gbut "" glink:start glink:end)))
+
+(defconst ilink:start "<ilink:"
+  "String matching the start of a link to a Hyperbole implicit button.")
+(defconst ilink:end   ">"
+  "String matching the end of a link to a Hyperbole implicit button.")
+
+(defib ilink ()
+  "At point, activate a link to a labeled implicit button.
+This executes the linked to implicit button's action in the context of the
+current buffer.
+
+Recognizes the format '<ilink:' button-label [':' button-location] '>',
+where button-location is given only when the link is to another file,
+e.g. <ilink: my series of keys: ${hyperb:dir}/HYPB>."
+  (progn
+    ;; Set temp label value here; real label value is set in action call below
+    (ibut:label-set)
+    (hlink 'link-to-ibut "" ilink:start ilink:end)))
+
+;;; ========================================================================
 ;;; Activates HyWikiWords with existing referents.
 ;;; Non-existing HyWikiWords are handled by the (load "hywiki") at a low
 ;;; priority earlier in this file which defines the `hywiki-word' ibtype.
@@ -1800,7 +1845,8 @@ for this to activate.
 
 See the implicit button type `hywiki-word' for creation of referents to
 not yet existing HyWikiWords."
-  (when (hywiki-active-in-current-buffer-p)
+  (when (and (hywiki-active-in-current-buffer-p)
+             (not (hywiki-non-hook-context-p)))
     (cl-destructuring-bind (wikiword start end)
 	(hywiki-referent-exists-p :range)
       (when wikiword
@@ -1809,6 +1855,8 @@ not yet existing HyWikiWords."
 	      (ibut:label-set wikiword start end)
 	    (ibut:label-set wikiword))
 	  (hact 'link-to-wikiword wikiword))))))
+
+(defalias 'hywiki-existing-word:help 'hywiki-word:help)
 
 ;;; ========================================================================
 ;;; Inserts completion into minibuffer or other window.

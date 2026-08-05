@@ -1,4 +1,8 @@
 
+
+
+
+
 * GNU Hyperbole Fast Demo by Bob Weiner
 
   Send an email or a testimonial if you like Hyperbole to <rsw@gnu.org>.
@@ -12,16 +16,19 @@
 * Introductory Videos
 
   If you prefer video introductions, visit the videos linked to in the tables below;
-  otherwise, skip to the next section.  The first table is an overview talk of
-  Hyperbole broken into few minute sections that you can watch individually.  The
-  second table has links to separate videos covering aspects of Hyperbole.
+  otherwise, skip to the next section.  The first table, "#Hyperbole Overview Video",
+  is an overview talk of Hyperbole broken into few minute sections that you can watch
+  individually.  The second table has links to separate videos covering aspects of
+  Hyperbole, including the full <ilink:Overview and Demo>.
 
-  Hyperbole video demos start with 'section 06 - Hyperbole Buttons' in this first
+** Hyperbole Overview Video
+
+  Demos of Hyperbole features start in 'section 06 - Hyperbole Buttons' in this first
   table.  Press {M-RET} either in the first column <[button name]> or in the second
   column video link to watch each section.
-  
+
   |--------------------------------------+-----------------------------------------|
-  | Hyperbole Video Overview Sections    | Video Snippets                          |
+  | Hyperbole Overview Video Sections    | Video Snippets                          |
   |--------------------------------------+-----------------------------------------|
   |--------------------------------------+-----------------------------------------|
   | 01. <[Introduction]>                 | <yt-play "WKwZHSbHmPg" "0:01" "1:38">   |
@@ -48,35 +55,41 @@
   | 22. <[The Big Picture]>              | <yt-play "WKwZHSbHmPg" "54:25" "56:44"> |
   |--------------------------------------+-----------------------------------------|
 
-  |-----------------------------------------------------+------------------------------|
-  | GNU Hyperbole Videos                                | Web Link                     |
-  |-----------------------------------------------------+------------------------------|
-  |-----------------------------------------------------+------------------------------|
-  | <[Overview and Demo]>                               | https://youtu.be/WKwZHSbHmPg |
-  | Sections broken out in the prior table              |                              |
-  |-----------------------------------------------------+------------------------------|
-  | <[Quick Introduction]>                              | https://youtu.be/K1MNUctggwI |
-  |-----------------------------------------------------+------------------------------|
-  | <[Top 10 ways Hyperbole amps up Emacs]>             | https://youtu.be/BysjfL25Nlc |
-  |-----------------------------------------------------+------------------------------|
-  | <[Introduction to Buttons]>                         | https://youtu.be/zoEht66N2PI |
-  |-----------------------------------------------------+------------------------------|
-  | <[Linking Personal Info with Implicit Buttons]>     | https://youtu.be/TQ_fG7b1iHI |
-  |-----------------------------------------------------+------------------------------|
-  | <[Powerful Productivity with Hyperbole and Org]>    | https://youtu.be/BrTpTNEXMyY |
-  |-----------------------------------------------------+------------------------------|
-  | <[HyRolo, fast contact/hierarchical record viewer]> | https://youtu.be/xdJGFdgKPFY |
-  |-----------------------------------------------------+------------------------------|
-  | <[Using Koutline for stream of thought journaling]> | https://youtu.be/dO-gv898Vmg |
-  |-----------------------------------------------------+------------------------------|
-  | <[Build a Zettelkasten with HyRolo]>                | https://youtu.be/HdlCK9w-LyQ |
-  |-----------------------------------------------------+------------------------------|
-  | <[HyControl, fast Emacs frame and window manager]>  | https://youtu.be/M3-aMh1ccJk |
-  |-----------------------------------------------------+------------------------------|
-  | <[Writing test cases for GNU Hyperbole]>            | https://youtu.be/maNQSKxXIzI |
-  |-----------------------------------------------------+------------------------------|
-  | <[Find/Web Search]>                                 | https://youtu.be/8lMlJed0-OM |
-  |-----------------------------------------------------+------------------------------|
+** Hyperbole Videos
+
+  |-----------------------------------------------------+----------------------------------------|
+  | GNU Hyperbole Videos                                | Web Links                              |
+  |-----------------------------------------------------+----------------------------------------|
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Overview and Demo]>                               | https://youtu.be/WKwZHSbHmPg           |
+  | Sections broken out in the prior table              |                                        |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Unscripted Hyperbole Demo at EmacsATX]>           | <yt-play "iuwn8GpRj7w" "0:48" "32:42"> |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Quick Introduction]>                              | https://youtu.be/K1MNUctggwI           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Top 10 ways Hyperbole amps up Emacs]>             | https://youtu.be/BysjfL25Nlc           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[HyWiki: Zero Markup Hypertext]>                   | https://youtu.be/3zG3lRmi3Zg           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Introduction to Buttons]>                         | https://youtu.be/zoEht66N2PI           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Linking Personal Info with Implicit Buttons]>     | https://youtu.be/TQ_fG7b1iHI           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Powerful Productivity with Hyperbole and Org]>    | https://youtu.be/BrTpTNEXMyY           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[HyRolo, fast contact/hierarchical record viewer]> | https://youtu.be/xdJGFdgKPFY           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Using Koutline for stream of thought journaling]> | https://youtu.be/dO-gv898Vmg           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Build a Zettelkasten with HyRolo]>                | https://youtu.be/HdlCK9w-LyQ           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[HyControl, fast Emacs frame and window manager]>  | https://youtu.be/M3-aMh1ccJk           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Writing test cases for GNU Hyperbole]>            | https://youtu.be/maNQSKxXIzI           |
+  |-----------------------------------------------------+----------------------------------------|
+  | <[Find/Web Search]>                                 | https://youtu.be/8lMlJed0-OM           |
+  |-----------------------------------------------------+----------------------------------------|
 
 
 * Introduction
@@ -186,7 +199,7 @@
        directories. By default, Org files, Python files and Elisp files are
        handled.
 
-    "(hyperbole)action-key-modeline-function" 
+    "(hyperbole)action-key-modeline-function"
 
        Double quoted Info manual references are also implicit buttons.  You
        can link to both nodes/sections in GNU Info manuals as well as to
@@ -271,7 +284,7 @@
        within key series surrounded by parentheses maintain spaces between
        words without the need to use 'SPC'.
 
-    {M-x shell RET M-> (export HYPERBOLE_DIR=${hyperb:dir} && 
+    {M-x shell RET M-> (export HYPERBOLE_DIR=${hyperb:dir} &&
      cd $HYPERBOLE_DIR && grep -n gbut:label-list *.el) RET}
 
        Use both a Hyperbole resolved variable, ${hyperb:dir}, and a
@@ -442,29 +455,35 @@ To learn how to create new kinds of implicit button and action types, see
 
 ** HyWiki
 
-  HyWiki is Hyperbole's markup-free personal wiki system for note-taking
-  and automatic wiki-word highlighting and hyperlinking.  It uses Org
-  mode for note taking and adds automatic hyperlinking of HyWikiWords
-  within Org files in `hywiki-directory' (default = "~/hywiki"), where
-  a HyWikiWord is a capitalized word that contains upper and lowercase
-  letters only and has a corresponding HyWikiWord.org wiki page file
-  below `hywiki-directory'.  HyWikiWords require no delimiters.
-  
+  HyWiki is Hyperbole's markup-free personal wiki system for note-taking and
+  automatic wiki-word highlighting and hyperlinking.  It uses Org mode for
+  note taking and adds automatic hyperlinking of HyWikiWords within Org files
+  directly below the directory given by the variable, `hywiki-directory'
+  (default = "~/hywiki").  A HyWikiWord is a capitalized word that contains
+  upper and lowercase letters only and has a corresponding HyWikiWord.org
+  wiki page file below `hywiki-directory'.  HyWikiWords require no
+  delimiters.
+
+  To create a new HyWikiWord simply type it in an Org file in
+  `hywiki-directory' and then press {M-RET} with point on the word.  This
+  will create an empty wiki page for that word.  Add any text to this file
+  and save it to create the new HyWikiWord.
+
   Use {M-RET} on the first line of the expression below to set a demo
   HyWiki directory and turn on hywiki-mode so HyWikiWords are
   highlighted outside of the HyWiki directory.
-  
+
     <progn (setq hywiki-directory (hpath:expand "${hyperb:dir}/hywiki/"))
-           (hywiki-mode 1)>
-  
+           (hywiki-mode :all)>
+
   Now all these wiki-words should be highlighted and can appear in any
   text buffer and will be treated as hyperlinks.  Simply press {M-RET}
   on each to display the associated wiki page:
-  
+
     HyWiki
     HyWikiMenus
     Publishing
-  
+
   Let's create a new page.  Press {M-RET} on the HyWikiWord below:
 
   TestWord

@@ -44,8 +44,5 @@ jobs:
             path: ~/.emacs.d/elpa
             key: elpa-${{ matrix.version }}-${{ hashFiles('Makefile') }}
 
-      - name: Run tests
-        run: make test
-
       - name: Test
         run: make test

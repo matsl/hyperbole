@@ -26,6 +26,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Show Emacs paths
+        run: |
+          echo "HOME=$HOME"
+          emacs --batch --eval \
+            '(progn
+               (require (quote package))
+               (princ (format "user-emacs-directory=%s\n" user-emacs-directory))
+               (princ (format "package-user-dir=%s\n" package-user-dir)))'
+
       - name: Clean
         run: make clean
 

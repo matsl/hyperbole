@@ -26,15 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Show Emacs paths
-        run: |
-          echo "HOME=$HOME"
-          emacs --batch --eval \
-            '(progn
-               (require (quote package))
-               (princ (format "user-emacs-directory=%s\n" user-emacs-directory))
-               (princ (format "package-user-dir=%s\n" package-user-dir)))'
-
       - name: Clean
         run: make clean
 
@@ -46,6 +37,15 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           grep "Warning:" MAKE_BIN_OUTPUT >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Cache Emacs test packages
+        uses: actions/cache@v4
+        with:
+            path: ~/.emacs.d/elpa
+            key: elpa-${{ matrix.version }}-${{ hashFiles('Makefile') }}
+
+      - name: Run tests
+        run: make test
 
       - name: Test
         run: make test

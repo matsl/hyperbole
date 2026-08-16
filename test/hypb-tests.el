@@ -66,7 +66,6 @@
       (mock (file-exists-p (expand-file-name ".git" hyperb:dir)) => nil)
       (should (equal (car (hypb:installation-type)) "unknown")))))
 
-(unless t
 (ert-deftest hypb--oct-to-int ()
   "Verify oct to int conversion."
   (should (= (hypb:oct-to-int 0) 0))
@@ -148,7 +147,6 @@ Verifies it raises a 'need to install' package manager error."
     (mock (hypb:ensure-dependency 'package) => nil)
     (let ((err (should-error (hypb:require-package 'package) :type 'error)))
       (should (string-search "could not be found" (cadr err))))))
-)
 
 ;; This file can't be byte-compiled without the `el-mock' package (because of
 ;; the use of the `with-mock' macro), which is not a dependency of Hyperbole.

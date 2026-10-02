@@ -10,7 +10,7 @@
 ;; Created:      06-Oct-92 at 11:52:51
 ;; Last-Mod:     27-Sep-26 at 02:24:35 by Bob Weiner
 ;; Released:     27-Jul-26
-;; Version:      9.2.0
+;; Version:      9.2.1
 ;; Keywords:     comm, convenience, files, frames, hypermedia, languages, mail, matching, mouse, multimedia, outlines, tools, wp
 ;; Package:      hyperbole
 ;; Package-Requires: ((emacs "28"))

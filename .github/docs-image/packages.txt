@@ -1,0 +1,5 @@
+make
+pandoc
+python3-pip
+texinfo
+texlive-plain-generic

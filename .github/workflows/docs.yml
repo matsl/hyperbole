@@ -8,27 +8,28 @@ on:
     paths:
       - 'man/**'
       - '**.md'
+      - '.github/docs-image/**'
 
 jobs:
+  compute-image-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set-tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v5
+      - id: set-tag
+        run: |
+          echo "tag=${{ hashFiles('.github/docs-image/**') }}" >> $GITHUB_OUTPUT
+
   build-docs:
     runs-on: ubuntu-latest
+    needs: compute-image-tag
     container:
-      image: ubuntu:24.04
+      image: ghcr.io/${{ github.repository }}/docs-builder:${{ needs.compute-image-tag.outputs.tag }}
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y \
-            make \
-            pandoc \
-            python3-pip \
-            texinfo \
-            texlive-plain-generic
-          pip3 install md-toc --break-system-packages
-
       - name: Build docs
-        run: |
-          make doc-regenerate
+        run: make doc-regenerate

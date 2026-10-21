@@ -10,6 +10,8 @@
 @c Last-Mod:     29-Sep-26 at 19:05:46 by Bob Weiner
 
 @c %**start of header (This is for running Texinfo on a region.)
+
+
 @setfilename hyperbole.info
 @ifnothtml
 @settitle GNU Hyperbole Manual
